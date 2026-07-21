@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frieren · 碎碎念</title>
+<link rel="stylesheet" href="static/css/style.css">
+<link rel="stylesheet" href="static/css/index.css">
+</head>
+<body>
+
+<div class="page-wrap">
+
+  <!-- ── Header ── -->
+  <header class="site-header anim anim-1">
+    <div>
+      <div class="site-name">Frieren</div>
+      <div class="site-desc">感悟 · 随想 · 生活</div>
+    </div>
+    <div class="post-count" id="post-count"></div>
+  </header>
+
+  <!-- ── Filter bar ── -->
+  <div class="filter-bar anim anim-2" id="filter-bar">
+    <button class="filter-btn active" data-tag="all">全部</button>
+  </div>
+
+  <!-- ── Post list ── -->
+  <div class="post-list anim anim-3" id="post-list"></div>
+
+</div>
+
+<script src="static/js/posts-data.js"></script>
+<script>
+let currentTag = 'all';
+
+/* 收集所有标签 */
+function buildFilters() {
+  const tags = [...new Set(posts.map(p => p.tag))];
+  const bar = document.getElementById('filter-bar');
+  tags.forEach(tag => {
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn';
+    btn.dataset.tag = tag;
+    btn.textContent = tag;
+    btn.addEventListener('click', () => setFilter(tag));
+    bar.appendChild(btn);
+  });
+}
+
+function setFilter(tag) {
+  currentTag = tag;
+  document.querySelectorAll('.filter-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.tag === tag)
+  );
+  renderList();
+}
+
+function renderList() {
+  const filtered = currentTag === 'all'
+    ? posts
+    : posts.filter(p => p.tag === currentTag);
+
+  document.getElementById('post-count').textContent = `${filtered.length} 篇记录`;
+
+  document.getElementById('post-list').innerHTML = filtered.map(p => `
+    <a class="post-item" href="${p.file}">
+      <div class="post-info">
+        <div class="post-meta-row">
+          <span class="post-tag-label">${p.tag}</span>
+          <span class="post-date-label">${p.date}</span>
+        </div>
+        <div class="post-title">${p.title}</div>
+        <div class="post-excerpt">${p.excerpt}</div>
+        <div class="read-arrow">
+          阅读全文
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </div>
+      </div>
+      <div class="post-thumb-wrap">
+        ${p.cover
+          ? `<img class="post-thumb" src="${p.cover}" alt="${p.title}">`
+          : `<div class="thumb-placeholder">${p.emoji}</div>`
+        }
+      </div>
+    </a>
+  `).join('');
+}
+
+buildFilters();
+renderList();
+</script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文章标题 · Pan Feng</title>
+<link rel="stylesheet" href="../static/css/style.css">
+<link rel="stylesheet" href="../static/css/post.css">
+</head>
+<body>
+
+<!-- ── 返回按钮（固定在左上角） ── -->
+<div class="back-fixed">
+  <a class="back-btn" href="../index.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M19 12H5M12 5l-7 7 7 7"/>
+    </svg>
+    返回
+  </a>
+</div>
+
+<!-- ══════════════════════════════════════
+     封面图区域
+     - 有图：把 hero-placeholder 换成 <img src="..." alt="...">
+     - 无图：修改 emoji 字符即可
+     ══════════════════════════════════════ -->
+<div class="post-hero">
+  <!-- 有封面图时替换为：<img src="../static/img/your-image.jpg" alt="封面描述"> -->
+  <div class="hero-placeholder">◈</div>
+  <div class="hero-overlay"></div>
+</div>
+
+<!-- ══════════════════════════════════════
+     文章主体
+     ══════════════════════════════════════ -->
+<div class="article-wrap">
+
+  <!-- 元信息 -->
+  <div class="article-meta anim anim-1">
+    <span class="meta-tag">分类标签</span>          <!-- 改为你的分类 -->
+    <span class="meta-date">YYYY-MM-DD</span>        <!-- 改为发布日期 -->
+    <span class="meta-readtime">约 N 分钟</span>     <!-- 改为阅读时长 -->
+  </div>
+
+  <!-- 标题 -->
+  <h1 class="article-title anim anim-2">
+    在这里写你的文章标题
+  </h1>
+
+  <hr class="article-divider anim anim-3">
+
+  <!-- ══════════════════════════════════════
+       正文内容 — 在 .article-content 里编辑
+       支持的格式：
+         <p>          普通段落
+         <h2>         一级小标题
+         <h3>         二级小标题
+         <blockquote> 引用块（带橙色左边线）
+         <img>        文章内嵌图片
+         .photo-grid  两栏图片网格
+         .photo-caption 图片说明文字
+       ══════════════════════════════════════ -->
+  <div class="article-content anim anim-4">
+
+    <p>在这里开始写你的文章内容。每个段落用 &lt;p&gt; 标签包裹。</p>
+
+    <p>第二段。可以继续写你的想法和感受。</p>
+
+    <blockquote>
+      这里是引用块，适合放金句、摘录或者你想特别强调的话。
+    </blockquote>
+
+    <h2>一个小标题</h2>
+
+    <p>小标题下面的正文内容。</p>
+
+    <!-- 单张图片示例 -->
+    <!-- <img src="../static/img/photo.jpg" alt="图片描述"> -->
+    <!-- <p class="photo-caption">图片说明文字</p> -->
+
+    <!-- 两栏图片网格示例 -->
+    <!--
+    <div class="photo-grid">
+      <img src="../static/img/photo1.jpg" alt="照片1">
+      <img src="../static/img/photo2.jpg" alt="照片2">
+    </div>
+    -->
+
+    <p>文章结尾段落。</p>
+
+  </div>
+
+  <!-- 底部导航 -->
+  <footer class="article-footer">
+    <a class="footer-back" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M19 12H5M12 5l-7 7 7 7"/>
+      </svg>
+      返回所有文章
+    </a>
+    <span class="footer-brand">Pan Feng</span>
+  </footer>
+
+</div>
+</body>
+</html>
