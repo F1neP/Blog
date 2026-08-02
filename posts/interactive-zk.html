@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Interactive Zero-Knowledge Proof 学习笔记：通过 Simulator、Rewinding、二次剩余 Sigma Protocol 和三染色协议解释如何证明命题而不泄露 witness。">
+<title>Interactive Zero-Knowledge Proofs · Frieren</title>
+<link rel="icon" href="../HK.ico" type="image/x-icon">
+<link rel="canonical" href="https://blog.fp1022.dpdns.org/posts/interactive-zk.html">
+<link rel="stylesheet" href="../static/css/style.css">
+<link rel="stylesheet" href="../static/css/post.css">
+<link rel="stylesheet" href="../static/vendor/katex/katex.min.css">
+<script>
+  (function () {
+    let theme;
+    try { theme = localStorage.getItem('frieren-theme'); } catch (_) {}
+    if (theme !== 'light' && theme !== 'dark') {
+      theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.dataset.theme = theme;
+  })();
+</script>
+<style>
+  :root {
+    --sc-blue: #315b70;
+    --sc-blue-soft: #dce8eb;
+    --sc-green: #557568;
+    --sc-green-soft: #e2ebe5;
+    --sc-gold: #a7782f;
+    --sc-gold-soft: #f2e9d8;
+    --sc-red: #9e4d3f;
+    --sc-red-soft: #f1dfda;
+    --sc-math: "KaTeX_Main", "Latin Modern Math", "STIX Two Math", "Cambria Math", serif;
+  }
+
+  html[data-theme="dark"] {
+    --sc-blue: #84b9cf;
+    --sc-blue-soft: #1b3039;
+    --sc-green: #8ebaa7;
+    --sc-green-soft: #20352c;
+    --sc-gold: #d5ab64;
+    --sc-gold-soft: #392f20;
+    --sc-red: #d88c7e;
+    --sc-red-soft: #3a2724;
+  }
+
+  .post-hero {
+    height: 48vh;
+    min-height: 390px;
+    background:
+      radial-gradient(circle at 18% 22%, rgba(196,98,45,.18), transparent 24%),
+      radial-gradient(circle at 82% 70%, rgba(49,91,112,.17), transparent 28%),
+      linear-gradient(145deg, #eee8de, #f7f4ef 55%, #e8e2d8);
+  }
+
+  .zk-hero {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 4rem 1.5rem 6rem;
+  }
+
+  .hero-proof {
+    width: min(940px, 92vw);
+    display: grid;
+    grid-template-columns: repeat(7, auto);
+    align-items: center;
+    justify-content: center;
+    gap: clamp(.45rem, 1.7vw, 1.3rem);
+    color: var(--ink);
+  }
+
+  .hero-node {
+    min-width: 112px;
+    padding: .82rem 1rem;
+    border: 1px solid rgba(26,24,20,.13);
+    border-radius: 7px;
+    background: rgba(250,248,244,.78);
+    box-shadow: 0 12px 30px rgba(26,24,20,.06);
+    backdrop-filter: blur(7px);
+    text-align: center;
+  }
+
+  .hero-node strong {
+    display: block;
+    font-family: var(--sc-math);
+    font-size: 1.18rem;
+    font-weight: 400;
+  }
+
+  .hero-node span {
+    display: block;
+    margin-top: .3rem;
+    color: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: .61rem;
+  }
+
+  .hero-node:last-child {
+    border-color: rgba(196,98,45,.25);
+    background: rgba(232,213,200,.64);
+  }
+
+  .hero-arrow {
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 1rem;
+  }
+
+  .article-wrap { max-width: 760px; margin-top: -1px; }
+  .article-content { color: var(--ink-soft); }
+
+  .sc-kicker {
+    display: inline-block;
+    margin-bottom: 1rem;
+    padding: .28rem .65rem;
+    border-radius: 100px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: .62rem;
+    letter-spacing: .09em;
+  }
+
+  .sc-lead {
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 1.08rem;
+    line-height: 1.9;
+  }
+
+  .sc-toc {
+    margin: 2.2rem 0 3rem;
+    padding: 1.25rem 1.4rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(250,248,244,.58);
+  }
+
+  .sc-toc-title {
+    margin-bottom: .65rem;
+    color: var(--sc-blue);
+    font-family: var(--mono);
+    font-size: .66rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+
+  .sc-toc ol {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: .2rem 2rem;
+    margin: 0;
+    padding-left: 1.25rem;
+  }
+
+  .sc-toc li { color: var(--ink-mute); font-size: .84rem; }
+  .sc-toc a { color: var(--ink-soft); text-decoration: none; }
+  .sc-toc a:hover { color: var(--accent); }
+
+  .math-block {
+    margin: 1.35rem 0 1.7rem;
+    padding: 1.15rem 1.25rem;
+    overflow-x: auto;
+    border: 1px solid rgba(49,91,112,.18);
+    border-left: 4px solid var(--sc-blue);
+    border-radius: 5px;
+    background: var(--sc-blue-soft);
+    color: #213e4c;
+    box-shadow: 0 8px 22px rgba(49,91,112,.045);
+  }
+
+  .math-block.gold {
+    border-color: rgba(167,120,47,.19);
+    border-left-color: var(--sc-gold);
+    background: var(--sc-gold-soft);
+    color: #5b431d;
+  }
+
+  .math-block.green {
+    border-color: rgba(85,117,104,.2);
+    border-left-color: var(--sc-green);
+    background: var(--sc-green-soft);
+    color: #355246;
+  }
+
+  .math-block.red {
+    border-color: rgba(158,77,63,.2);
+    border-left-color: var(--sc-red);
+    background: var(--sc-red-soft);
+    color: #66352d;
+  }
+
+  .math-line {
+    min-width: max-content;
+    text-align: center;
+    font-family: var(--sc-math);
+    font-size: 1.02rem;
+  }
+
+  .math-note {
+    display: block;
+    margin-top: .8rem;
+    padding-top: .7rem;
+    border-top: 1px solid rgba(26,24,20,.08);
+    color: var(--ink-soft);
+    font-size: .78rem;
+    line-height: 1.75;
+    text-align: center;
+  }
+
+  .sc-callout {
+    margin: 1.6rem 0 2rem;
+    padding: 1rem 1.15rem;
+    border: 1px solid rgba(167,120,47,.22);
+    border-radius: 7px;
+    background: var(--sc-gold-soft);
+  }
+
+  .sc-callout strong {
+    display: block;
+    margin-bottom: .28rem;
+    color: var(--sc-gold);
+    font-family: var(--mono);
+    font-size: .7rem;
+    letter-spacing: .08em;
+  }
+
+  .sc-callout p { margin: 0; font-size: .88rem; line-height: 1.8; }
+  .sc-callout a { color: var(--accent); text-decoration: none; border-bottom: 1px solid rgba(196,98,45,.28); }
+
+  .symbol-table {
+    width: 100%;
+    margin: 1.5rem 0 2rem;
+    border-collapse: collapse;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: rgba(250,248,244,.48);
+    font-size: .86rem;
+  }
+
+  .symbol-table th,
+  .symbol-table td {
+    padding: .8rem .9rem;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .symbol-table th {
+    color: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: .64rem;
+    font-weight: 300;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  .symbol-table tr:last-child td { border-bottom: 0; }
+  .symbol-table td:first-child { width: 28%; color: var(--ink); font-family: var(--sc-math); }
+
+  .fact-grid {
+    display: grid;
+    grid-template-columns: repeat(3,1fr);
+    gap: .8rem;
+    margin: 1.5rem 0 2rem;
+  }
+
+  .fact-card {
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: rgba(250,248,244,.55);
+  }
+
+  .fact-card span {
+    display: block;
+    margin-bottom: .35rem;
+    color: var(--sc-blue);
+    font-family: var(--mono);
+    font-size: .61rem;
+    letter-spacing: .09em;
+  }
+
+  .fact-card strong {
+    display: block;
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 1.05rem;
+    font-weight: 400;
+  }
+
+  .fact-card p { margin: .4rem 0 0; font-size: .76rem; line-height: 1.65; }
+
+  .protocol-loop {
+    display: grid;
+    grid-template-columns: repeat(4,1fr);
+    gap: .72rem;
+    margin: 1.4rem 0 2rem;
+  }
+
+  .loop-step {
+    padding: .95rem;
+    border-top: 2px solid var(--sc-blue);
+    border-radius: 0 0 6px 6px;
+    background: var(--sc-blue-soft);
+  }
+
+  .loop-step:nth-child(2) { border-color: var(--sc-gold); background: var(--sc-gold-soft); }
+  .loop-step:nth-child(3) { border-color: var(--sc-green); background: var(--sc-green-soft); }
+  .loop-step:nth-child(4) { border-color: var(--sc-red); background: var(--sc-red-soft); }
+  .loop-no { color: var(--ink-mute); font-family: var(--mono); font-size: .58rem; }
+  .loop-step h3 { margin: .35rem 0 .25rem; font-size: .95rem; }
+  .loop-step p { margin: 0; font-size: .72rem; line-height: 1.65; }
+
+  .protocol-stages {
+    display: grid;
+    gap: 1rem;
+    margin: 1.6rem 0 2.2rem;
+  }
+
+  .protocol-stage {
+    position: relative;
+    padding: 1.2rem 1.25rem;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--sc-blue);
+    border-radius: 8px;
+    background: rgba(250,248,244,.67);
+    box-shadow: 0 10px 28px rgba(26,24,20,.035);
+  }
+
+  .protocol-stage:nth-child(2) { border-left-color: var(--sc-gold); }
+  .protocol-stage:nth-child(3) { border-left-color: var(--sc-green); }
+
+  .stage-heading {
+    display: flex;
+    align-items: center;
+    gap: .85rem;
+    margin-bottom: 1rem;
+    padding-bottom: .8rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .stage-index {
+    display: grid;
+    width: 36px;
+    height: 36px;
+    place-items: center;
+    flex: 0 0 auto;
+    border: 1px solid rgba(49,91,112,.22);
+    border-radius: 50%;
+    background: var(--sc-blue-soft);
+    color: var(--sc-blue);
+    font-family: var(--mono);
+    font-size: .62rem;
+  }
+
+  .protocol-stage:nth-child(2) .stage-index {
+    border-color: rgba(167,120,47,.25);
+    background: var(--sc-gold-soft);
+    color: var(--sc-gold);
+  }
+
+  .protocol-stage:nth-child(3) .stage-index {
+    border-color: rgba(85,117,104,.25);
+    background: var(--sc-green-soft);
+    color: var(--sc-green);
+  }
+
+  .stage-role {
+    display: block;
+    color: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: .56rem;
+    letter-spacing: .1em;
+  }
+
+  .stage-heading h3 { margin: .12rem 0 0; font-size: 1.08rem; }
+  .protocol-stage > p:last-child { margin-bottom: 0; }
+
+  .round-card {
+    margin: 1.45rem 0;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(250,248,244,.62);
+  }
+
+  .round-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .8rem 1rem;
+    border-bottom: 1px solid var(--line);
+    background: rgba(49,91,112,.055);
+  }
+
+  .round-head strong { color: var(--sc-blue); font-family: var(--mono); font-size: .72rem; }
+  .round-head span { color: var(--ink-mute); font-size: .72rem; }
+  .round-body { padding: 1rem; }
+
+  .message {
+    display: grid;
+    grid-template-columns: 92px 1fr;
+    gap: .8rem;
+    align-items: start;
+    margin: .55rem 0;
+    padding: .72rem .8rem;
+    border-radius: 5px;
+    background: var(--sc-blue-soft);
+    font-size: .79rem;
+  }
+
+  .message.verifier { background: var(--sc-gold-soft); }
+  .message.check { background: var(--sc-green-soft); }
+  .who { color: var(--sc-blue); font-family: var(--mono); font-size: .61rem; letter-spacing: .05em; }
+  .message.verifier .who { color: var(--sc-gold); }
+  .message.check .who { color: var(--sc-green); }
+  .payload { min-width: 0; overflow-wrap: anywhere; }
+
+  .transcript {
+    margin: 1.3rem 0 2rem;
+    padding: 1rem;
+    overflow-x: auto;
+    border: 1px solid rgba(85,117,104,.2);
+    border-radius: 6px;
+    background: var(--sc-green-soft);
+    color: #355246;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .timeline {
+    position: relative;
+    display: grid;
+    gap: .9rem;
+    margin: 1.5rem 0 2rem;
+    padding-left: 1.4rem;
+  }
+
+  .timeline::before {
+    content: "";
+    position: absolute;
+    top: .5rem;
+    bottom: .5rem;
+    left: .32rem;
+    width: 1px;
+    background: var(--line);
+  }
+
+  .timeline-item {
+    position: relative;
+    padding: .9rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: rgba(250,248,244,.5);
+  }
+
+  .timeline-item::before {
+    content: "";
+    position: absolute;
+    top: 1.22rem;
+    left: -1.38rem;
+    width: 8px;
+    height: 8px;
+    border: 2px solid var(--paper);
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .timeline-item time {
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: .64rem;
+  }
+
+  .timeline-item strong {
+    display: block;
+    margin: .12rem 0 .2rem;
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 1rem;
+    font-weight: 400;
+  }
+
+  .timeline-item p { margin: 0; font-size: .8rem; line-height: 1.7; }
+
+  .sc-checklist {
+    margin: 1.2rem 0 2rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  .sc-checklist li {
+    position: relative;
+    margin: .55rem 0;
+    padding: .72rem .85rem .72rem 2.15rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: rgba(250,248,244,.46);
+    font-size: .84rem;
+  }
+
+  .sc-checklist li::before {
+    content: "✓";
+    position: absolute;
+    top: .72rem;
+    left: .8rem;
+    color: var(--sc-green);
+    font-family: var(--mono);
+  }
+
+  details {
+    margin: 2rem 0;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: rgba(250,248,244,.48);
+  }
+
+  summary {
+    padding: .9rem 1rem;
+    color: var(--ink);
+    font-family: var(--serif);
+    cursor: pointer;
+  }
+
+  details > div { padding: 0 1.1rem 1rem; }
+  details ol { padding-left: 1.2rem; }
+  details li { margin: .45rem 0; font-size: .84rem; }
+
+  .references {
+    margin-top: 3.2rem;
+    padding-top: .25rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .reference-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: refs;
+  }
+
+  .reference-list li {
+    position: relative;
+    padding: .95rem 0 .95rem 2.6rem;
+    border-bottom: 1px solid var(--line);
+    counter-increment: refs;
+    font-size: .78rem;
+    line-height: 1.75;
+  }
+
+  .reference-list li::before {
+    content: "[" counter(refs) "]";
+    position: absolute;
+    left: 0;
+    color: var(--sc-blue);
+    font-family: var(--mono);
+    font-size: .66rem;
+  }
+
+  .reference-list a { color: var(--accent); text-decoration: none; border-bottom: 1px solid rgba(196,98,45,.25); }
+  .reference-kind {
+    display: inline-block;
+    margin-left: .45rem;
+    padding: .1rem .42rem;
+    border: 1px solid var(--line);
+    border-radius: 100px;
+    color: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: .54rem;
+  }
+
+  .article-actions {
+    position: fixed;
+    top: 1.6rem;
+    right: 1.8rem;
+    z-index: 100;
+    display: flex;
+    gap: .55rem;
+  }
+
+  .article-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .42rem;
+    min-height: 38px;
+    padding: .45rem .78rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(247,244,239,.88);
+    backdrop-filter: blur(10px);
+    color: var(--ink-soft);
+    font-family: var(--mono);
+    font-size: .72rem;
+    font-weight: 300;
+    cursor: pointer;
+    transition: background .2s ease, color .2s ease, border-color .2s ease, transform .2s ease;
+  }
+
+  .article-action:hover {
+    transform: translateY(-1px);
+    border-color: var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .article-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .article-action svg { width: 14px; height: 14px; flex: 0 0 auto; }
+
+  .action-toast {
+    position: fixed;
+    top: 4.6rem;
+    right: 1.8rem;
+    z-index: 120;
+    padding: .55rem .8rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: rgba(26,24,20,.92);
+    color: var(--paper);
+    font-family: var(--mono);
+    font-size: .67rem;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-5px);
+    transition: opacity .2s ease, transform .2s ease;
+  }
+
+  .action-toast.show { opacity: 1; transform: translateY(0); }
+
+  html[data-theme="dark"] .post-hero {
+    background:
+      radial-gradient(circle at 18% 22%, rgba(225,138,87,.12), transparent 25%),
+      radial-gradient(circle at 82% 70%, rgba(132,185,207,.12), transparent 30%),
+      linear-gradient(145deg, #181919, #202120 55%, #171818);
+  }
+
+  html[data-theme="dark"] .hero-overlay {
+    background: linear-gradient(to bottom, rgba(19,20,20,0) 35%, rgba(19,20,20,.98) 100%);
+  }
+
+  html[data-theme="dark"] .hero-node {
+    border-color: rgba(255,255,255,.12);
+    background: rgba(31,32,31,.82);
+    box-shadow: 0 12px 32px rgba(0,0,0,.22);
+  }
+
+  html[data-theme="dark"] .hero-node:last-child {
+    border-color: rgba(225,138,87,.32);
+    background: rgba(57,39,30,.82);
+  }
+
+  html[data-theme="dark"] .sc-toc,
+  html[data-theme="dark"] .symbol-table,
+  html[data-theme="dark"] .fact-card,
+  html[data-theme="dark"] .round-card,
+  html[data-theme="dark"] .timeline-item,
+  html[data-theme="dark"] .sc-checklist li,
+  html[data-theme="dark"] details {
+    background: rgba(32,33,32,.68);
+  }
+
+  html[data-theme="dark"] .math-block {
+    border-color: rgba(132,185,207,.24);
+    border-left-color: var(--sc-blue);
+    background: #19292f;
+    color: #d9eef6;
+    box-shadow: 0 8px 24px rgba(0,0,0,.16);
+  }
+
+  html[data-theme="dark"] .math-block.gold {
+    border-color: rgba(213,171,100,.23);
+    border-left-color: var(--sc-gold);
+    background: #31291d;
+    color: #f2dfba;
+  }
+
+  html[data-theme="dark"] .math-block.green {
+    border-color: rgba(142,186,167,.22);
+    border-left-color: var(--sc-green);
+    background: #1d3028;
+    color: #d9eee5;
+  }
+
+  html[data-theme="dark"] .math-block.red {
+    border-color: rgba(216,140,126,.22);
+    border-left-color: var(--sc-red);
+    background: #352522;
+    color: #f0d8d2;
+  }
+
+  html[data-theme="dark"] .math-note { border-top-color: rgba(255,255,255,.1); }
+  html[data-theme="dark"] .sc-callout { border-color: rgba(213,171,100,.24); background: var(--sc-gold-soft); }
+
+  html[data-theme="dark"] .protocol-stage {
+    border-color: rgba(255,255,255,.11);
+    border-left-color: var(--sc-blue);
+    background: rgba(31,32,31,.82);
+    box-shadow: 0 10px 30px rgba(0,0,0,.18);
+  }
+
+  html[data-theme="dark"] .protocol-stage:nth-child(2) { border-left-color: var(--sc-gold); }
+  html[data-theme="dark"] .protocol-stage:nth-child(3) { border-left-color: var(--sc-green); }
+  html[data-theme="dark"] .round-head { background: rgba(132,185,207,.06); }
+  html[data-theme="dark"] .transcript { border-color: rgba(142,186,167,.25); background: var(--sc-green-soft); color: #d9eee5; }
+  html[data-theme="dark"] .reference-list li { border-bottom-color: rgba(255,255,255,.08); }
+  html[data-theme="dark"] .reference-list a { border-bottom-color: rgba(225,138,87,.35); }
+
+  html[data-theme="dark"] .article-action {
+    border-color: rgba(255,255,255,.14);
+    background: rgba(27,28,28,.9);
+    color: var(--ink-soft);
+  }
+
+  html[data-theme="dark"] .article-action:hover {
+    border-color: var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  html[data-theme="dark"] .action-toast {
+    border-color: rgba(255,255,255,.16);
+    background: rgba(238,234,226,.96);
+    color: #171817;
+    box-shadow: 0 10px 30px rgba(0,0,0,.3);
+  }
+
+  @media (max-width: 760px) {
+    .article-wrap { padding-left: 1.15rem; padding-right: 1.15rem; }
+    .hero-proof { width: min(390px, 88vw); grid-template-columns: repeat(2, minmax(0,1fr)); gap: .65rem; }
+    .hero-arrow { display: none; }
+    .hero-node { min-width: 0; padding: .72rem .55rem; }
+    .hero-node strong { font-size: 1rem; }
+    .sc-toc ol { grid-template-columns: 1fr; }
+    .fact-grid { grid-template-columns: 1fr; }
+    .protocol-loop { grid-template-columns: repeat(2,1fr); }
+    .message { grid-template-columns: 74px 1fr; }
+  }
+
+  @media (max-width: 600px) {
+    .post-hero { height: 50vh; min-height: 430px; }
+    .article-actions { position: absolute; top: 1rem; right: 1rem; }
+    .article-action { width: 38px; min-width: 38px; padding: 0; }
+    .article-action span { display: none; }
+    .action-toast { top: 4rem; right: 1rem; }
+    .protocol-loop { grid-template-columns: 1fr; }
+    .round-head { align-items: flex-start; flex-direction: column; gap: .2rem; }
+    .message { grid-template-columns: 1fr; gap: .25rem; }
+    .symbol-table { font-size: .78rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="back-fixed">
+  <a class="back-btn" href="../index.html" aria-label="返回文章列表">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+      <path d="M19 12H5M12 5l-7 7 7 7"/>
+    </svg>
+    返回
+  </a>
+</div>
+
+<div class="article-actions" aria-label="文章操作">
+  <button class="article-action" id="share-button" type="button" aria-label="分享这篇笔记" title="分享这篇笔记">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+      <circle cx="18" cy="5" r="2.5"/>
+      <circle cx="6" cy="12" r="2.5"/>
+      <circle cx="18" cy="19" r="2.5"/>
+      <path d="M8.2 10.8l7.6-4.5M8.2 13.2l7.6 4.5"/>
+    </svg>
+    <span>分享</span>
+  </button>
+  <button class="article-action" id="theme-button" type="button" data-theme-toggle aria-label="切换为深色模式" aria-pressed="false" title="切换为深色模式">
+    <svg class="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+      <path d="M20 15.1A8.5 8.5 0 0 1 8.9 4a8.5 8.5 0 1 0 11.1 11.1z"/>
+    </svg>
+    <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+      <circle cx="12" cy="12" r="3.7"/><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"/>
+    </svg>
+    <span data-theme-label>深色</span>
+  </button>
+</div>
+<div class="action-toast" id="action-toast" role="status" aria-live="polite"></div>
+
+<div class="post-hero" aria-hidden="true">
+  <div class="zk-hero">
+    <div class="hero-proof">
+      <div class="hero-node"><strong>(x,w)</strong><span>命题与秘密证据</span></div>
+      <div class="hero-arrow">→</div>
+      <div class="hero-node"><strong>⟨P,V⟩</strong><span>随机挑战与回答</span></div>
+      <div class="hero-arrow">→</div>
+      <div class="hero-node"><strong>View<sub>V</sub></strong><span>验证者看到的视图</span></div>
+      <div class="hero-arrow">≈</div>
+      <div class="hero-node"><strong>S(x)</strong><span>模拟器生成的视图</span></div>
+    </div>
+  </div>
+  <div class="hero-overlay"></div>
+</div>
+
+<main class="article-wrap">
+  <div class="article-meta anim anim-1">
+    <span class="meta-tag">零知识证明 · 交互式零知识</span>
+    <span class="meta-date">2026-08-02</span>
+    <span class="meta-readtime">约 13 分钟</span>
+  </div>
+
+  <h1 class="article-title anim anim-2">Interactive Zero-Knowledge Proofs</h1>
+  <hr class="article-divider anim anim-3">
+
+  <nav class="lesson-nav anim anim-3" data-learning-nav data-post-id="4" aria-label="密码学学习顺序" hidden></nav>
+
+  <article class="article-content anim anim-4">
+    <div class="sc-kicker">LEARNING NOTE · INTERACTIVE ZERO-KNOWLEDGE</div>
+    <p class="sc-lead">Interactive Zero-Knowledge Proof（交互式零知识证明）让 Prover（证明者）通过随机挑战证明某个命题成立，同时使 Verifier（验证者）除了“命题为真”之外，无法获得关于秘密 witness（见证）的额外知识。</p>
+
+    <blockquote>核心不是“Verifier 完全没有看到消息”，而是：它看到的一切，都可以在不知道 witness 的情况下被模拟出来。</blockquote>
+
+    <nav class="sc-toc" aria-label="文章目录">
+      <div class="sc-toc-title">Contents</div>
+      <ol>
+        <li><a href="#zero-knowledge">Zero-Knowledge 定义</a></li>
+        <li><a href="#simulator">Simulator 与 Rewinding</a></li>
+        <li><a href="#quadratic-residue">二次剩余协议</a></li>
+        <li><a href="#three-coloring">三染色协议</a></li>
+        <li><a href="#history">历史与关系脉络</a></li>
+      </ol>
+    </nav>
+
+    <div class="sc-callout">
+      <strong>必要背景</strong>
+      <p>NP Relation（NP 关系）R(x,w)=1 表示 witness w 能验证公开命题 x；Interactive Proof（交互式证明）的 Completeness（完备性）保护真命题，Soundness（可靠性）排除假命题；Commitment Scheme（承诺方案）用 Hiding（隐藏性）隐藏内容、用 Binding（绑定性）防止事后修改。相关定义可参阅<a href="p-np-sat-interactive-proof.html">复杂性与交互证明</a>及<a href="commitment-schemes.html">承诺方案</a>。</p>
+    </div>
+
+    <h2 id="zero-knowledge">一、Zero-Knowledge：不泄露究竟如何定义？</h2>
+
+    <p>对任意可能作弊的概率多项式时间验证者 V*，其 Verifier View（验证者视图）可以抽象为：</p>
+
+    <div class="math-block">
+      <div class="math-line" data-tex="\operatorname{View}^{P}_{V^*}(x,w)=\bigl(x,\rho,m_1,m_2,\ldots,m_t\bigr)"></div>
+      <span class="math-note">视图包含公共输入、V* 的内部随机数，以及它在协议中收到和生成的消息。</span>
+    </div>
+
+    <p>如果存在一个不接收 witness 的概率多项式时间 Simulator（模拟器）S，使模拟视图与真实视图不可区分：</p>
+
+    <div class="math-block gold">
+      <div class="math-line" data-tex="\left\{S^{V^*}(x)\right\}_{x\in L}\;\approx_c\;\left\{\operatorname{View}^{P}_{V^*}(x,w)\right\}_{x\in L}"></div>
+    </div>
+
+    <p>那么真实交互没有向 V* 提供它无法自行模拟出的额外有效信息，这就是 Computational Zero-Knowledge（计算零知识）。如果两个分布完全相同，则称为 Perfect Zero-Knowledge（完美零知识）；若统计距离可忽略，则称为 Statistical Zero-Knowledge（统计零知识）。</p>
+
+    <h2 id="simulator">二、Simulator 与 Rewinding（回退）：模拟的是谁的视图？</h2>
+
+    <div class="protocol-stages">
+      <section class="protocol-stage">
+        <header class="stage-heading">
+          <span class="stage-index">01</span>
+          <div><span class="stage-role">REAL EXECUTION</span><h3>真实世界</h3></div>
+        </header>
+        <p>Prover 持有 witness w，与 Verifier V* 进行真实交互。V* 最终获得完整 transcript（交互记录）和自己的内部随机状态。</p>
+      </section>
+
+      <section class="protocol-stage">
+        <header class="stage-heading">
+          <span class="stage-index">02</span>
+          <div><span class="stage-role">SIMULATED EXECUTION</span><h3>模拟世界</h3></div>
+        </header>
+        <p>Simulator 不知道 w。它把 V* 作为内部程序运行，通过选择消息、猜测挑战，必要时 Rewinding（回退并重新执行）来生成一份视图。</p>
+      </section>
+
+      <section class="protocol-stage">
+        <header class="stage-heading">
+          <span class="stage-index">03</span>
+          <div><span class="stage-role">INDISTINGUISHABILITY</span><h3>比较两个世界</h3></div>
+        </header>
+        <p>如果任何有效区分器都无法判断视图来自真实交互还是 Simulator，那么真实协议就没有额外泄露 witness。</p>
+      </section>
+    </div>
+
+    <div class="sc-callout">
+      <strong>Simulator 与谁交互？</strong>
+      <p>Simulator 不与现实中的 Prover 或 Verifier 交互。安全证明中，它通常获得对 V* 的代码或黑盒访问权，在自己的模拟环境中运行 V*。Rewinding 也是证明中的控制能力，不是现实参与者可以撤回已经发生的网络消息。</p>
+    </div>
+
+    <h2 id="quadratic-residue">三、二次剩余：证明“我知道平方根”</h2>
+
+    <p>设 N 为正整数，y∈ℤ<sub>N</sub><sup>*</sup>。如果存在 x∈ℤ<sub>N</sub><sup>*</sup> 满足：</p>
+
+    <div class="math-block">
+      <div class="math-line" data-tex="x^2\equiv y\pmod N"></div>
+    </div>
+
+    <p>就称 y 是模 N 的 Quadratic Residue（二次剩余）。在下面的 Sigma Protocol（Σ 协议）中，公共 statement 是 (N,y)，秘密 witness 是平方根 x。</p>
+
+    <div class="protocol-loop">
+      <div class="loop-step"><span class="loop-no">COMMIT</span><h3>发送承诺</h3><p>P 随机选择 r，发送 t=r² mod N。</p></div>
+      <div class="loop-step"><span class="loop-no">CHALLENGE</span><h3>随机挑战</h3><p>V 随机选择 b∈{0,1}。</p></div>
+      <div class="loop-step"><span class="loop-no">RESPONSE</span><h3>回答挑战</h3><p>P 返回 z=r·xᵇ mod N。</p></div>
+      <div class="loop-step"><span class="loop-no">VERIFY</span><h3>验证等式</h3><p>V 检查 z²≡t·yᵇ mod N。</p></div>
+    </div>
+
+    <div class="math-block green">
+      <div class="math-line" data-tex="z^2=(rx^b)^2=r^2(x^2)^b\equiv t\,y^b\pmod N"></div>
+      <span class="math-note">这说明诚实 Prover 总能通过，因此协议具有 Perfect Completeness。</span>
+    </div>
+
+    <h3>完整数值交互：N=77</h3>
+
+    <p>Prover 的秘密平方根取 x=12，于是公开值：</p>
+
+    <div class="math-block gold"><div class="math-line" data-tex="y=x^2\bmod 77=12^2\bmod77=67"></div></div>
+
+    <section class="round-card">
+      <div class="round-head"><strong>ONE SIGMA ROUND</strong><span>公共输入 (N,y)=(77,67)，witness x=12</span></div>
+      <div class="round-body">
+        <div class="message"><span class="who">P → V</span><span class="payload">选择 r=8，发送 <span data-tex="t=r^2\bmod77=64"></span></span></div>
+        <div class="message verifier"><span class="who">V → P</span><span class="payload">随机挑战 <span data-tex="b=1"></span></span></div>
+        <div class="message"><span class="who">P → V</span><span class="payload"><span data-tex="z=rx\bmod77=8\cdot12\bmod77=19"></span></span></div>
+        <div class="message check"><span class="who">V CHECK</span><span class="payload"><span data-tex="z^2=19^2\equiv53\pmod{77}"></span>，且 <span data-tex="t\,y=64\cdot67\equiv53\pmod{77}"></span>，所以接受。</span></div>
+      </div>
+    </section>
+
+    <h3>为什么它证明了“知道”平方根？</h3>
+
+    <p>假设对于同一个承诺 t，我们同时获得挑战 b=0 和 b=1 的有效回答 z<sub>0</sub>、z<sub>1</sub>：</p>
+
+    <div class="math-block">
+      <div class="math-line" data-tex="z_0^2\equiv t\pmod N,\qquad z_1^2\equiv ty\pmod N"></div>
+    </div>
+
+    <p>就可以提取一个平方根：</p>
+
+    <div class="math-block gold">
+      <div class="math-line" data-tex="x=z_1z_0^{-1}\pmod N,\qquad x^2\equiv y\pmod N"></div>
+    </div>
+
+    <p>在数值例子中，若 b=0 时回答 z<sub>0</sub>=8，而 b=1 时回答 z<sub>1</sub>=19，则 8<sup>−1</sup>≡29 mod 77，因此：</p>
+
+    <div class="math-block green"><div class="math-line" data-tex="x=19\cdot29\bmod77=12"></div></div>
+
+    <p>这称为 Special Soundness（特殊可靠性）：能够回答同一承诺下的两个不同挑战，就足以提取 witness。作弊者如果不知道 x，通常只能提前准备其中一种挑战的回答，所以单轮欺骗成功率至多为 1/2；独立重复 k 轮后：</p>
+
+    <div class="math-block red"><div class="math-line" data-tex="\Pr[\text{cheating prover passes all rounds}]\leq 2^{-k}"></div></div>
+
+    <h3>Simulator 如何生成同样的 transcript？</h3>
+
+    <p>Honest-Verifier Zero-Knowledge（诚实验证者零知识）的 Simulator 可以先选择 b 和 z，再反向定义：</p>
+
+    <div class="math-block gold">
+      <div class="math-line" data-tex="t=z^2y^{-b}\pmod N"></div>
+      <span class="math-note">这样构造后，验证等式 z²≡t·yᵇ 自动成立，而且 Simulator 从未使用秘密平方根 x。</span>
+    </div>
+
+    <p>面对可能根据 t 决定挑战的 V* 时，Simulator 可以先猜测目标挑战 b̂，按上式构造 (t,z)，再运行 V*。若 V* 返回的挑战正好等于 b̂，就输出该 transcript；否则回退到发送 t 之前并重新尝试。因为 b̂ 只有两个选择，匹配概率为 1/2，期望尝试次数为 2。</p>
+
+    <div class="sc-callout">
+      <strong>疑问：y 是模 N 的余数，是否就说明 y 是 N 的二次剩余？</strong>
+      <p><strong>回答：</strong>不一定。只有存在某个 x 使 x²≡y mod N 时，y 才是模 N 的二次剩余。在协议中，y 是公开 statement 的组成部分，x 才是秘密 witness；Prover 不仅声称 y 是二次剩余，还要证明自己知道一个满足该同余式的平方根 x。</p>
+    </div>
+
+    <h2 id="three-coloring">四、三染色：只打开随机抽查的一条边</h2>
+
+    <p>给定无向图 G=(V,E)，Three-Coloring Problem（三染色问题）询问是否存在染色函数：</p>
+
+    <div class="math-block">
+      <div class="math-line" data-tex="c:V\longrightarrow\{1,2,3\}"></div>
+    </div>
+
+    <p>使每条边的两个端点颜色都不同：</p>
+
+    <div class="math-block green">
+      <div class="math-line" data-tex="\forall (u,v)\in E,\qquad c(u)\neq c(v)"></div>
+    </div>
+
+    <p>Witness 是整张图的合法染色方案。为了不泄露它，Prover 每轮先随机置换三种颜色，再承诺每个顶点的新颜色：</p>
+
+    <div class="math-block gold">
+      <div class="math-line" data-tex="C_v=\operatorname{Commit}\!\left(\pi(c(v));r_v\right),\qquad v\in V"></div>
+    </div>
+
+    <div class="protocol-stages">
+      <section class="protocol-stage">
+        <header class="stage-heading">
+          <span class="stage-index">01</span>
+          <div><span class="stage-role">COMMIT ALL VERTICES</span><h3>隐藏整张染色图</h3></div>
+        </header>
+        <p>Prover 随机选择颜色置换 π，并对每个顶点的 π(c(v)) 进行 Commitment。这里 Hiding（隐藏性）保证 Verifier 暂时看不到颜色，Binding（绑定性）防止 Prover 在挑战后改变颜色。</p>
+      </section>
+
+      <section class="protocol-stage">
+        <header class="stage-heading">
+          <span class="stage-index">02</span>
+          <div><span class="stage-role">CHOOSE AN EDGE</span><h3>Verifier 随机抽一条边</h3></div>
+        </header>
+        <p>Verifier 在 E 中随机选择 e=(u,v)，要求 Prover 只打开 C<sub>u</sub> 和 C<sub>v</sub>。</p>
+      </section>
+
+      <section class="protocol-stage">
+        <header class="stage-heading">
+          <span class="stage-index">03</span>
+          <div><span class="stage-role">OPEN AND CHECK</span><h3>只检查两个端点</h3></div>
+        </header>
+        <p>Verifier 检查两个承诺都能正确打开，并确认 π(c(u))≠π(c(v))。其余顶点颜色始终保持隐藏。</p>
+      </section>
+    </div>
+
+    <h3>通俗例子：检查考场座位图</h3>
+
+    <p>把顶点想成学生，边表示两名学生相邻，三种颜色表示三套不同试卷。老师不看整张安排表，每轮随机抽查一对相邻学生，只确认他们拿到不同试卷。安排者每轮还随机重命名“甲、乙、丙”三套试卷，所以老师无法把不同轮次看到的颜色拼成完整安排。</p>
+
+    <h3>Soundness 为什么来自随机抽边？</h3>
+
+    <p>如果图不可三染色，那么任何固定颜色分配至少会让一条边的两个端点同色。Verifier 从 |E| 条边中均匀抽取时，单轮抓到错误的概率至少为：</p>
+
+    <div class="math-block red"><div class="math-line" data-tex="\Pr[\text{detect cheating in one round}]\geq\frac{1}{|E|}"></div></div>
+
+    <p>独立重复 k 轮后，作弊者始终没有被抽中的概率至多为：</p>
+
+    <div class="math-block gold"><div class="math-line" data-tex="\Pr[\text{cheating survives }k\text{ rounds}]\leq\left(1-\frac{1}{|E|}\right)^k"></div></div>
+
+    <p>零知识直觉来自两点：未打开的颜色被 Commitment 隐藏；打开的两个颜色经过随机置换，只表明“二者不同”，不暴露它们在原始染色方案中的真实名称。</p>
+
+    <div class="sc-callout">
+      <strong>从直觉到形式化证明</strong>
+      <p>面对任意 V* 时，Simulator 需要预测它将检查的边，只为该边准备可打开的两个不同颜色，并用 Commitment 的 Hiding 隐藏其余模拟内容；如果预测不符，则通过 Rewinding 重新尝试。Binding 则用于 Soundness，防止真实作弊者看到被抽中的边后改变顶点颜色。</p>
+    </div>
+
+    <h2 id="history">五、历史与关系脉络</h2>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <time>1985 / 1989</time>
+        <strong>Goldwasser–Micali–Rackoff：Zero-Knowledge</strong>
+        <p>在 Interactive Proof 框架中提出知识复杂度与 Zero-Knowledge 的系统定义，并用数论语言展示“不泄露额外知识”的可能性。</p>
+      </div>
+      <div class="timeline-item">
+        <time>1986 / 1991</time>
+        <strong>Goldreich–Micali–Wigderson：所有 NP 语言的零知识证明</strong>
+        <p>在适当的密码学假设下，将零知识从特定数论问题推广到全部 NP；三染色成为理解一般构造的经典入口。</p>
+      </div>
+    </div>
+
+    <div class="math-block green">
+      <div class="math-line" data-tex="\text{Completeness}+\text{Soundness}+\text{Zero-Knowledge}"></div>
+      <span class="math-note">前两项说明“真命题能通过、假命题难通过”，Zero-Knowledge 进一步说明“验证过程不泄露 witness”。</span>
+    </div>
+
+    <h2>六、最终记忆框架</h2>
+
+    <ul class="sc-checklist">
+      <li><strong>Zero-Knowledge：</strong>Verifier 的真实视图可以由不知道 witness 的 Simulator 生成。</li>
+      <li><strong>View：</strong>包含公共输入、Verifier 的内部随机数以及交互 transcript。</li>
+      <li><strong>Rewinding：</strong>Simulator 在安全证明中回退并重复运行 V*，不是现实协议参与者的能力。</li>
+      <li><strong>二次剩余协议：</strong>y 是公开 statement，x 是平方根 witness；同一承诺的两个有效回答能够提取 x。</li>
+      <li><strong>Special Soundness：</strong>无法回答两个不同挑战意味着单轮欺骗成功率至多为 1/2。</li>
+      <li><strong>三染色协议：</strong>Commitment 隐藏并绑定颜色，随机抽边提供 Soundness，颜色置换隐藏原始染色。</li>
+      <li><strong>Simulator 的意义：</strong>若真实视图与模拟视图不可区分，真实交互就没有提供额外有效知识。</li>
+    </ul>
+
+    <blockquote><strong>一句话总结：</strong>零知识证明的核心判据是，验证者看到的视图可以由不掌握 witness 的 Simulator（模拟器）生成。</blockquote>
+
+    <details>
+      <summary>复习自测：我是否真正理解了这一篇？</summary>
+      <div>
+        <ol>
+          <li>真实 View 包含哪些信息？Simulator 为什么不接收 witness？</li>
+          <li>Perfect、Statistical 与 Computational Zero-Knowledge 有什么区别？</li>
+          <li>Simulator 与现实中的谁交互？Rewinding 回退的又是谁？</li>
+          <li>二次剩余协议中的 y、x、r、t、b、z 分别是什么？</li>
+          <li>为什么同一个 t 的两个有效回答能够提取平方根？</li>
+          <li>三染色协议中 Commitment 的 Hiding 和 Binding 分别解决什么问题？</li>
+          <li>为什么颜色随机置换使打开一条边不会泄露原始染色？</li>
+        </ol>
+      </div>
+    </details>
+
+    <section class="references" aria-labelledby="references-title">
+      <h2 id="references-title">参考文献</h2>
+      <ol class="reference-list">
+        <li>
+          S. Goldwasser, S. Micali, and C. Rackoff,
+          “<cite>The Knowledge Complexity of Interactive Proof Systems</cite>,”
+          <em>SIAM Journal on Computing</em>, vol. 18, no. 1, pp. 186–208, 1989.
+          DOI: <a href="https://doi.org/10.1137/0218012" target="_blank" rel="noopener noreferrer">10.1137/0218012</a>
+          <span class="reference-kind">原始论文</span>
+        </li>
+        <li>
+          O. Goldreich, S. Micali, and A. Wigderson,
+          “<cite>Proofs that Yield Nothing but Their Validity or All Languages in NP Have Zero-Knowledge Proof Systems</cite>,”
+          <em>Journal of the ACM</em>, vol. 38, no. 3, pp. 691–729, 1991.
+          DOI: <a href="https://doi.org/10.1145/116825.116852" target="_blank" rel="noopener noreferrer">10.1145/116825.116852</a>
+          <span class="reference-kind">原始论文</span>
+        </li>
+        <li>
+          Y. Kalai, “<cite>Lecture 18: Zero-Knowledge Proofs II</cite>,”
+          MIT 6.5620/6.875/18.425, <em>Foundations of Cryptography</em>, Nov. 12, 2025.
+          <a href="https://mit6875.github.io/LECNOTES/lec18.pdf" target="_blank" rel="noopener noreferrer">Lecture notes (PDF)</a>；
+          <a href="https://mit6875.github.io/" target="_blank" rel="noopener noreferrer">Course website</a>
+          <span class="reference-kind">课程讲义</span>
+        </li>
+      </ol>
+    </section>
+  </article>
+
+  <footer class="article-footer">
+    <a class="footer-back" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M19 12H5M12 5l-7 7 7 7"/>
+      </svg>
+      返回所有文章
+    </a>
+    <span class="footer-brand">Frieren · Cryptography Notes</span>
+  </footer>
+</main>
+
+<script defer src="../static/vendor/katex/katex.min.js"></script>
+<script defer src="../static/js/theme.js"></script>
+<script defer src="../static/js/posts-data.js"></script>
+<script defer src="../static/js/learning-path.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-tex]').forEach(function (element) {
+      katex.render(element.dataset.tex, element, {
+        displayMode: element.classList.contains('math-line'),
+        throwOnError: false,
+        strict: false
+      });
+    });
+
+    const shareButton = document.getElementById('share-button');
+    const toast = document.getElementById('action-toast');
+    let toastTimer;
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () {
+        toast.classList.remove('show');
+      }, 2200);
+    }
+
+    document.addEventListener('frieren-theme-change', function (event) {
+      showToast(event.detail.theme === 'dark' ? '已切换为深色模式' : '已切换为常规模式');
+    });
+
+    async function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+      const field = document.createElement('textarea');
+      field.value = text;
+      field.setAttribute('readonly', '');
+      field.style.position = 'fixed';
+      field.style.opacity = '0';
+      document.body.appendChild(field);
+      field.select();
+      const copied = document.execCommand('copy');
+      field.remove();
+      if (!copied) throw new Error('copy failed');
+    }
+
+    shareButton.addEventListener('click', async function () {
+      const canonical = document.querySelector('link[rel="canonical"]');
+      const url = canonical ? canonical.href : window.location.href;
+      const shareData = {
+        title: document.title,
+        text: 'Interactive Zero-Knowledge Proofs',
+        url: url
+      };
+
+      if (navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
+        try {
+          await navigator.share(shareData);
+          return;
+        } catch (error) {
+          if (error && error.name === 'AbortError') return;
+        }
+      }
+
+      try {
+        await copyText(url);
+        showToast('公开链接已复制');
+      } catch (_) {
+        window.prompt('复制下面的公开链接：', url);
+      }
+    });
+  });
+</script>
+</body>
+</html>

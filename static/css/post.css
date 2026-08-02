@@ -94,6 +94,52 @@
   border: none;
 }
 
+/* ── Learning path navigation ── */
+.lesson-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 0 2.2rem;
+  padding: .9rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(250,248,244,.5);
+}
+
+.lesson-nav[hidden] { display: none; }
+
+.lesson-position {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: .64rem;
+  letter-spacing: .08em;
+}
+
+.lesson-links {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .55rem;
+}
+
+.lesson-link {
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: .68rem;
+  line-height: 1.45;
+  text-decoration: none;
+  transition: color .2s ease;
+}
+
+.lesson-link:hover { color: var(--accent); }
+.lesson-separator { color: var(--ink-mute); font-size: .65rem; }
+
+html[data-theme="dark"] .lesson-nav {
+  background: rgba(32,33,32,.68);
+}
+
 /* ── Content typography ── */
 .article-content {
   font-size: 1rem;
@@ -195,6 +241,8 @@
 /* ── Responsive ── */
 @media (max-width: 600px) {
   .back-fixed { top: 1rem; left: 1rem; }
+  .lesson-nav { align-items: flex-start; flex-direction: column; }
+  .lesson-links { width: 100%; justify-content: space-between; }
   .article-content .photo-grid { grid-template-columns: 1fr; }
   .article-content .photo-grid img { height: 220px; }
 }

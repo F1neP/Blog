@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="从普通 Soundness 的边界出发，引入 Extractor 与 Knowledge Soundness，区分 Simulator 和 Extractor，并梳理 NIZK、SNARK、STARK、Bulletproofs 与 Sumcheck 的性质和发展关系。">
+<title>Knowledge Soundness 与现代证明系统 · Frieren</title>
+<link rel="icon" href="../HK.ico" type="image/x-icon">
+<link rel="canonical" href="https://blog.fp1022.dpdns.org/posts/knowledge-soundness.html">
+<link rel="stylesheet" href="../static/css/style.css">
+<link rel="stylesheet" href="../static/css/post.css">
+<link rel="stylesheet" href="../static/css/learning-note.css">
+<link rel="stylesheet" href="../static/vendor/katex/katex.min.css">
+<script>
+  (function () {
+    let theme;
+    try { theme = localStorage.getItem('frieren-theme'); } catch (_) {}
+    if (theme !== 'light' && theme !== 'dark') {
+      theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.dataset.theme = theme;
+  })();
+</script>
+</head>
+<body>
+
+<div class="back-fixed">
+  <a class="back-btn" href="../index.html" aria-label="返回文章列表">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    返回
+  </a>
+</div>
+
+<div class="article-actions" aria-label="文章操作">
+  <button class="article-action" id="share-button" type="button" aria-label="分享这篇笔记" title="分享这篇笔记">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.5M8.2 13.2l7.6 4.5"/></svg>
+    <span>分享</span>
+  </button>
+  <button class="article-action" id="theme-button" type="button" data-theme-toggle aria-label="切换为深色模式" aria-pressed="false" title="切换为深色模式">
+    <svg class="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 15.1A8.5 8.5 0 0 1 8.9 4a8.5 8.5 0 1 0 11.1 11.1z"/></svg>
+    <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="3.7"/><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"/></svg>
+    <span data-theme-label>深色</span>
+  </button>
+</div>
+<div class="action-toast" id="action-toast" role="status" aria-live="polite"></div>
+
+<div class="post-hero" aria-hidden="true">
+  <div class="note-hero">
+    <div class="hero-flow">
+      <div class="hero-node"><strong>accept</strong><span>验证者接受</span></div>
+      <div class="hero-arrow">→</div>
+      <div class="hero-node"><strong>E<sup>P*</sup></strong><span>Extractor</span></div>
+      <div class="hero-arrow">→</div>
+      <div class="hero-node"><strong>w</strong><span>提取 witness</span></div>
+      <div class="hero-arrow">→</div>
+      <div class="hero-node"><strong>R(x,w)=1</strong><span>知识成立</span></div>
+    </div>
+  </div>
+  <div class="hero-overlay"></div>
+</div>
+
+<main class="article-wrap">
+  <div class="article-meta anim anim-1">
+    <span class="meta-tag">证明系统 · 知识可靠性</span>
+    <span class="meta-date">2026-08-02</span>
+    <span class="meta-readtime">约 15 分钟</span>
+  </div>
+
+  <h1 class="article-title anim anim-2">Knowledge Soundness 与现代证明系统</h1>
+  <hr class="article-divider anim anim-3">
+
+  <nav class="lesson-nav anim anim-3" data-learning-nav data-post-id="6" aria-label="密码学学习顺序" hidden></nav>
+
+  <article class="article-content anim anim-4">
+    <div class="note-kicker">LEARNING NOTE · PROOFS OF KNOWLEDGE</div>
+    <p class="note-lead">普通 Soundness（可靠性）只保证“假命题难以骗过验证者”；Knowledge Soundness（知识可靠性）进一步要求：一个能让验证者接受的 Prover（证明者），应当真的掌握使关系成立的 witness（见证）。</p>
+
+    <blockquote>一句话记忆：Soundness 排除假命题；Knowledge Soundness 从成功证明者中提取 witness。</blockquote>
+
+    <nav class="note-toc" aria-label="文章目录">
+      <div class="note-toc-title">Contents</div>
+      <ol>
+        <li><a href="#gap">普通 Soundness 的边界</a></li>
+        <li><a href="#extractor">Extractor 与知识可靠性</a></li>
+        <li><a href="#qr">二次剩余中的知识提取</a></li>
+        <li><a href="#properties">证明系统的属性坐标</a></li>
+        <li><a href="#development">发展脉络与现代系统</a></li>
+        <li><a href="#selection">如何选择与记忆</a></li>
+      </ol>
+    </nav>
+
+    <div class="note-callout">
+      <strong>必要背景</strong>
+      <p>Soundness（可靠性）阻止假命题被接受；Zero-Knowledge（零知识）限制验证过程泄露的信息；Knowledge Soundness 则要求成功证明者对应一个可提取 witness。Interactive Proof（交互式证明）和 Simulator（模拟器）的完整定义可分别参阅<a href="p-np-sat-interactive-proof.html">复杂性与交互证明</a>和<a href="interactive-zk.html">交互式零知识证明</a>。</p>
+    </div>
+
+    <h2 id="gap">一、普通 Soundness 还缺少什么？</h2>
+
+    <p>设语言由 NP relation（NP 关系）R 定义：</p>
+
+    <div class="math-block">
+      <div class="math-line" data-tex="L_R=\{x\mid\exists w:\ R(x,w)=1\}"></div>
+      <span class="math-note">x 是公开 statement，w 是秘密 witness；R(x,w) 可在多项式时间内验证。</span>
+    </div>
+
+    <p>普通 Soundness 关注 x∉L<sub>R</sub> 的情况：命题为假时，任何作弊证明者 P* 都不应以显著概率说服验证者。</p>
+
+    <div class="math-block red">
+      <div class="math-line" data-tex="x\notin L_R\quad\Longrightarrow\quad\forall P^*,\ \Pr[\langle P^*,V\rangle(x)=1]\leq\varepsilon_s"></div>
+    </div>
+
+    <p>但当 x∈L<sub>R</sub> 时，普通 Soundness 不再约束 P* 的“知识来源”。验证者接受，只能说明交互满足了验证条件；它没有自动给出一个算法，证明 P* 内部确实拥有 w。</p>
+
+    <div class="round-card">
+      <div class="round-head"><strong>THE GAP</strong><span>“命题是真的”与“这个人知道证据”不是同一句话</span></div>
+      <div class="round-body">
+        <p>例如，公开钥匙 y 的确对应某个私钥 w，因此“存在 w 使 y=f(w)”是真命题。普通 Soundness 不能单独排除某个参与者转发别人的证明、利用并发会话拼接消息，或通过协议漏洞在并不知道 w 的情况下获得接受。</p>
+      </div>
+    </div>
+
+    <h2 id="extractor">二、Knowledge Soundness 与 Extractor</h2>
+
+    <p>Knowledge Soundness 通常通过 Extractor（Knowledge Extractor，知识提取器）E 定义。E 可以黑盒访问作弊证明者 P*：它运行、重启或回退 P*，并尝试输出有效 witness。</p>
+
+    <div class="math-block green">
+      <div class="math-line" data-tex="p_{\mathrm{acc}}(x)>\kappa(x)+\frac{1}{\operatorname{poly}(\lambda)}\quad\Longrightarrow\quad\Pr\!\left[R\!\left(x,E^{P^*}(x)\right)=1\right]\geq\frac{1}{\operatorname{poly}(\lambda)}"></div>
+      <span class="math-note">κ 是 Knowledge Error（知识误差）。具体提取概率和运行时间因定义与协议而异；核心含义是“超过知识误差的成功率必须对应可提取知识”。</span>
+    </div>
+
+    <div class="protocol-stages">
+      <section class="protocol-stage">
+        <div class="stage-heading"><span class="stage-index">01</span><div><span class="stage-role">OBSERVE</span><h3>让 P* 产生可接受证明</h3></div></div>
+        <p>Extractor 以验证者接口同 P* 交互，观察其能否以超过 κ 的概率通过验证。</p>
+      </section>
+      <section class="protocol-stage">
+        <div class="stage-heading"><span class="stage-index">02</span><div><span class="stage-role">REWIND / FORK</span><h3>固定关键前缀，改变挑战</h3></div></div>
+        <p>在具有 Special Soundness（特殊可靠性）的三轮协议中，E 可回退到同一条第一消息之后，发送不同挑战，收集两份有效响应。</p>
+      </section>
+      <section class="protocol-stage">
+        <div class="stage-heading"><span class="stage-index">03</span><div><span class="stage-role">EXTRACT</span><h3>由多份响应计算 witness</h3></div></div>
+        <p>协议的代数结构保证：同一承诺下对不同挑战都能正确回答，就暴露了足以恢复 w 的信息。</p>
+      </section>
+    </div>
+
+    <h3>Simulator（模拟器）与 Extractor：都会回退，但方向相反</h3>
+
+    <div class="table-scroll">
+      <table class="symbol-table">
+        <thead><tr><th>对象</th><th>它没有什么</th><th>它要生成什么</th><th>证明哪项性质</th></tr></thead>
+        <tbody>
+          <tr><td>Simulator S</td><td>没有 witness w</td><td>与真实 Verifier View 不可区分的模拟视图</td><td>Zero-Knowledge</td></tr>
+          <tr><td>Extractor E</td><td>一开始没有显式 witness</td><td>从成功的 P* 中提取 w</td><td>Knowledge Soundness</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note-callout">
+      <strong>两种“回退”的用途</strong>
+      <p>Simulator 回退，是为了猜中验证者挑战并伪造一份合法视图，说明验证者没有学到额外知识；Extractor 回退，是为了让同一证明者回答不同挑战，再把 witness 算出来，说明成功证明者确实掌握知识。</p>
+    </div>
+
+    <h2 id="qr">三、二次剩余协议中的知识提取</h2>
+
+    <p>考虑公开 N 与 y，并证明自己知道 x，使 y=x² mod N。一个典型三轮结构是：</p>
+
+    <div class="round-card">
+      <div class="round-head"><strong>Σ-PROTOCOL VIEW</strong><span>同一 t，不同挑战 e</span></div>
+      <div class="round-body">
+        <div class="message"><span class="who">PROVER</span><span class="payload">采样 r，发送 t=r² mod N。</span></div>
+        <div class="message verifier"><span class="who">VERIFIER</span><span class="payload">随机发送挑战 e∈{0,1}。</span></div>
+        <div class="message"><span class="who">PROVER</span><span class="payload">返回 z=r·x<sup>e</sup> mod N。</span></div>
+        <div class="message check"><span class="who">CHECK</span><span class="payload">验证 z²≡t·y<sup>e</sup> (mod N)。</span></div>
+      </div>
+    </div>
+
+    <p>如果 Extractor 对同一个 t 获得两份有效 transcript（交互记录）：</p>
+
+    <div class="math-block">
+      <div class="math-line" data-tex="z_0^2\equiv t\pmod N,\qquad z_1^2\equiv ty\pmod N"></div>
+    </div>
+
+    <p>诚实响应满足 z₀=r、z₁=rx。若 z₀ 在模 N 下可逆，则 Extractor 直接计算：</p>
+
+    <div class="math-block green">
+      <div class="math-line" data-tex="x\equiv z_1z_0^{-1}\pmod N"></div>
+      <span class="math-note">这就是“两个挑战都能回答 ⇒ 可以提取平方根”的代数原因。</span>
+    </div>
+
+    <p>单次挑战只有 1 bit。一个不知道 x 的作弊者可以预先准备回答 e=0 或 e=1 中的一个，但难以同时回答两个，所以单轮知识误差通常是 1/2；重复 k 轮可把误差降到约 2<sup>−k</sup>。</p>
+
+    <div class="math-block gold">
+      <div class="math-line" data-tex="\kappa_k\approx\left(\frac12\right)^k=2^{-k}"></div>
+    </div>
+
+    <div class="note-callout">
+      <strong>必要条件</strong>
+      <p>提取公式依赖协议的具体代数条件，例如 z₀ 必须可逆、输入要属于规定群、statement 与 witness 必须绑定到同一会话。Knowledge Soundness 不是看到“有交互”就自动获得的性质。</p>
+    </div>
+
+    <h2 id="properties">四、证明系统不是一条单线，而是一组属性坐标</h2>
+
+    <p>Interactive Proof、Zero-Knowledge、NIZK（Non-Interactive Zero-Knowledge，非交互式零知识）、SNARK（Succinct Non-Interactive Argument of Knowledge，简洁非交互知识论证）、STARK（Scalable Transparent Argument of Knowledge，可扩展透明知识论证）和 Bulletproofs（防弹证明）并非依次淘汰前者的版本；它们是在交互性、证明长度、验证成本、设置假设和知识可靠性等属性上的不同组合。</p>
+
+    <div class="table-scroll">
+      <table class="symbol-table">
+        <thead><tr><th>属性</th><th>英文全称 / 含义</th><th>回答的问题</th></tr></thead>
+        <tbody>
+          <tr><td>Completeness</td><td>完备性</td><td>真命题由诚实 Prover 证明时会被接受吗？</td></tr>
+          <tr><td>Soundness</td><td>可靠性</td><td>假命题能否骗过 Verifier？</td></tr>
+          <tr><td>Knowledge Soundness</td><td>知识可靠性 / Proof of Knowledge（知识证明）</td><td>成功 Prover 是否对应一个可提取 witness？</td></tr>
+          <tr><td>Zero-Knowledge</td><td>零知识性</td><td>验证过程是否泄露 statement 之外的知识？</td></tr>
+          <tr><td>Succinctness</td><td>简洁性</td><td>证明长度和验证成本是否远小于原始计算？</td></tr>
+          <tr><td>Non-Interactivity</td><td>非交互性</td><td>证明能否一次生成、以后独立验证？</td></tr>
+          <tr><td>Public Verifiability</td><td>公开可验证性</td><td>任何人是否都能用公开信息验证？</td></tr>
+          <tr><td>Setup</td><td>设置模型</td><td>是否需要 CRS、结构化参考串或可信设置？</td></tr>
+          <tr><td>Post-Quantum</td><td>后量子安全</td><td>所依赖的计算假设能否抵抗已知量子攻击？</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Proof（证明）与 Argument（论证）的区别</h3>
+
+    <div class="fact-grid">
+      <div class="fact-card"><span>PROOF</span><strong>信息论可靠性</strong><p>Soundness 通常要求即使 Prover 计算能力无限，也难以证明假命题。</p></div>
+      <div class="fact-card"><span>ARGUMENT</span><strong>计算可靠性</strong><p>只要求概率多项式时间 Prover 无法破坏 Soundness，通常依赖密码学假设。</p></div>
+      <div class="fact-card"><span>ARGUMENT OF KNOWLEDGE</span><strong>计算型知识提取</strong><p>除计算可靠性外，还要求从高效成功证明者中提取 witness。</p></div>
+    </div>
+
+    <p>因此 SNARK 的全称里是 Argument of Knowledge，而不是无条件的 Proof of Knowledge：</p>
+
+    <div class="math-block">
+      <div class="math-line" data-tex="\begin{aligned}\mathrm{SNARK}={}&\text{Succinct Non-Interactive}\\[-1pt]&\text{Argument of Knowledge}\end{aligned}"></div>
+    </div>
+
+    <h2 id="development">五、发展脉络：动机改变了哪些属性？</h2>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <time>1985 / 1989</time>
+        <strong>Interactive Proof 与 Zero-Knowledge</strong>
+        <p>Goldwasser、Micali、Rackoff 用随机交互定义 Completeness、Soundness 与 Knowledge Complexity（知识复杂度）；证明开始同时讨论“可信”与“少泄露”。</p>
+      </div>
+      <div class="timeline-item">
+        <time>1988</time>
+        <strong>Non-Interactive Zero-Knowledge（NIZK）</strong>
+        <p>Blum、Feldman、Micali 研究共享随机串模型下的一次性证明：减少在线往返，便于存储、转发与公开验证，但必须明确设置模型。</p>
+      </div>
+      <div class="timeline-item">
+        <time>1992</time>
+        <strong>Proof of Knowledge 的形式化</strong>
+        <p>Bellare 与 Goldreich 系统讨论 Knowledge Error、Extractor 运行时间等定义问题，使“证明者知道 witness”成为可验证的数学性质。</p>
+      </div>
+      <div class="timeline-item">
+        <time>1990s–2010s</time>
+        <strong>Succinct Arguments 与 SNARK</strong>
+        <p>研究目标进一步加入短证明和快速验证。Groth16 是典型配对型 SNARK：证明很短、验证高效，但具体系统依赖结构化参考串和相应代数假设。</p>
+      </div>
+      <div class="timeline-item">
+        <time>2018</time>
+        <strong>Bulletproofs 与 STARK</strong>
+        <p>Bulletproofs 以 Inner-Product Argument（内积论证）实现无可信设置的短证明；STARK 强调 Transparent Setup（透明设置）、可扩展性与基于哈希的后量子安全路径。</p>
+      </div>
+    </div>
+
+    <h3>现代系统对照：它们解决的重点并不相同</h3>
+
+    <div class="table-scroll">
+      <table class="symbol-table">
+        <thead><tr><th>系统 / 技术</th><th>主要目标</th><th>交互 / 设置</th><th>关键提醒</th></tr></thead>
+        <tbody>
+          <tr><td>Interactive ZK</td><td>Interactive Zero-Knowledge（交互式零知识），同时获得可靠性与零知识</td><td>多轮；可在 Plain Model（朴素模型）中构造</td><td>通信轮数较多，Verifier 通常需在线参与。</td></tr>
+          <tr><td>NIZK</td><td>零知识证明一次生成、独立验证</td><td>非交互；通常依赖 CRS（Common Reference String，公共参考串）或 Random Oracle Model（随机预言机模型）</td><td>Non-Interactive 与 Transparent 是不同属性。</td></tr>
+          <tr><td>Groth16 SNARK</td><td>极短证明与快速验证</td><td>非交互；电路相关结构化设置</td><td>必须说明参考串生成、更新和陷门销毁假设。</td></tr>
+          <tr><td>Bulletproofs</td><td>无可信设置的短范围证明与算术关系证明</td><td>可经 Fiat–Shamir Transformation（Fiat–Shamir 变换）非交互化；无需可信设置</td><td>核心是 Inner-Product Argument（内积论证），验证成本不等同于常数。</td></tr>
+          <tr><td>STARK</td><td>透明、可扩展、后量子友好的计算完整性证明</td><td>通常经 Fiat–Shamir 变换非交互化；透明设置</td><td>证明通常比配对型 SNARK 大，具体成本依实现而异。</td></tr>
+          <tr><td>Sumcheck Protocol</td><td>Sumcheck Protocol（求和检查协议）把指数规模布尔超立方求和声明逐轮压缩到随机点评估</td><td>原生交互；无需把它本身当作 ZK</td><td>是代数验证子协议，不自动提供 ZK、NIZK 或 Knowledge Soundness。</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="selection">六、Knowledge Soundness 的必要性与选择方法</h2>
+
+    <p>当系统的授权语义是“只有掌握某个秘密的人才能完成操作”时，仅证明 statement 为真通常不够。典型场景包括：</p>
+
+    <ul class="note-checklist">
+      <li><strong>身份认证：</strong>证明自己知道与公开钥匙对应的私钥，而不是只证明该私钥存在。</li>
+      <li><strong>数字资产：</strong>证明自己知道可花费某个承诺或账户的 Opening Information（打开信息）或 Secret Key（私钥）。</li>
+      <li><strong>匿名凭证：</strong>证明持有由发行方签发的 Credential（凭证），同时不泄露身份属性。</li>
+      <li><strong>密文关系：</strong>证明知道明文和随机数，使密文、承诺与公开 statement 绑定到同一 witness。</li>
+      <li><strong>可验证计算：</strong>证明知道满足约束系统的执行轨迹，而不是提交一份碰巧通过局部检查的数据。</li>
+    </ul>
+
+    <p>选择证明系统时，不应只问“哪个最新”，而应依次确认：</p>
+
+    <div class="protocol-stages">
+      <section class="protocol-stage">
+        <div class="stage-heading"><span class="stage-index">1</span><div><span class="stage-role">SECURITY GOAL</span><h3>到底要证明真实性、知识还是隐私？</h3></div></div>
+        <p>先区分 Soundness、Knowledge Soundness 与 Zero-Knowledge；它们互不自动蕴含。</p>
+      </section>
+      <section class="protocol-stage">
+        <div class="stage-heading"><span class="stage-index">2</span><div><span class="stage-role">TRUST MODEL</span><h3>能否接受可信设置或 Random Oracle？</h3></div></div>
+        <p>“非交互”“无可信设置”“公开可验证”是三项不同要求，必须分别写清。</p>
+      </section>
+      <section class="protocol-stage">
+        <div class="stage-heading"><span class="stage-index">3</span><div><span class="stage-role">COST MODEL</span><h3>瓶颈是证明、验证、通信还是内存？</h3></div></div>
+        <p>短证明不一定意味着 Prover 快；验证快也不等于设置简单。需要结合电路规模和部署环境比较具体成本。</p>
+      </section>
+      <section class="protocol-stage">
+        <div class="stage-heading"><span class="stage-index">4</span><div><span class="stage-role">ASSUMPTIONS</span><h3>需要何种代数与后量子假设？</h3></div></div>
+        <p>配对、离散对数、哈希函数和编码理论会带来不同的安全基础、证明大小和实现复杂度。</p>
+      </section>
+    </div>
+
+    <h2>七、最终记忆框架</h2>
+
+    <ul class="note-checklist">
+      <li><strong>Soundness：</strong>假 statement 不能被作弊 Prover 高概率证明成功。</li>
+      <li><strong>Knowledge Soundness：</strong>成功率超过知识误差的 Prover 对应一个能够输出 witness 的 Extractor。</li>
+      <li><strong>Simulator：</strong>没有 witness，却能模拟 Verifier View，用于证明 Zero-Knowledge。</li>
+      <li><strong>Extractor：</strong>访问成功证明者并恢复 witness，用于证明 Knowledge Soundness。</li>
+      <li><strong>Proof / Argument：</strong>区别在于 Soundness 对无限算力还是仅对高效攻击者成立。</li>
+      <li><strong>现代系统：</strong>是在交互性、零知识、简洁性、设置模型、验证成本和后量子性等坐标上的不同组合。</li>
+    </ul>
+
+    <blockquote><strong>一句话总结：</strong>Knowledge Soundness 的核心是，只要证明者以显著概率成功，就应当能够从其行为中提取有效 witness。</blockquote>
+
+    <details>
+      <summary>复习自测：我是否真正理解了知识可靠性？</summary>
+      <div>
+        <ol>
+          <li>为什么 x∈L 时，普通 Soundness 没有直接约束 P* 是否知道 w？</li>
+          <li>Knowledge Error κ 表示什么？</li>
+          <li>Simulator 与 Extractor 分别在没有什么的情况下，要生成什么？</li>
+          <li>二次剩余协议中，为什么同一 t 的两份不同挑战响应可以提取 x？</li>
+          <li>Proof 与 Argument 的 Soundness 对手模型有什么不同？</li>
+          <li>Non-Interactive 为什么不自动意味着没有可信设置？</li>
+          <li>为什么不能把 NIZK、SNARK、STARK 理解为简单的前后替代关系？</li>
+          <li>选择证明系统时，应先确认哪四类需求？</li>
+        </ol>
+      </div>
+    </details>
+
+    <section class="references" aria-labelledby="references-title">
+      <h2 id="references-title">参考文献</h2>
+      <ol class="reference-list">
+        <li>
+          M. Bellare and O. Goldreich, “<cite>On Defining Proofs of Knowledge</cite>,”
+          in <em>Advances in Cryptology — CRYPTO ’92</em>, pp. 390–420, 1993.
+          <a href="https://www.wisdom.weizmann.ac.il/~oded/pok.html" target="_blank" rel="noopener noreferrer">Author’s publication page</a>
+          <span class="reference-kind">原始论文</span>
+        </li>
+        <li>
+          M. Blum, P. Feldman, and S. Micali,
+          “<cite>Non-Interactive Zero-Knowledge and Its Applications</cite>,”
+          in <em>Proceedings of the 20th Annual ACM Symposium on Theory of Computing</em>, 1988, pp. 103–112.
+          DOI: <a href="https://doi.org/10.1145/62212.62222" target="_blank" rel="noopener noreferrer">10.1145/62212.62222</a>
+          <span class="reference-kind">原始论文</span>
+        </li>
+        <li>
+          J. Groth, “<cite>On the Size of Pairing-Based Non-interactive Arguments</cite>,”
+          in <em>Advances in Cryptology — EUROCRYPT 2016</em>, pp. 305–326.
+          DOI: <a href="https://doi.org/10.1007/978-3-662-49896-5_11" target="_blank" rel="noopener noreferrer">10.1007/978-3-662-49896-5_11</a>
+          <span class="reference-kind">原始论文</span>
+        </li>
+        <li>
+          B. Bünz et al., “<cite>Bulletproofs: Short Proofs for Confidential Transactions and More</cite>,”
+          in <em>2018 IEEE Symposium on Security and Privacy</em>, pp. 315–334.
+          <a href="https://eprint.iacr.org/2017/1066" target="_blank" rel="noopener noreferrer">IACR ePrint 2017/1066</a>；
+          <a href="https://ieeexplore.ieee.org/document/8418611/" target="_blank" rel="noopener noreferrer">IEEE publication page</a>
+          <span class="reference-kind">原始论文</span>
+        </li>
+        <li>
+          E. Ben-Sasson et al., “<cite>Scalable, Transparent, and Post-Quantum Secure Computational Integrity</cite>,” 2018.
+          <a href="https://eprint.iacr.org/2018/046" target="_blank" rel="noopener noreferrer">IACR ePrint 2018/046</a>
+          <span class="reference-kind">原始论文</span>
+        </li>
+        <li>
+          S. Goldwasser, S. Micali, and C. Rackoff,
+          “<cite>The Knowledge Complexity of Interactive Proof Systems</cite>,”
+          <em>SIAM Journal on Computing</em>, vol. 18, no. 1, pp. 186–208, 1989.
+          DOI: <a href="https://doi.org/10.1137/0218012" target="_blank" rel="noopener noreferrer">10.1137/0218012</a>
+          <span class="reference-kind">原始论文</span>
+        </li>
+        <li>
+          Y. Kalai, “<cite>Foundations of Cryptography: Lecture Notes 19–20</cite>,”
+          MIT 6.5620/6.875/18.425, 2025.
+          <a href="https://mit6875.github.io/" target="_blank" rel="noopener noreferrer">Course website</a>
+          <span class="reference-kind">课程讲义</span>
+        </li>
+      </ol>
+    </section>
+  </article>
+
+  <footer class="article-footer">
+    <a class="footer-back" href="../index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>返回所有文章</a>
+    <span class="footer-brand">Frieren · Cryptography Notes</span>
+  </footer>
+</main>
+
+<script defer src="../static/vendor/katex/katex.min.js"></script>
+<script defer src="../static/js/theme.js"></script>
+<script defer src="../static/js/posts-data.js"></script>
+<script defer src="../static/js/learning-path.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-tex]').forEach(function (element) {
+      katex.render(element.dataset.tex, element, { displayMode: element.classList.contains('math-line'), throwOnError: false, strict: false });
+    });
+    const shareButton = document.getElementById('share-button');
+    const toast = document.getElementById('action-toast');
+    let toastTimer;
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () { toast.classList.remove('show'); }, 2200);
+    }
+    document.addEventListener('frieren-theme-change', function (event) {
+      showToast(event.detail.theme === 'dark' ? '已切换为深色模式' : '已切换为常规模式');
+    });
+    async function copyText(value) {
+      if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(value); return; }
+      const field = document.createElement('textarea');
+      field.value = value; field.setAttribute('readonly', ''); field.style.position = 'fixed'; field.style.opacity = '0';
+      document.body.appendChild(field); field.select();
+      const copied = document.execCommand('copy'); field.remove();
+      if (!copied) throw new Error('copy failed');
+    }
+    shareButton.addEventListener('click', async function () {
+      const canonical = document.querySelector('link[rel="canonical"]');
+      const url = canonical ? canonical.href : window.location.href;
+      const shareData = { title: document.title, text: 'Knowledge Soundness 与现代证明系统', url: url };
+      if (navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
+        try { await navigator.share(shareData); return; } catch (error) { if (error && error.name === 'AbortError') return; }
+      }
+      try { await copyText(url); showToast('公开链接已复制'); } catch (_) { window.prompt('复制下面的公开链接：', url); }
+    });
+  });
+</script>
+</body>
+</html>

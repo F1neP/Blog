@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="Sumcheck Protocol 学习笔记：从指数规模求和到随机点检查，包含完整公式、Prover-Verifier 数据流与有限域数值例子。">
-<title>Sumcheck Protocol：从指数求和到随机点检查 · Frieren</title>
+<title>Sumcheck Protocol：逐轮压缩求和 · Frieren</title>
+<link rel="icon" href="../HK.ico" type="image/x-icon">
 <link rel="canonical" href="https://blog.fp1022.dpdns.org/posts/sumcheck-protocol-notes.html">
 <link rel="stylesheet" href="../static/css/style.css">
 <link rel="stylesheet" href="../static/css/post.css">
@@ -1019,17 +1020,19 @@
 
 <main class="article-wrap">
   <div class="article-meta anim anim-1">
-    <span class="meta-tag">密码学 · 交互式证明</span>
+    <span class="meta-tag">证明系统 · Sumcheck</span>
     <span class="meta-date">2026-07-31</span>
     <span class="meta-readtime">约 12 分钟</span>
   </div>
 
-  <h1 class="article-title anim anim-2">Sumcheck Protocol：从指数求和到随机点检查</h1>
+  <h1 class="article-title anim anim-2">Sumcheck Protocol：逐轮压缩求和</h1>
   <hr class="article-divider anim anim-3">
+
+  <nav class="lesson-nav anim anim-3" data-learning-nav data-post-id="2" aria-label="密码学学习顺序" hidden></nav>
 
   <article class="article-content anim anim-4">
     <div class="sc-kicker">LEARNING NOTE · SUMCHECK</div>
-    <p class="sc-lead">Sumcheck Protocol（求和检查协议）通过“部分和多项式、一致性检查和随机挑战”，把一个包含 2<sup>m</sup> 项的多元多项式求和声明，逐轮压缩为最后一个随机点上的函数求值。</p>
+    <p class="sc-lead">Sumcheck Protocol（求和检查协议）让 Prover（证明者）通过“部分和多项式、一致性检查和随机挑战”，把一个包含 2<sup>m</sup> 项的多元多项式求和声明，逐轮压缩为 Verifier（验证者）最后亲自执行的一次随机点函数求值。</p>
 
     <blockquote>它不是让 Verifier 重新计算整个和，而是让 Prover 逐轮解释部分和；Verifier 每轮随机固定一个变量，最终只亲自检查一个点。</blockquote>
 
@@ -1045,15 +1048,20 @@
       </ol>
     </nav>
 
+    <div class="sc-callout">
+      <strong>必要背景</strong>
+      <p>Sumcheck 使用 Finite Field（有限域）上的多项式，并依赖一个基本事实：次数不超过 d 的非零一元多项式最多有 d 个根。Prover、Verifier 与 Soundness（可靠性）的一般定义可参阅<a href="p-np-sat-interactive-proof.html">复杂性与交互证明</a>。</p>
+    </div>
+
     <h2 id="goal">一、协议到底要证明什么？</h2>
 
-    <p>设 <em>f</em> 是定义在有限域上的 <em>m</em> 元多项式，其中 <em>m</em> 表示变量数量：</p>
+    <p>设 <em>f</em> 是定义在 Finite Field（有限域）上的 <em>m</em> 元多项式，其中 <em>m</em> 表示变量数量：</p>
 
     <div class="math-block">
       <div class="math-line" data-tex="f : \mathbb{F}^{m} \longrightarrow \mathbb{F}"></div>
     </div>
 
-    <p>Prover 声称下面的布尔超立方体求和结果等于 <em>T</em>。字母 <em>T</em> 可以记作 Total（总和）：</p>
+    <p>Prover 声称下面的 Boolean Hypercube（布尔超立方体）求和结果等于 <em>T</em>。字母 <em>T</em> 可以记作 Total（总和）：</p>
 
     <div class="math-block gold">
       <div class="math-line" data-tex="T := \sum_{b_1\in\{0,1\}} \sum_{b_2\in\{0,1\}} \cdots \sum_{b_m\in\{0,1\}} f(b_1,b_2,\ldots,b_m)"></div>
@@ -1062,7 +1070,7 @@
 
     <div class="sc-callout">
       <strong>符号记忆</strong>
-      <p><em>T</em> 是 Total（总和声明），<em>P</em> 是真实的 Partial sum（部分和），<em>M</em> 是 Prover 发出的 Message（消息），<em>r</em> 是 Random challenge（随机挑战）。</p>
+      <p><em>T</em>（Total，总和声明），<em>P</em>（Partial Sum，部分和），<em>M</em>（Message，消息），<em>r</em>（Random Challenge，随机挑战）。</p>
     </div>
 
     <table class="symbol-table">
@@ -1205,7 +1213,7 @@
     <div class="transcript"><span data-tex="T=9\to M_1=(10,6)\to r_1=2\to M_2=(7,8)\to r_2=4\to M_3=(1,3)\to r_3=6\to f(2,4,6)=2"></span></div>
 
     <div class="sc-callout">
-      <strong>这个例子真正做了什么？</strong>
+      <strong>压缩过程</strong>
       <p>它把 8 个布尔点上的求和声明，先压缩为固定第一个变量为 2 后的 4 项求和，再压缩为固定第二个变量为 4 后的 2 项求和，最终压缩为单点 f(2,4,6) 的检查。</p>
     </div>
 
@@ -1215,11 +1223,17 @@
 
     <div class="math-block"><div class="math-line" data-tex="D_i(X)=M_i(X)-P_i(X)"></div></div>
 
+    <p>这里，“随机抽查点 <span data-tex="r_i"></span> 是差多项式 <span data-tex="D_i(X)"></span> 的根”准确地说就是 <span data-tex="D_i(r_i)=0"></span>。根据差多项式的定义，这又等价于：</p>
+
+    <div class="math-block"><div class="math-line" data-tex="D_i(r_i)=0\iff M_i(r_i)-P_i(r_i)=0\iff M_i(r_i)=P_i(r_i)"></div></div>
+
+    <p>换句话说，Verifier 随机抽到的点 <span data-tex="r_i"></span> 恰好是 <span data-tex="D_i(X)"></span> 的一个根，就意味着造假多项式与真实多项式在这个抽查点上的取值碰巧相等，因此这一轮没有识别出造假。</p>
+
     <p>D<sub>i</sub> 是一个非零低度多项式。若次数不超过 d，它最多只有 d 个根，因此随机挑战恰好落在“两个多项式碰巧相等”的位置，其概率最多为：</p>
 
     <div class="math-block gold"><div class="math-line" data-tex="\Pr_{r_i\leftarrow\mathbb{F}}\!\left[M_i(r_i)=P_i(r_i)\right]\leq\frac{d}{|\mathbb{F}|}"></div></div>
 
-    <p>经过 m 轮，使用联合界可得到总体可靠性误差：</p>
+    <p>经过 m 轮，使用 Union Bound（联合界）可得到总体可靠性误差：</p>
 
     <div class="math-block green"><div class="math-line" data-tex="\Pr[\text{错误求和声明被接受}]\leq\frac{md}{|\mathbb{F}|}"></div></div>
 
@@ -1234,17 +1248,17 @@
     </div>
 
     <div class="sc-callout">
-      <strong>容易混淆</strong>
-      <p>交互轮数是 m，不是 d+1。d+1 决定每轮传输多少个域元素。在三变量一次多项式中，m=3、d=1，因此是 3 轮、每轮 2 个系数。</p>
+      <strong>疑问：Sumcheck 的交互轮数是否是 d+1？</strong>
+      <p><strong>回答：</strong>不是。变量个数 m 决定交互轮数，单变量次数上界 d 决定每轮描述多项式所需的 d+1 个域元素。在三变量一次多项式中，m=3、d=1，因此协议进行 3 轮，每轮传输 2 个系数。</p>
     </div>
 
     <h2 id="triangle">六、应用：验证图中的三角形数量</h2>
 
-    <p>设图的邻接矩阵为 A∈{0,1}<sup>n×n</sup>。图中的三角形数量可以写成：</p>
+    <p>设图的 Adjacency Matrix（邻接矩阵）为 A∈{0,1}<sup>n×n</sup>。图中的三角形数量可以写成：</p>
 
     <div class="math-block"><div class="math-line" data-tex="\operatorname{Triangles}(G)=\frac{1}{6}\sum_{(i,j,k)\in[n]^3}A_{i,j}A_{j,k}A_{k,i}"></div></div>
 
-    <p>除以 6，是因为同一个三角形的三个顶点有 3!=6 种排列。把节点编号编码成二进制向量 X、Y、Z，并对邻接矩阵进行 Multi-Linear Extension（多线性扩展），得到 Ã(X,Y)，即可定义：</p>
+    <p>除以 6，是因为同一个三角形的三个顶点有 3!=6 种排列。把节点编号编码成二进制向量 X、Y、Z，并对邻接矩阵进行 MLE（Multilinear Extension，多线性扩展），得到 Ã(X,Y)，即可定义：</p>
 
     <div class="math-block green"><div class="math-line" data-tex="f(X,Y,Z)=\widetilde{A}(X,Y)\cdot\widetilde{A}(Y,Z)\cdot\widetilde{A}(Z,X)"></div></div>
 
@@ -1262,7 +1276,7 @@
       <li><strong>轮数：</strong>变量数量 m；<strong>每轮消息：</strong>d 次多项式的 d+1 个系数。</li>
     </ul>
 
-    <blockquote>Sumcheck 用低度多项式的“难以在随机点持续伪装”这一性质，把指数规模的全局求和，逐轮压缩成一个随机点上的局部检查。</blockquote>
+    <blockquote><strong>一句话总结：</strong>Sumcheck 通过逐轮随机固定变量，把指数规模的求和声明压缩为一次随机点上的多项式求值。</blockquote>
 
     <details>
       <summary>复习自测：我是否真正理解了 Sumcheck？</summary>
@@ -1317,6 +1331,8 @@
 </main>
 <script defer src="../static/vendor/katex/katex.min.js"></script>
 <script defer src="../static/js/theme.js"></script>
+<script defer src="../static/js/posts-data.js"></script>
+<script defer src="../static/js/learning-path.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('[data-tex]').forEach(function (element) {
@@ -1366,7 +1382,7 @@
       const url = canonical ? canonical.href : window.location.href;
       const shareData = {
         title: document.title,
-        text: 'Sumcheck Protocol：从指数求和到随机点检查',
+        text: 'Sumcheck Protocol：逐轮压缩求和',
         url: url
       };
 

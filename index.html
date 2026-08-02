@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="Frieren 的学习、研究与随想笔记。">
 <title>Frieren · Notes</title>
+<link rel="icon" href="HK.ico" type="image/x-icon">
 <script>
   (function () {
     let theme;
@@ -111,7 +112,8 @@ function renderList() {
 
   document.getElementById('post-count').textContent = `${filtered.length} 篇记录`;
 
-  document.getElementById('post-list').innerHTML = filtered.map((p, index) => `
+  document.getElementById('post-list').innerHTML = filtered.map((p, index) => {
+    return `
     <a class="post-item" href="${p.file}">
       <div class="post-info">
         <div class="post-meta-row">
@@ -134,8 +136,8 @@ function renderList() {
           : `<div class="thumb-placeholder">${p.emoji}</div>`
         }
       </div>
-    </a>
-  `).join('');
+    </a>`;
+  }).join('');
 }
 
 buildFilters();

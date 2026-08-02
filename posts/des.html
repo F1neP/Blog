@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="系统讲解 DES 的 Feistel 结构、16 轮加密步骤、轮函数、密钥调度、标准数值例子及安全边界。">
+<title>Data Encryption Standard（DES，数据加密标准） · Frieren</title>
+<link rel="icon" href="../HK.ico" type="image/x-icon"><link rel="canonical" href="https://blog.fp1022.dpdns.org/posts/des.html">
+<link rel="stylesheet" href="../static/css/style.css"><link rel="stylesheet" href="../static/css/post.css"><link rel="stylesheet" href="../static/css/learning-note.css"><link rel="stylesheet" href="../static/css/algorithm-note.css"><link rel="stylesheet" href="../static/vendor/katex/katex.min.css">
+<script>(function(){let t;try{t=localStorage.getItem('frieren-theme')}catch(_){ }if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t})();</script>
+</head>
+<body data-share-title="Data Encryption Standard（DES，数据加密标准）">
+<div class="back-fixed"><a class="back-btn" href="../index.html" aria-label="返回文章列表"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>返回</a></div>
+<div class="article-actions"><button class="article-action" id="share-button" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.5M8.2 13.2l7.6 4.5"/></svg><span>分享</span></button><button class="article-action" type="button" data-theme-toggle><svg class="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20 15.1A8.5 8.5 0 0 1 8.9 4a8.5 8.5 0 1 0 11.1 11.1z"/></svg><svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3.7"/><path d="M12 2v2.2M12 19.8V22M2 12h2.2M19.8 12H22"/></svg><span data-theme-label>深色</span></button></div><div class="action-toast" id="action-toast"></div>
+<div class="post-hero algorithm-hero"><div class="note-hero"><div class="hero-flow"><div class="hero-node"><strong>64-bit P</strong><span>明文分组</span></div><div class="hero-arrow">→</div><div class="hero-node"><strong>IP</strong><span>初始置换</span></div><div class="hero-arrow">→</div><div class="hero-node"><strong>16 × Feistel</strong><span>轮函数与子密钥</span></div><div class="hero-arrow">→</div><div class="hero-node"><strong>64-bit C</strong><span>最终置换</span></div></div></div><div class="hero-overlay"></div></div>
+<main class="article-wrap">
+<div class="article-meta"><span class="meta-tag">密码学 · 对称密码</span><span class="meta-date">2026-08-02</span><span class="meta-readtime">约 10 分钟</span></div>
+<h1 class="article-title">Data Encryption Standard（DES，数据加密标准）</h1><hr class="article-divider">
+<article class="article-content">
+<div class="note-kicker">CLASSICAL CRYPTO · DES</div>
+<p class="note-lead">DES（Data Encryption Standard，数据加密标准）是采用 16 轮 Feistel Network（Feistel 网络）的对称分组密码。它在密码学史上极其重要，但 56 位有效密钥已不足以抵抗穷举，因此只能用于学习，不能用于新系统。</p>
+<nav class="note-toc"><div class="note-toc-title">Contents</div><ol><li><a href="#info">基本信息与特征</a></li><li><a href="#flow">总体流程图</a></li><li><a href="#steps">逐步算法</a></li><li><a href="#example">标准数值例子</a></li><li><a href="#security">安全边界</a></li><li><a href="#summary">一句话总结</a></li></ol></nav>
+
+<h2 id="info">一、算法基本信息及特征</h2>
+<div class="spec-grid"><div class="spec-item"><span>TYPE</span><strong>Symmetric Block Cipher（对称分组密码）</strong></div><div class="spec-item"><span>STRUCTURE</span><strong>16 轮 Feistel 网络</strong></div><div class="spec-item"><span>BLOCK SIZE</span><strong>64 bit</strong></div><div class="spec-item"><span>KEY SIZE</span><strong>64 bit 编码，56 bit 有效密钥</strong></div><div class="spec-item"><span>ROUND KEY</span><strong>每轮 48 bit</strong></div><div class="spec-item"><span>STATUS</span><strong class="status-danger">已淘汰，不应再部署</strong></div></div>
+<p>Feistel 结构把分组分成左右两半。轮函数本身不必可逆；解密只要把 16 个子密钥按相反顺序使用，就能恢复明文。这种“加解密结构相同、密钥次序相反”的设计是 DES 的核心特征。</p>
+<div class="note-callout"><strong>疑问：为什么常说 DES 是 64 位密钥，却只有 56 位安全强度？</strong><p><strong>回答：</strong>输入密钥共 64 位，但每 8 位中有 1 位是奇偶校验位，共 8 个校验位；PC-1 置换会丢弃它们，因此真正参与子密钥生成的只有 56 位。</p></div>
+
+<h2 id="flow">二、详细算法流程图</h2>
+<div class="process-flow detail-flow" aria-label="DES 详细算法流程"><div class="process-step"><strong>明文与主密钥</strong><span>P 为 64 位；K 经 PC-1 去掉 8 个校验位</span></div><div class="process-arrow">→</div><div class="process-step"><strong>两条路径</strong><span>P 经 IP 得到 L₀、R₀；K 经移位与 PC-2 得到 K₁…K₁₆</span></div><div class="process-arrow">→</div><div class="process-step"><strong>每轮 f(R,Kᵢ)</strong><span>E 扩展 → 异或 Kᵢ → 8 个 S-box → P 置换</span></div><div class="process-arrow">→</div><div class="process-step"><strong>16 轮 Feistel</strong><span>Lᵢ=Rᵢ₋₁；Rᵢ=Lᵢ₋₁⊕f(Rᵢ₋₁,Kᵢ)</span></div><div class="process-arrow">→</div><div class="process-step"><strong>交换与 IP⁻¹</strong><span>R₁₆∥L₁₆ 经逆置换输出 64 位密文 C</span></div></div>
+
+<h2 id="steps">三、DES 的具体步骤</h2>
+<div class="protocol-stages">
+<section class="protocol-stage"><div class="stage-heading"><span class="stage-index">01</span><div><span class="stage-role">KEY SCHEDULE</span><h3>生成 16 个轮密钥</h3></div></div><p>PC-1 从 64 位密钥中选出 56 位，拆为 28 位的 C₀、D₀；每轮按规定循环左移 1 或 2 位，再经 PC-2 选出 48 位子密钥 Kᵢ。</p></section>
+<section class="protocol-stage"><div class="stage-heading"><span class="stage-index">02</span><div><span class="stage-role">INITIAL PERMUTATION</span><h3>初始置换并左右分组</h3></div></div><p>对 64 位明文执行固定的 Initial Permutation（初始置换）IP，得到两个 32 位值 L₀ 与 R₀。IP 只重排比特位置，不增加密码强度。</p></section>
+<section class="protocol-stage"><div class="stage-heading"><span class="stage-index">03</span><div><span class="stage-role">FEISTEL ROUND</span><h3>重复 16 轮</h3></div></div><div class="math-block"><div class="math-line" data-tex="L_i=R_{i-1},\qquad R_i=L_{i-1}\oplus f(R_{i-1},K_i)"></div></div><p>轮函数 f 依次执行：E 扩展置换把 32 位扩成 48 位；与 Kᵢ 异或；8 个 S-box 各把 6 位映射为 4 位；P 置换重新排列得到的 32 位。</p></section>
+<section class="protocol-stage"><div class="stage-heading"><span class="stage-index">04</span><div><span class="stage-role">FINAL PERMUTATION</span><h3>交换并输出密文</h3></div></div><p>第 16 轮后拼接 R₁₆∥L₁₆，再执行 IP⁻¹，得到密文 C。解密重复相同结构，但依次使用 K₁₆,…,K₁。</p></section>
+</div>
+
+<h2 id="example">四、标准测试向量的数值演示</h2>
+<p>采用经典的十六进制测试向量：</p>
+<div class="byte-sequence">P = 0123456789ABCDEF　　K = 133457799BBCDFF1</div>
+<ol class="calculation-list"><li>初始置换后：L₀ = CC00CCFF，R₀ = F0AAF0AA。</li><li>密钥调度生成第一轮子密钥：K₁ = 1B02EFFC7072。</li><li>第一轮函数输出：f(R₀,K₁) = 234AA9BB。</li><li>于是 L₁ = R₀ = F0AAF0AA，R₁ = L₀ ⊕ f(R₀,K₁) = EF4A6544。</li><li>继续完成其余 15 轮、左右交换和最终置换，得到：</li></ol>
+<div class="math-block green"><div class="math-line" data-tex="\operatorname{DES}_{K}(\mathtt{0123456789ABCDEF})=\mathtt{85E813540F0AB405}"></div><span class="math-note">这是用于核对实现的标准教学向量；它并不表示该密钥具有现实安全性。</span></div>
+
+<h2 id="security">五、安全性与实际使用</h2>
+<ul class="note-checklist"><li><strong>密钥过短：</strong>56 位密钥可被专用硬件穷举，DES 已被 NIST 撤销。</li><li><strong>分组过小：</strong>64 位分组在大量数据下更容易出现生日碰撞。</li><li><strong>3DES 也不是新系统选择：</strong>它通过重复 DES 延长密钥，但速度慢且仍受 64 位分组限制。</li><li><strong>现代替代：</strong>新系统应使用 AES，并配合 GCM 等经过设计的 Authenticated Encryption（认证加密）模式。</li></ul>
+
+<blockquote id="summary"><strong>一句话总结：</strong>DES 用 16 轮 Feistel 结构把 64 位明文变成密文，但 56 位有效密钥已经无法提供现实安全性。</blockquote>
+<details><summary>复习自测</summary><div><ol><li>DES 的 64 位输入密钥为什么只有 56 位真正参与计算？</li><li>Feistel 结构为什么允许加密和解密复用同一套结构？</li><li>轮函数 f 内部的 E、S-box 和 P 分别做什么？</li><li>为什么即使不考虑密钥长度，64 位分组也已偏小？</li></ol></div></details>
+<section class="references"><h2>参考文献</h2><ol class="reference-list"><li>NIST, <cite>FIPS PUB 46-3: Data Encryption Standard (DES)</cite>, 1999. <a href="https://csrc.nist.gov/pubs/fips/46-3/final" target="_blank" rel="noopener noreferrer">标准页面</a><span class="reference-kind">标准</span></li><li>NIST, “<cite>Withdrawal of FIPS 46-3, FIPS 74 and FIPS 81</cite>,” 2005. <a href="https://csrc.nist.gov/news/2005/withdrawal-of-fips-46-3-fips-74-and-fips-81" target="_blank" rel="noopener noreferrer">撤销公告</a><span class="reference-kind">安全状态</span></li></ol></section>
+</article>
+<footer class="article-footer"><a class="footer-back" href="../index.html">← 返回所有文章</a><span class="footer-brand">Frieren · Cryptography Notes</span></footer></main>
+<script defer src="../static/vendor/katex/katex.min.js"></script><script defer src="../static/js/theme.js"></script><script defer src="../static/js/posts-data.js"></script><script defer src="../static/js/learning-path.js"></script><script defer src="../static/js/note-page.js"></script>
+</body></html>

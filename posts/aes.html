@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="系统讲解 AES 的状态矩阵、轮变换、密钥扩展、AES-128 标准数值例子与安全使用方式。">
+<title>Advanced Encryption Standard（AES，高级加密标准） · Frieren</title>
+<link rel="icon" href="../HK.ico" type="image/x-icon"><link rel="canonical" href="https://blog.fp1022.dpdns.org/posts/aes.html">
+<link rel="stylesheet" href="../static/css/style.css"><link rel="stylesheet" href="../static/css/post.css"><link rel="stylesheet" href="../static/css/learning-note.css"><link rel="stylesheet" href="../static/css/algorithm-note.css"><link rel="stylesheet" href="../static/vendor/katex/katex.min.css">
+<script>(function(){let t;try{t=localStorage.getItem('frieren-theme')}catch(_){ }if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t})();</script>
+</head>
+<body data-share-title="Advanced Encryption Standard（AES，高级加密标准）">
+<div class="back-fixed"><a class="back-btn" href="../index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>返回</a></div>
+<div class="article-actions"><button class="article-action" id="share-button" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.5M8.2 13.2l7.6 4.5"/></svg><span>分享</span></button><button class="article-action" type="button" data-theme-toggle><svg class="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20 15.1A8.5 8.5 0 0 1 8.9 4a8.5 8.5 0 1 0 11.1 11.1z"/></svg><svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3.7"/><path d="M12 2v2.2M12 19.8V22M2 12h2.2M19.8 12H22"/></svg><span data-theme-label>深色</span></button></div><div class="action-toast" id="action-toast"></div>
+<div class="post-hero algorithm-hero"><div class="note-hero"><div class="hero-flow"><div class="hero-node"><strong>128-bit P</strong><span>明文状态矩阵</span></div><div class="hero-arrow">→</div><div class="hero-node"><strong>AddRoundKey</strong><span>初始轮密钥加</span></div><div class="hero-arrow">→</div><div class="hero-node"><strong>Nr Rounds</strong><span>字节替换与扩散</span></div><div class="hero-arrow">→</div><div class="hero-node"><strong>128-bit C</strong><span>密文分组</span></div></div></div><div class="hero-overlay"></div></div>
+<main class="article-wrap"><div class="article-meta"><span class="meta-tag">密码学 · 对称密码</span><span class="meta-date">2026-08-02</span><span class="meta-readtime">约 11 分钟</span></div>
+<h1 class="article-title">Advanced Encryption Standard（AES，高级加密标准）</h1><hr class="article-divider">
+<article class="article-content"><div class="note-kicker">CLASSICAL CRYPTO · AES</div>
+<p class="note-lead">AES（Advanced Encryption Standard，高级加密标准）是以 Rijndael 为基础的对称分组密码。它固定处理 128 位分组，并根据 128、192 或 256 位密钥执行 10、12 或 14 轮，是现代通用对称加密的核心算法。</p>
+<nav class="note-toc"><div class="note-toc-title">Contents</div><ol><li><a href="#info">基本信息与特征</a></li><li><a href="#flow">总体流程图</a></li><li><a href="#steps">逐步算法</a></li><li><a href="#example">AES-128 数值例子</a></li><li><a href="#security">正确使用方式</a></li><li><a href="#summary">一句话总结</a></li></ol></nav>
+
+<h2 id="info">一、算法基本信息及特征</h2>
+<div class="spec-grid"><div class="spec-item"><span>TYPE</span><strong>Symmetric Block Cipher（对称分组密码）</strong></div><div class="spec-item"><span>STRUCTURE</span><strong>Substitution–Permutation Network（替换—置换网络）</strong></div><div class="spec-item"><span>BLOCK SIZE</span><strong>固定 128 bit</strong></div><div class="spec-item"><span>KEY / ROUNDS</span><strong>128/192/256 bit；10/12/14 轮</strong></div><div class="spec-item"><span>STATE</span><strong>4 × 4 字节矩阵</strong></div><div class="spec-item"><span>STATUS</span><strong class="status-current">当前广泛使用</strong></div></div>
+<p>AES 不采用 Feistel 左右分组，而是让整个 128 位 State（状态）反复经过非线性替换和线性扩散。SubBytes 提供非线性，ShiftRows 与 MixColumns 让一个字节的变化扩散到更多位置，AddRoundKey 把密钥材料注入状态。</p>
+
+<h2 id="flow">二、详细算法流程图</h2>
+<div class="process-flow detail-flow" aria-label="AES 详细算法流程"><div class="process-step"><strong>输入与密钥扩展</strong><span>P 装入 4×4 字节状态；主密钥扩展为 Nr+1 个轮密钥</span></div><div class="process-arrow">→</div><div class="process-step"><strong>初始变换</strong><span>State ← State ⊕ RoundKey₀</span></div><div class="process-arrow">→</div><div class="process-step"><strong>中间 Nr−1 轮</strong><span>SubBytes → ShiftRows → MixColumns → AddRoundKey</span></div><div class="process-arrow">→</div><div class="process-step"><strong>最终第 Nr 轮</strong><span>SubBytes → ShiftRows → AddRoundKey，不做 MixColumns</span></div><div class="process-arrow">→</div><div class="process-step"><strong>输出密文</strong><span>按列读出 128 位 C；解密使用对应逆变换</span></div></div>
+
+<h2 id="steps">三、AES 的具体步骤</h2>
+<div class="protocol-stages">
+<section class="protocol-stage"><div class="stage-heading"><span class="stage-index">01</span><div><span class="stage-role">KEY EXPANSION</span><h3>扩展轮密钥</h3></div></div><p>Key Expansion（密钥扩展）利用 RotWord、SubWord、轮常量 Rcon 与异或，从主密钥生成 Nr+1 组 128 位轮密钥。AES-128 因而需要 11 组轮密钥。</p></section>
+<section class="protocol-stage"><div class="stage-heading"><span class="stage-index">02</span><div><span class="stage-role">INITIAL ROUND</span><h3>执行初始 AddRoundKey</h3></div></div><p>状态矩阵与第 0 轮密钥逐比特异或。AES 中唯一直接使用密钥的运算就是 AddRoundKey。</p></section>
+<section class="protocol-stage"><div class="stage-heading"><span class="stage-index">03</span><div><span class="stage-role">MAIN ROUNDS</span><h3>重复完整轮变换</h3></div></div><p><strong>SubBytes：</strong>每个字节经同一 S-box 非线性替换；<strong>ShiftRows：</strong>第 0–3 行分别循环左移 0–3 字节；<strong>MixColumns：</strong>每列在 GF(2⁸) 中乘固定可逆矩阵；最后执行 AddRoundKey。</p></section>
+<section class="protocol-stage"><div class="stage-heading"><span class="stage-index">04</span><div><span class="stage-role">FINAL ROUND</span><h3>完成不含 MixColumns 的末轮</h3></div></div><p>最后一轮只执行 SubBytes、ShiftRows 和 AddRoundKey。随后按列读出状态，形成 128 位密文。</p></section>
+</div>
+<div class="note-callout"><strong>疑问：AES-256 是否处理 256 位明文分组？</strong><p><strong>回答：</strong>不是。AES 的分组长度始终是 128 位；“128/192/256”指密钥长度，并分别决定 10/12/14 轮。</p></div>
+
+<h2 id="example">四、AES-128 标准数值演示</h2>
+<div class="byte-sequence">P = 00112233445566778899AABBCCDDEEFF</div><div class="byte-sequence">K = 000102030405060708090A0B0C0D0E0F</div>
+<p>初始 AddRoundKey 后：</p><div class="byte-sequence">00102030405060708090A0B0C0D0E0F0</div>
+<p>第一轮四个步骤依次得到：</p>
+<ol class="calculation-list"><li>SubBytes：<span class="byte-sequence">63CAB7040953D051CD60E0E7BA70E18C</span></li><li>ShiftRows：<span class="byte-sequence">6353E08C0960E104CD70B751BACAD0E7</span></li><li>MixColumns：<span class="byte-sequence">5F72641557F5BC92F7BE3B291DB9F91A</span></li><li>AddRoundKey：<span class="byte-sequence">89D810E8855ACE682D1843D8CB128FE4</span></li></ol>
+<p>继续完成第 2–9 轮和不含 MixColumns 的第 10 轮，最终得到：</p>
+<div class="math-block green"><div class="math-line" data-tex="\operatorname{AES\!\text{-}128}_{K}(P)=\mathtt{69C4E0D86A7B0430D8CDB78070B4C55A}"></div><span class="math-note">这是 FIPS 197 的已知答案测试向量，可用于检查字节排列和轮变换实现。</span></div>
+
+<h2 id="security">五、算法本身与使用模式必须一起考虑</h2>
+<ul class="note-checklist"><li><strong>AES 只加密单个分组：</strong>实际长消息必须使用工作模式，不能自行逐块调用。</li><li><strong>不要使用 ECB：</strong>相同明文块会产生相同密文块，泄露结构。</li><li><strong>优先使用 AEAD：</strong>AES-GCM 同时提供机密性与完整性，但同一密钥下 Nonce（随机数/唯一值）绝不能重复。</li><li><strong>实现安全同样重要：</strong>查表实现可能泄露缓存时序，应使用硬件指令或经过审计的恒定时间库。</li></ul>
+
+<blockquote id="summary"><strong>一句话总结：</strong>AES 通过字节替换、行移位、列混合和轮密钥异或，在固定 128 位分组上反复实现非线性与扩散。</blockquote>
+<details><summary>复习自测</summary><div><ol><li>AES-128、AES-192、AES-256 的分组长度是否不同？</li><li>SubBytes 和 MixColumns 分别主要提供什么性质？</li><li>最后一轮与中间轮相比少了哪个步骤？</li><li>为什么“使用 AES”并不自动意味着长消息已经安全加密？</li></ol></div></details>
+<section class="references"><h2>参考文献</h2><ol class="reference-list"><li>NIST, <cite>FIPS 197: Advanced Encryption Standard (AES)</cite>, updated 2023. <a href="https://csrc.nist.gov/pubs/fips/197/final" target="_blank" rel="noopener noreferrer">标准页面</a><span class="reference-kind">标准</span></li><li>NIST, <cite>SP 800-38D: Recommendation for Block Cipher Modes of Operation—GCM and GMAC</cite>, 2007. <a href="https://csrc.nist.gov/pubs/sp/800/38/d/final" target="_blank" rel="noopener noreferrer">标准页面</a><span class="reference-kind">工作模式</span></li></ol></section>
+</article><footer class="article-footer"><a class="footer-back" href="../index.html">← 返回所有文章</a><span class="footer-brand">Frieren · Cryptography Notes</span></footer></main>
+<script defer src="../static/vendor/katex/katex.min.js"></script><script defer src="../static/js/theme.js"></script><script defer src="../static/js/posts-data.js"></script><script defer src="../static/js/learning-path.js"></script><script defer src="../static/js/note-page.js"></script>
+</body></html>

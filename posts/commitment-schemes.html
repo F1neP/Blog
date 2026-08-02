@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="系统解释 Commitment Scheme 的 Commit/Open 两阶段、Correctness、Hiding、Binding、从 PRG 与 OWF 的构造、无公共参数交互，以及 Adaptive 与 Non-Adaptive 安全。">
+<title>Commitment Scheme：Hiding 与 Binding · Frieren</title>
+<link rel="icon" href="../HK.ico" type="image/x-icon">
+<link rel="canonical" href="https://blog.fp1022.dpdns.org/posts/commitment-schemes.html">
+<link rel="stylesheet" href="../static/css/style.css">
+<link rel="stylesheet" href="../static/css/post.css">
+<link rel="stylesheet" href="../static/css/learning-note.css">
+<link rel="stylesheet" href="../static/vendor/katex/katex.min.css">
+<script>
+  (function () {
+    let theme;
+    try { theme = localStorage.getItem('frieren-theme'); } catch (_) {}
+    if (theme !== 'light' && theme !== 'dark') {
+      theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.dataset.theme = theme;
+  })();
+</script>
+</head>
+<body>
+
+<div class="back-fixed">
+  <a class="back-btn" href="../index.html" aria-label="返回文章列表">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    返回
+  </a>
+</div>
+
+<div class="article-actions" aria-label="文章操作">
+  <button class="article-action" id="share-button" type="button" aria-label="分享这篇笔记" title="分享这篇笔记">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.5M8.2 13.2l7.6 4.5"/></svg>
+    <span>分享</span>
+  </button>
+  <button class="article-action" id="theme-button" type="button" data-theme-toggle aria-label="切换为深色模式" aria-pressed="false" title="切换为深色模式">
+    <svg class="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 15.1A8.5 8.5 0 0 1 8.9 4a8.5 8.5 0 1 0 11.1 11.1z"/></svg>
+    <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="3.7"/><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"/></svg>
+    <span data-theme-label>深色</span>
+  </button>
+</div>
+<div class="action-toast" id="action-toast" role="status" aria-live="polite"></div>
+
+<div class="post-hero" aria-hidden="true">
+  <div class="note-hero">
+    <div class="hero-flow">
+      <div class="hero-node"><strong>m,r</strong><span>消息与随机数</span></div>
+      <div class="hero-arrow">→</div>
+      <div class="hero-node"><strong>Commit</strong><span>先锁定</span></div>
+      <div class="hero-arrow">→</div>
+      <div class="hero-node"><strong>c</strong><span>承诺值</span></div>
+      <div class="hero-arrow">→</div>
+      <div class="hero-node"><strong>Open(m,r)</strong><span>后公开并验证</span></div>
+    </div>
+  </div>
+  <div class="hero-overlay"></div>
+</div>
+
+<main class="article-wrap">
+  <div class="article-meta anim anim-1">
+    <span class="meta-tag">零知识证明 · 承诺方案</span>
+    <span class="meta-date">2026-08-02</span>
+    <span class="meta-readtime">约 12 分钟</span>
+  </div>
+
+  <h1 class="article-title anim anim-2">Commitment Scheme：Hiding 与 Binding</h1>
+  <hr class="article-divider anim anim-3">
+
+  <nav class="lesson-nav anim anim-3" data-learning-nav data-post-id="5" aria-label="密码学学习顺序" hidden></nav>
+
+  <article class="article-content anim anim-4">
+    <div class="note-kicker">LEARNING NOTE · COMMITMENT SCHEMES</div>
+    <p class="note-lead">Commitment Scheme（承诺方案）让发送者先把一个秘密“锁定”，以后再公开：Hiding（隐藏性）保证接收者在打开前看不见内容，Binding（绑定性）保证发送者在承诺后不能反悔。</p>
+
+    <blockquote>一句话记忆：先承诺、后打开；Hiding 保证“看不见”，Binding 保证“改不了”。</blockquote>
+
+    <nav class="note-toc" aria-label="文章目录">
+      <div class="note-toc-title">Contents</div>
+      <ol>
+        <li><a href="#syntax">Commit / Open 两阶段</a></li>
+        <li><a href="#security">Correctness、Hiding、Binding</a></li>
+        <li><a href="#naor">从 PRG 构造承诺</a></li>
+        <li><a href="#setup">公共参数与适应性</a></li>
+        <li><a href="#zk-role">在零知识证明中的作用</a></li>
+        <li><a href="#memory">最终记忆框架</a></li>
+      </ol>
+    </nav>
+
+    <div class="note-callout">
+      <strong>本篇范围</strong>
+      <p>本文从 Commit Phase（承诺阶段）与 Open Phase（打开阶段）开始定义承诺方案，再介绍 Hiding、Binding、安全强度，以及从单向函数构造承诺的两种思路。Hiding 与 Binding 也会用于后续的零知识协议。</p>
+    </div>
+
+    <h2 id="syntax">一、Commitment Scheme 到底在做什么？</h2>
+
+    <p>最直观的比喻是“上锁的透明保险箱”。发送者 Alice 把写有答案的纸条放进去并上锁，先把保险箱交给 Bob；Bob 暂时看不到答案。等需要公开时，Alice 再交出钥匙。这里同时需要两件事：Bob 不能提前看，Alice 不能中途换纸条。</p>
+
+    <div class="round-card">
+      <div class="round-head"><strong>SEALED-BID AUCTION</strong><span>密封投标</span></div>
+      <div class="round-body">
+        <p>例如，Alice 先对报价 80 生成承诺值 c；所有参与者提交承诺后，再统一公开报价。Hiding 使其他人无法在截止前看到 Alice 的报价，Binding 则阻止 Alice 在看见竞争者报价后把 80 改成 81。</p>
+      </div>
+    </div>
+
+    <div class="fact-grid">
+      <div class="fact-card"><span>COMMIT PHASE</span><strong>先固定消息</strong><p>Alice 用消息 m 和随机数 r 计算承诺值 c，并先发送 c。</p></div>
+      <div class="fact-card"><span>WAITING PHASE</span><strong>隐藏但已绑定</strong><p>Bob 只持有 c，不能得知 m；Alice 也不应再改变 m。</p></div>
+      <div class="fact-card"><span>OPEN PHASE</span><strong>公开并验证</strong><p>Alice 发送 m 与 Opening Information（打开信息），Bob 验证它们是否与 c 一致。</p></div>
+    </div>
+
+    <p>在带可选公共参数的通用写法中，承诺方案可表示为三个算法：</p>
+
+    <div class="math-block">
+      <div class="math-line" data-tex="\mathsf{pp}\leftarrow\mathsf{Setup}(1^\lambda),\qquad (c,d)\leftarrow\mathsf{Commit}(\mathsf{pp},m;r),\qquad \mathsf{VerifyOpen}(\mathsf{pp},c,m,d)\in\{0,1\}"></div>
+      <span class="math-note">λ 是安全参数；c 是公开承诺值；d 是以后用于打开的辅助信息，常包含随机数 r。</span>
+    </div>
+
+    <div class="table-scroll">
+      <table class="symbol-table">
+        <thead><tr><th>符号</th><th>含义</th><th>谁知道</th></tr></thead>
+        <tbody>
+          <tr><td>λ</td><td>Security Parameter（安全参数），决定攻击难度与忽略量级。</td><td>公开</td></tr>
+          <tr><td>pp</td><td>Public Parameters（公共参数），某些方案需要，某些方案不需要。</td><td>公开</td></tr>
+          <tr><td>m</td><td>要承诺的消息或比特。</td><td>打开前通常仅发送者知道</td></tr>
+          <tr><td>r</td><td>每次承诺新采样的随机数。</td><td>打开前由发送者保留</td></tr>
+          <tr><td>c</td><td>Commitment（承诺值），不是明文消息本身。</td><td>公开</td></tr>
+          <tr><td>d</td><td>Decommitment / Opening Information（解承诺信息）。</td><td>打开时公开</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="security">二、三个核心性质分别保护什么？</h2>
+
+    <h3>1. Correctness（正确性）</h3>
+
+    <p>如果发送者诚实生成承诺并诚实打开，验证者应当接受：</p>
+
+    <div class="math-block green">
+      <div class="math-line" data-tex="\Pr\!\left[\mathsf{VerifyOpen}(\mathsf{pp},c,m,d)=1:(c,d)\leftarrow\mathsf{Commit}(\mathsf{pp},m)\right]\geq 1-\operatorname{negl}(\lambda)"></div>
+      <span class="math-note">有些方案具有完美正确性，此时接受概率就是 1。</span>
+    </div>
+
+    <h3>2. Hiding（隐藏性）</h3>
+
+    <p>接收者在打开前看到 c，也不能有效判断发送者承诺的是两个等长候选消息中的哪一个。对于任意概率多项式时间攻击者 A：</p>
+
+    <div class="math-block">
+      <div class="math-line" data-tex="\left|\Pr[A(\mathsf{pp},\mathsf{Commit}(\mathsf{pp},m_0))=1]-\Pr[A(\mathsf{pp},\mathsf{Commit}(\mathsf{pp},m_1))=1]\right|\leq\operatorname{negl}(\lambda)"></div>
+      <span class="math-note">Hiding 对抗的是“接收者提前偷看”。随机数 r 使同一个 m 在不同执行中产生不同的 c。</span>
+    </div>
+
+    <h3>3. Binding（绑定性）</h3>
+
+    <p>发送者提交 c 后，不能找到两个不同消息 m₀≠m₁ 以及两份打开信息 d₀、d₁，使同一个 c 可以被两种方式同时打开：</p>
+
+    <div class="math-block red">
+      <div class="math-line" data-tex="\Pr\!\left[\begin{array}{c}m_0\neq m_1\ \land\\ \mathsf{VerifyOpen}(\mathsf{pp},c,m_0,d_0)=1\ \land\\ \mathsf{VerifyOpen}(\mathsf{pp},c,m_1,d_1)=1\end{array}\right]\leq\operatorname{negl}(\lambda)"></div>
+      <span class="math-note">Binding 对抗的是“发送者事后反悔”。关键对象是同一个承诺值 c。</span>
+    </div>
+
+    <div class="table-scroll">
+      <table class="symbol-table">
+        <thead><tr><th>性质</th><th>限制谁</th><th>禁止的事情</th><th>常见强度</th></tr></thead>
+        <tbody>
+          <tr><td>Correctness</td><td>诚实双方</td><td>诚实生成的承诺却无法打开</td><td>Perfect（完美）/ Overwhelming（压倒性概率）</td></tr>
+          <tr><td>Hiding</td><td>恶意接收者</td><td>打开前识别消息</td><td>Computational（计算）/ Statistical（统计）/ Perfect（完美）</td></tr>
+          <tr><td>Binding</td><td>恶意发送者</td><td>同一承诺打开成两个消息</td><td>Computational（计算）/ Statistical（统计）/ Perfect（完美）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Computational、Statistical 与 Perfect 描述安全强度。以 Hiding 为例：Computational Hiding 只要求概率多项式时间接收者无法区分；Statistical Hiding 要求两种承诺分布的统计距离可忽略，即使接收者计算能力无限也几乎分不清；Perfect Hiding 则要求两种分布完全相同。Binding 也有对应层级，只是攻击方换成了发送者。</p>
+
+    <div class="note-callout">
+      <strong>Hiding 与 Binding 的分工</strong>
+      <p>Hiding 是接收者看不到“里面是什么”；Binding 是发送者不能改变“里面是什么”。二者面向的攻击方恰好相反。</p>
+    </div>
+
+    <h2 id="naor">三、从 Pseudorandom Generator 构造承诺</h2>
+
+    <p>Naor 的经典方案说明：只要存在 PRG（Pseudorandom Generator，伪随机生成器），就可以构造比特承诺。设：</p>
+
+    <div class="math-block">
+      <div class="math-line" data-tex="G:\{0,1\}^{n}\longrightarrow\{0,1\}^{3n}"></div>
+      <span class="math-note">G 把 n 比特种子扩展为 3n 比特，并使输出对高效算法而言看起来像均匀随机串。</span>
+    </div>
+
+    <div class="protocol-stages">
+      <section class="protocol-stage">
+        <div class="stage-heading"><span class="stage-index">01</span><div><span class="stage-role">RECEIVER → SENDER</span><h3>接收者先发送随机挑战</h3></div></div>
+        <p>Bob 均匀采样 R←{0,1}<sup>3n</sup>，把 R 发给 Alice。R 是本次协议中新鲜产生的消息，而不是预先存在的全局参数。</p>
+      </section>
+
+      <section class="protocol-stage">
+        <div class="stage-heading"><span class="stage-index">02</span><div><span class="stage-role">SENDER → RECEIVER</span><h3>Alice 承诺比特 b</h3></div></div>
+        <p>Alice 采样 s←{0,1}<sup>n</sup>，并发送：</p>
+        <div class="math-block gold"><div class="math-line" data-tex="c=\begin{cases}G(s),&b=0,\\G(s)\oplus R,&b=1.\end{cases}"></div></div>
+      </section>
+
+      <section class="protocol-stage">
+        <div class="stage-heading"><span class="stage-index">03</span><div><span class="stage-role">SENDER → RECEIVER</span><h3>Alice 打开承诺</h3></div></div>
+        <p>Alice 发送 (b,s)。Bob 重新计算 G(s)，检查 c=G(s)（当 b=0）或 c=G(s)⊕R（当 b=1）。</p>
+      </section>
+    </div>
+
+    <h3>为什么它具有 Hiding？</h3>
+
+    <p>当 b=0 时，c=G(s)；当 b=1 时，c=G(s)⊕R。由于 G(s) 对高效接收者看起来像均匀随机串，而均匀随机串与固定 R 异或后仍然均匀，因此两种情况下的 c 在计算上不可区分。</p>
+
+    <div class="math-block green">
+      <div class="math-line" data-tex="G(U_n)\approx_c U_{3n}\quad\Longrightarrow\quad G(U_n)\approx_c G(U_n)\oplus R"></div>
+      <span class="math-note">符号 ≈c 表示 Computational Indistinguishability（计算不可区分性）。</span>
+    </div>
+
+    <h3>为什么它具有 Binding？</h3>
+
+    <p>如果同一个 c 既能打开为 0 又能打开为 1，就必须存在 s₀、s₁，使：</p>
+
+    <div class="math-block red">
+      <div class="math-line" data-tex="G(s_0)=G(s_1)\oplus R\qquad\Longleftrightarrow\qquad R=G(s_0)\oplus G(s_1)"></div>
+    </div>
+
+    <p>所有种子对 (s₀,s₁) 最多产生 2<sup>2n</sup> 个这样的“坏 R”，但 R 的空间有 2<sup>3n</sup> 个元素。因此随机 R 落入坏集合的概率至多：</p>
+
+    <div class="math-block gold">
+      <div class="math-line" data-tex="\Pr[R\text{ is bad}]\leq\frac{2^{2n}}{2^{3n}}=2^{-n}"></div>
+      <span class="math-note">这是一条计数论证：对绝大多数 R，不可能找到两种不同打开方式。</span>
+    </div>
+
+    <p>Håstad–Impagliazzo–Levin–Luby 的结果给出 OWF（One-Way Function，单向函数）与 PRG 之间的基础联系，因此学习路径可以概括为：</p>
+
+    <div class="math-block green">
+      <div class="math-line" data-tex="\text{One-Way Function}\Longrightarrow\text{Pseudorandom Generator}\Longrightarrow\text{Commitment Scheme}"></div>
+    </div>
+
+    <h2 id="setup">四、无公共参数，以及 Adaptive / Non-Adaptive 在说什么？</h2>
+
+    <h3>1. “无公共参数”不等于“什么都不需要”</h3>
+
+    <div class="table-scroll">
+      <table class="symbol-table">
+        <thead><tr><th>模式</th><th>参数从哪里来</th><th>需要注意的信任</th></tr></thead>
+        <tbody>
+          <tr><td>CRS Model</td><td>CRS（Common Reference String，公共参考串）在协议开始前由所有人共同持有。</td><td>需要说明 CRS 如何生成，以及生成者是否可能保留陷门。</td></tr>
+          <tr><td>Fresh Challenge</td><td>Fresh Challenge（新鲜挑战）由接收者在本次交互中现场采样 R 并发送。</td><td>不需要可信第三方设置，但多了一轮交互，并要求 R 按协议随机产生。</td></tr>
+          <tr><td>Plain Model</td><td>Plain Model（朴素模型）没有额外可信设置。</td><td>仍然依赖计算假设、随机性、认证信道或交互结构。</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note-callout">
+      <strong>疑问：无可信设置是否只是因为使用了更强的密码学原语？</strong>
+      <p><strong>回答：</strong>只说对了一部分。方案仍然使用密码学原语实现承诺，但它通过接收者在协议中发送新鲜随机挑战，避免预先建立可信 CRS；相应代价是协议需要交互。</p>
+    </div>
+
+    <h3>2. Adaptive Security（自适应安全）与 Non-Adaptive Security（非自适应安全）</h3>
+
+    <p>这两个词本身不是某个算法，而是安全游戏中对攻击者能力的描述。必须先说明“它在适应性地选择什么”：目标消息、被腐化参与方、查询或待攻击承诺。</p>
+
+    <div class="fact-grid">
+      <div class="fact-card"><span>NON-ADAPTIVE</span><strong>先选目标</strong><p>攻击者在看到协议随机数、承诺或交互记录之前，就固定攻击对象与选择。</p></div>
+      <div class="fact-card"><span>ADAPTIVE</span><strong>边看边选</strong><p>攻击者可根据已经看到的参数与消息，再决定下一步攻击谁、查询什么。</p></div>
+      <div class="fact-card"><span>SECURITY IMPACT</span><strong>适应性通常更强</strong><p>若方案在合理的 Adaptive 模型下仍安全，它覆盖的现实攻击行为通常更广。</p></div>
+    </div>
+
+    <p>通俗地说，Non-Adaptive 攻击者像是在检查开始前就圈定一个保险箱；Adaptive 攻击者可以先观察一批保险箱及其标签，再挑最有利的一个下手。因此看到“自适应安全”时，第一问应当是：攻击者究竟被允许根据哪些信息改变哪项选择？</p>
+
+    <h2 id="zk-role">五、承诺方案为什么会出现在三染色证明里？</h2>
+
+    <p>在 Graph 3-Coloring Zero-Knowledge Protocol（三染色零知识协议）中，Prover 先随机置换三种颜色，再对每个顶点颜色分别承诺：</p>
+
+    <div class="math-block">
+      <div class="math-line" data-tex="C_v=\mathsf{Commit}\!\left(\pi(\mathsf{color}(v));r_v\right)"></div>
+    </div>
+
+    <div class="protocol-stages">
+      <section class="protocol-stage">
+        <div class="stage-heading"><span class="stage-index">H</span><div><span class="stage-role">HIDING</span><h3>Verifier 看不到整张着色</h3></div></div>
+        <p>验证者只要求打开随机选中边的两个端点。其他顶点的颜色仍由 Hiding 保护，因此不会泄露完整 witness。</p>
+      </section>
+      <section class="protocol-stage">
+        <div class="stage-heading"><span class="stage-index">B</span><div><span class="stage-role">BINDING</span><h3>Prover 不能见题改色</h3></div></div>
+        <p>所有顶点颜色必须在 Verifier 选择边之前承诺。Binding 阻止 Prover 在看到被抽查的边后，临时修改两个端点的颜色。</p>
+      </section>
+    </div>
+
+    <p>这说明承诺方案不是“加密的另一个名字”：它关心的是先固定、后公开的时间顺序，以及隐藏性与不可反悔性之间的组合。</p>
+
+    <h2 id="memory">六、最终记忆框架</h2>
+
+    <ul class="note-checklist">
+      <li><strong>Commit / Open：</strong>先发送 c 固定消息，之后发送 m 与 d 验证打开。</li>
+      <li><strong>Correctness：</strong>诚实生成的承诺应当能够诚实打开。</li>
+      <li><strong>Hiding：</strong>打开之前，恶意接收者不能有效识别被承诺的消息。</li>
+      <li><strong>Binding：</strong>恶意发送者不能把同一个 c 有效打开成两个不同消息。</li>
+      <li><strong>OWF → PRG → Commitment：</strong>单向函数可用于构造 PRG，PRG 再用于构造承诺。</li>
+      <li><strong>无可信设置：</strong>可能通过新鲜交互随机数实现，但并不表示没有假设、随机性或交互。</li>
+      <li><strong>Adaptive：</strong>攻击者可以根据已经看到的信息再选择目标；必须明确它适应性选择的对象。</li>
+    </ul>
+
+    <div class="note-callout">
+      <strong>下一课：Interactive Zero-Knowledge Proofs</strong>
+      <p>下一课将把 Commitment Scheme 用于三染色协议，并通过 Verifier View、Simulator 与二次剩余协议解释 Zero-Knowledge 如何实现。<a href="interactive-zk.html">继续阅读 →</a></p>
+    </div>
+
+    <blockquote><strong>一句话总结：</strong>承诺方案让发送者在不立即泄露消息的情况下先锁定消息，其中 Hiding 防止提前获知内容，Binding 防止事后反悔。</blockquote>
+
+    <details>
+      <summary>复习自测：我是否真正理解了承诺方案？</summary>
+      <div>
+        <ol>
+          <li>Commitment 与 Encryption 的目标为什么不同？</li>
+          <li>Hiding 和 Binding 分别约束恶意接收者还是恶意发送者？</li>
+          <li>同一个消息为什么需要用新鲜随机数生成承诺？</li>
+          <li>Naor 构造中 R 是公共参数还是接收者的本轮消息？</li>
+          <li>为什么 R 的长度取 3n 时，坏集合比例至多为 2<sup>−n</sup>？</li>
+          <li>“无公共参数”为什么不等于“无交互、无假设”？</li>
+          <li>看到 Adaptive Security 时，首先要追问哪件事？</li>
+        </ol>
+      </div>
+    </details>
+
+    <section class="references" aria-labelledby="references-title">
+      <h2 id="references-title">参考文献</h2>
+      <ol class="reference-list">
+        <li>
+          M. Naor, “<cite>Bit Commitment Using Pseudorandomness</cite>,”
+          <em>Journal of Cryptology</em>, vol. 4, no. 2, pp. 151–158, 1991.
+          DOI: <a href="https://doi.org/10.1007/BF00196774" target="_blank" rel="noopener noreferrer">10.1007/BF00196774</a>
+          <span class="reference-kind">原始论文</span>
+        </li>
+        <li>
+          J. Håstad, R. Impagliazzo, L. A. Levin, and M. Luby,
+          “<cite>A Pseudorandom Generator from any One-way Function</cite>,”
+          <em>SIAM Journal on Computing</em>, vol. 28, no. 4, pp. 1364–1396, 1999.
+          DOI: <a href="https://doi.org/10.1137/S0097539793244708" target="_blank" rel="noopener noreferrer">10.1137/S0097539793244708</a>
+          <span class="reference-kind">原始论文</span>
+        </li>
+        <li>
+          Y. Kalai, “<cite>Lecture 18: Zero-Knowledge Proofs II</cite>,”
+          MIT 6.5620/6.875/18.425, <em>Foundations of Cryptography</em>, 2025.
+          <a href="https://mit6875.github.io/LECNOTES/lec18.pdf" target="_blank" rel="noopener noreferrer">Lecture notes (PDF)</a>
+          <span class="reference-kind">课程讲义</span>
+        </li>
+        <li>
+          Y. Kalai, “<cite>Lecture 19: Non-Interactive Zero-Knowledge and Commitments</cite>,”
+          MIT 6.5620/6.875/18.425, <em>Foundations of Cryptography</em>, 2025.
+          <a href="https://mit6875.github.io/LECNOTES/lec19.pdf" target="_blank" rel="noopener noreferrer">Lecture notes (PDF)</a>；
+          <a href="https://mit6875.github.io/" target="_blank" rel="noopener noreferrer">Course website</a>
+          <span class="reference-kind">课程讲义</span>
+        </li>
+      </ol>
+    </section>
+  </article>
+
+  <footer class="article-footer">
+    <a class="footer-back" href="../index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>返回所有文章</a>
+    <span class="footer-brand">Frieren · Cryptography Notes</span>
+  </footer>
+</main>
+
+<script defer src="../static/vendor/katex/katex.min.js"></script>
+<script defer src="../static/js/theme.js"></script>
+<script defer src="../static/js/posts-data.js"></script>
+<script defer src="../static/js/learning-path.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-tex]').forEach(function (element) {
+      katex.render(element.dataset.tex, element, { displayMode: element.classList.contains('math-line'), throwOnError: false, strict: false });
+    });
+
+    const shareButton = document.getElementById('share-button');
+    const toast = document.getElementById('action-toast');
+    let toastTimer;
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () { toast.classList.remove('show'); }, 2200);
+    }
+    document.addEventListener('frieren-theme-change', function (event) {
+      showToast(event.detail.theme === 'dark' ? '已切换为深色模式' : '已切换为常规模式');
+    });
+    async function copyText(value) {
+      if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(value); return; }
+      const field = document.createElement('textarea');
+      field.value = value; field.setAttribute('readonly', ''); field.style.position = 'fixed'; field.style.opacity = '0';
+      document.body.appendChild(field); field.select();
+      const copied = document.execCommand('copy'); field.remove();
+      if (!copied) throw new Error('copy failed');
+    }
+    shareButton.addEventListener('click', async function () {
+      const canonical = document.querySelector('link[rel="canonical"]');
+      const url = canonical ? canonical.href : window.location.href;
+      const shareData = { title: document.title, text: 'Commitment Scheme：Hiding 与 Binding', url: url };
+      if (navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
+        try { await navigator.share(shareData); return; } catch (error) { if (error && error.name === 'AbortError') return; }
+      }
+      try { await copyText(url); showToast('公开链接已复制'); } catch (_) { window.prompt('复制下面的公开链接：', url); }
+    });
+  });
+</script>
+</body>
+</html>
