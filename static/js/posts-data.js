@@ -84,6 +84,19 @@ window.posts = [
     learningOrder: 5,
     learningLabel: "Sumcheck 协议"
   },
+{
+  id: 18,
+  file: "posts/gkr-protocol-notes.html",
+  title: "GKR Protocol：从电路执行到逐层多项式验证",
+  tag: "证明系统与零知识证明",
+  date: "2026-08-02",
+  excerpt: "从分层电路与 gate-value table 出发，依次理解 Multilinear Extension、wiring predicate 与逐层 Sumcheck 归约，并通过数值例子和示意图串联 GKR 的完整验证主线。",
+  readTime: "约 20 分钟",
+  cover: "",
+  emoji: "GKR",
+  learningOrder: 6,
+  learningLabel: "GKR 协议"
+},
   {
     id: 7,
     file: "posts/des.html",
@@ -148,7 +161,7 @@ window.posts = [
     excerpt: "从有限域上的椭圆曲线、点加法与标量乘法出发，演示小曲线密钥生成，并区分 ECC、ECDH、ECDSA 与 ECIES。",
     readTime: "约 12 分钟",
     cover: "",
-    emoji: "EC"
+    emoji: "ECC"
   },
   {
     id: 13,
@@ -204,16 +217,5 @@ window.posts = [
     readTime: "约 12 分钟",
     cover: "",
     emoji: "SM4"
-  },
-  {
-    id: 1,
-    file: "posts/post-1.html",
-    title: "测试 · Pan Feng",
-    tag: "日常",
-    date: "2025-03-25",
-    excerpt: "测试 · Pan Feng。",
-    readTime: "约 2分钟",
-    cover: "",
-    emoji: "⌘"
   }
 ];
