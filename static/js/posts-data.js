@@ -18,6 +18,17 @@
  */
 const posts = [
   {
+    id: 2,
+    file: "posts/sumcheck-protocol-notes.html",
+    title: "Sumcheck Protocol：从指数求和到随机点检查",
+    tag: "密码学",
+    date: "2026-07-31",
+    excerpt: "使用 T、P_i、M_i、r_i 的直观符号体系，以有限域 F_17 上的三变量多项式完整演示 Prover 与 Verifier 如何逐轮压缩求和声明。",
+    readTime: "约 12 分钟",
+    cover: "",
+    emoji: "∑"
+  },
+  {
     id: 1,
     file: "posts/post-1.html",
     title: "测试 · Pan Feng",

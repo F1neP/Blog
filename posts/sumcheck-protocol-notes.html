@@ -1,0 +1,1392 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Sumcheck Protocol 学习笔记：从指数规模求和到随机点检查，包含完整公式、Prover-Verifier 数据流与有限域数值例子。">
+<title>Sumcheck Protocol：从指数求和到随机点检查 · Frieren</title>
+<link rel="canonical" href="https://blog.fp1022.dpdns.org/posts/sumcheck-protocol-notes.html">
+<link rel="stylesheet" href="../static/css/style.css">
+<link rel="stylesheet" href="../static/css/post.css">
+<link rel="stylesheet" href="../static/vendor/katex/katex.min.css">
+<script>
+  (function () {
+    let theme;
+    try { theme = localStorage.getItem('frieren-theme'); } catch (_) {}
+    if (theme !== 'light' && theme !== 'dark') {
+      theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.dataset.theme = theme;
+  })();
+</script>
+<style>
+  :root {
+    --sc-blue: #315b70;
+    --sc-blue-soft: #dce8eb;
+    --sc-green: #557568;
+    --sc-green-soft: #e2ebe5;
+    --sc-gold: #a7782f;
+    --sc-gold-soft: #f2e9d8;
+    --sc-red: #9e4d3f;
+    --sc-red-soft: #f1dfda;
+    --sc-math: "KaTeX_Main", "Latin Modern Math", "STIX Two Math", "Cambria Math", serif;
+  }
+
+  html[data-theme="dark"] {
+    --sc-blue: #84b9cf;
+    --sc-blue-soft: #1b3039;
+    --sc-green: #8ebaa7;
+    --sc-green-soft: #20352c;
+    --sc-gold: #d5ab64;
+    --sc-gold-soft: #392f20;
+    --sc-red: #d88c7e;
+    --sc-red-soft: #3a2724;
+  }
+
+  .post-hero {
+    height: 48vh;
+    min-height: 390px;
+    background:
+      radial-gradient(circle at 18% 22%, rgba(196,98,45,.18), transparent 24%),
+      radial-gradient(circle at 82% 70%, rgba(49,91,112,.17), transparent 28%),
+      linear-gradient(145deg, #eee8de, #f7f4ef 55%, #e8e2d8);
+  }
+
+  .sumcheck-hero {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 4rem 1.5rem 6rem;
+  }
+
+  .hero-proof {
+    width: min(920px, 92vw);
+    display: grid;
+    grid-template-columns: repeat(7, auto);
+    align-items: center;
+    justify-content: center;
+    gap: clamp(.45rem, 1.7vw, 1.3rem);
+    color: var(--ink);
+  }
+
+  .hero-node {
+    min-width: 82px;
+    padding: .8rem 1rem;
+    border: 1px solid rgba(26,24,20,.13);
+    border-radius: 7px;
+    background: rgba(250,248,244,.78);
+    box-shadow: 0 12px 30px rgba(26,24,20,.06);
+    backdrop-filter: blur(7px);
+    text-align: center;
+  }
+
+  .hero-node strong {
+    display: block;
+    font-family: var(--serif);
+    font-size: 1.25rem;
+    font-weight: 400;
+  }
+
+  .hero-node strong sub {
+    position: relative;
+    bottom: -.22em;
+    vertical-align: baseline;
+    font-size: .64em;
+    line-height: 0;
+  }
+
+  .hero-node span {
+    display: block;
+    margin-top: .18rem;
+    font-family: var(--mono);
+    font-size: .64rem;
+    color: var(--ink-mute);
+  }
+
+  .hero-arrow {
+    font-family: var(--mono);
+    color: var(--accent);
+    font-size: 1.15rem;
+  }
+
+  .hero-proof .hero-node:last-child {
+    border-color: rgba(196,98,45,.35);
+    background: rgba(232,213,200,.72);
+  }
+
+  .article-wrap { max-width: 900px; }
+  .article-content { color: var(--ink-soft); }
+  .article-content > p { max-width: 760px; }
+
+  .sc-lead {
+    font-family: var(--serif);
+    font-size: 1.18rem;
+    line-height: 1.9;
+    color: var(--ink);
+  }
+
+  .sc-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .3rem .75rem;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: .7rem;
+    letter-spacing: .06em;
+    margin-bottom: 1rem;
+  }
+
+  .sc-toc {
+    margin: 2.2rem 0 3rem;
+    padding: 1.3rem 1.5rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(250,248,244,.68);
+  }
+
+  .sc-toc-title {
+    font-family: var(--mono);
+    font-size: .72rem;
+    color: var(--ink-mute);
+    letter-spacing: .11em;
+    text-transform: uppercase;
+    margin-bottom: .85rem;
+  }
+
+  .sc-toc ol {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .45rem 2rem;
+    padding-left: 1.2rem;
+  }
+
+  .sc-toc a {
+    color: var(--ink-soft);
+    text-decoration: none;
+    font-size: .88rem;
+  }
+
+  .sc-toc a:hover { color: var(--accent); }
+
+  .math-block {
+    overflow-x: auto;
+    margin: 1.35rem 0 1.8rem;
+    padding: 1.2rem 1.45rem 1.1rem;
+    border: 1px solid rgba(49,91,112,.18);
+    border-left: 4px solid var(--sc-blue);
+    border-radius: 6px;
+    background: rgba(244,248,249,.92);
+    box-shadow: 0 8px 22px rgba(31,48,55,.045);
+    color: #173947;
+    font-family: var(--sc-math);
+    font-size: 1.14rem;
+    line-height: 1.75;
+    text-align: center;
+    letter-spacing: 0;
+    scrollbar-width: thin;
+  }
+
+  .math-block.gold {
+    border-left-color: var(--sc-gold);
+    border-top-color: rgba(167,120,47,.16);
+    border-right-color: rgba(167,120,47,.16);
+    border-bottom-color: rgba(167,120,47,.16);
+    background: rgba(250,247,239,.94);
+    color: #5c421a;
+  }
+
+  .math-block.green {
+    border-left-color: var(--sc-green);
+    border-top-color: rgba(85,117,104,.16);
+    border-right-color: rgba(85,117,104,.16);
+    border-bottom-color: rgba(85,117,104,.16);
+    background: rgba(244,248,245,.94);
+    color: #27473b;
+  }
+
+  .math-line {
+    min-width: max-content;
+    white-space: nowrap;
+    font-family: var(--sc-math);
+    font-variant-numeric: lining-nums;
+    font-feature-settings: "kern" 1, "liga" 1;
+  }
+
+  .math-line .katex-display { margin: 0; }
+  .math-line .katex { font-size: 1.08em; }
+  .math-line .katex .mord.mathnormal { font-family: "KaTeX_Math", var(--sc-math); }
+
+  .math-line sub,
+  .math-line sup,
+  .math-inline sub,
+  .math-inline sup,
+  .message .payload sub,
+  .message .payload sup,
+  .transcript sub,
+  .transcript sup,
+  .symbol-table td:first-child sub,
+  .symbol-table td:first-child sup {
+    position: relative;
+    vertical-align: baseline;
+    font-size: .68em;
+    line-height: 0;
+  }
+
+  .math-line sub,
+  .math-inline sub,
+  .message .payload sub,
+  .transcript sub,
+  .symbol-table td:first-child sub { bottom: -.28em; }
+
+  .math-line sup,
+  .math-inline sup,
+  .message .payload sup,
+  .transcript sup,
+  .symbol-table td:first-child sup { top: -.52em; }
+
+  .math-inline {
+    white-space: nowrap;
+    font-family: var(--sc-math);
+    font-size: 1.04em;
+    color: var(--ink-soft);
+  }
+
+  .article-content sub,
+  .article-content sup {
+    font-family: var(--sc-math);
+    font-size: .72em;
+    line-height: 0;
+  }
+
+  .sum-op {
+    display: inline-grid;
+    grid-template-rows: 1.02em .82em;
+    place-items: center;
+    min-width: 2.4em;
+    margin: 0 .08em;
+    vertical-align: -.42em;
+    line-height: 1;
+  }
+
+  .sum-op.wide { min-width: 5.9em; }
+
+  .sum-symbol {
+    font-size: 1.5em;
+    line-height: .82;
+    font-weight: 400;
+  }
+
+  .sum-index {
+    font-family: var(--sc-math);
+    font-size: .56em;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .sum-index sub { bottom: -.18em; }
+
+  .frac {
+    display: inline-grid;
+    grid-template-rows: auto auto;
+    min-width: 1.7em;
+    margin: 0 .12em;
+    vertical-align: -.46em;
+    line-height: 1.08;
+    text-align: center;
+  }
+
+  .frac > span:first-child {
+    padding: 0 .18em .08em;
+    border-bottom: 1px solid currentColor;
+  }
+
+  .frac > span:last-child { padding: .08em .18em 0; }
+
+  .prob-index {
+    display: inline-block;
+    margin: 0 .22em 0 .08em;
+    vertical-align: -.55em;
+    font-size: .58em;
+    line-height: 1;
+  }
+
+  .prob-index sub { bottom: -.16em; }
+
+  .math-label {
+    font-family: var(--mono);
+    font-size: .64rem;
+    letter-spacing: .08em;
+    color: currentColor;
+    opacity: .64;
+  }
+
+  .math-note {
+    display: block;
+    margin-top: .65rem;
+    padding-top: .55rem;
+    border-top: 1px solid rgba(49,91,112,.12);
+    font-family: var(--body);
+    font-size: .78rem;
+    line-height: 1.65;
+    color: var(--ink-mute);
+    text-align: center;
+  }
+
+  .symbol-table,
+  .truth-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0 2rem;
+    font-size: .88rem;
+    background: rgba(250,248,244,.7);
+  }
+
+  .symbol-table th,
+  .symbol-table td,
+  .truth-table th,
+  .truth-table td {
+    padding: .72rem .85rem;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .symbol-table th,
+  .truth-table th {
+    font-family: var(--mono);
+    font-weight: 300;
+    color: var(--ink-mute);
+    font-size: .72rem;
+    letter-spacing: .06em;
+    background: var(--paper-warm);
+  }
+
+  .symbol-table td:first-child {
+    width: 22%;
+    font-family: var(--sc-math);
+    color: var(--sc-blue);
+    font-size: 1.08rem;
+    white-space: nowrap;
+  }
+
+  .truth-table th,
+  .truth-table td { text-align: center; }
+
+  .sc-callout {
+    margin: 1.7rem 0;
+    padding: 1.15rem 1.3rem;
+    border: 1px solid rgba(167,120,47,.25);
+    border-radius: 8px;
+    background: var(--sc-gold-soft);
+  }
+
+  .sc-callout strong {
+    display: block;
+    margin-bottom: .35rem;
+    color: #6c4c1e;
+    font-family: var(--mono);
+    font-size: .76rem;
+    letter-spacing: .06em;
+  }
+
+  .sc-callout p { margin: 0; font-size: .9rem; line-height: 1.75; }
+
+  .protocol-loop {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: .8rem;
+    margin: 1.6rem 0 2.3rem;
+  }
+
+  .loop-step {
+    position: relative;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper-card);
+    min-height: 126px;
+  }
+
+  .loop-step::after {
+    content: '→';
+    position: absolute;
+    top: 50%;
+    right: -.68rem;
+    transform: translateY(-50%);
+    color: var(--accent);
+    font-family: var(--mono);
+  }
+
+  .loop-step:last-child::after { display: none; }
+
+  .loop-no {
+    font-family: var(--mono);
+    font-size: .65rem;
+    color: var(--accent);
+    letter-spacing: .08em;
+  }
+
+  .loop-step h3 {
+    margin: .25rem 0 .45rem;
+    font-size: 1rem;
+  }
+
+  .loop-step p { margin: 0; font-size: .78rem; line-height: 1.65; }
+
+  .protocol-stages {
+    display: grid;
+    gap: 1.15rem;
+    margin: 2rem 0 2.3rem;
+  }
+
+  .protocol-stage {
+    position: relative;
+    overflow: hidden;
+    padding: 1.25rem 1.35rem .15rem;
+    border: 1px solid rgba(49,91,112,.16);
+    border-radius: 10px;
+    background: rgba(250,248,244,.72);
+    box-shadow: 0 10px 28px rgba(26,24,20,.035);
+  }
+
+  .protocol-stage::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: var(--sc-blue);
+    opacity: .8;
+  }
+
+  .protocol-stage:nth-child(2)::before { background: var(--sc-gold); }
+  .protocol-stage:nth-child(3)::before { background: var(--sc-green); }
+
+  .stage-heading {
+    display: flex;
+    align-items: center;
+    gap: .85rem;
+    margin-bottom: 1.05rem;
+    padding-bottom: .85rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .stage-index {
+    display: grid;
+    place-items: center;
+    width: 35px;
+    height: 35px;
+    flex: 0 0 35px;
+    border: 1px solid rgba(49,91,112,.2);
+    border-radius: 50%;
+    background: rgba(220,232,235,.62);
+    color: var(--sc-blue);
+    font-family: var(--mono);
+    font-size: .68rem;
+  }
+
+  .protocol-stage:nth-child(2) .stage-index {
+    border-color: rgba(167,120,47,.2);
+    background: rgba(242,233,216,.66);
+    color: var(--sc-gold);
+  }
+
+  .protocol-stage:nth-child(3) .stage-index {
+    border-color: rgba(85,117,104,.2);
+    background: rgba(226,235,229,.72);
+    color: var(--sc-green);
+  }
+
+  .stage-role {
+    display: block;
+    margin-bottom: .1rem;
+    color: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: .58rem;
+    letter-spacing: .1em;
+  }
+
+  .article-content .protocol-stage h3 {
+    margin: 0;
+    font-size: 1.12rem;
+  }
+
+  .protocol-stage > p { margin-bottom: 1.15rem; }
+  .protocol-stage .math-block { margin: 1rem 0 1.25rem; }
+
+  .round-card {
+    margin: 1.5rem 0 2.2rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    background: rgba(250,248,244,.78);
+  }
+
+  .round-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: .85rem 1.1rem;
+    background: var(--paper-warm);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .round-head strong {
+    font-family: var(--serif);
+    font-weight: 400;
+    color: var(--ink);
+  }
+
+  .round-head span {
+    font-family: var(--mono);
+    font-size: .68rem;
+    color: var(--accent);
+  }
+
+  .round-body { padding: 1rem 1.2rem 1.25rem; }
+  .round-body p { margin: 0 0 .75rem; font-size: .9rem; }
+  .round-body p:last-child { margin-bottom: 0; }
+
+  .message {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: .8rem;
+    padding: .62rem 0;
+    border-bottom: 1px dashed var(--line);
+    align-items: baseline;
+  }
+
+  .message:last-child { border-bottom: 0; }
+  .message .who {
+    font-family: var(--mono);
+    font-size: .69rem;
+    color: var(--sc-blue);
+  }
+
+  .message.verifier .who { color: var(--accent); }
+  .message .payload {
+    overflow-x: auto;
+    font-family: var(--sc-math);
+    font-size: 1.01rem;
+    line-height: 1.75;
+    font-variant-numeric: lining-nums;
+    color: var(--ink-soft);
+  }
+
+  .transcript {
+    margin: 1.5rem 0 2.3rem;
+    padding: 1.2rem 1.4rem;
+    border: 1px solid rgba(85,117,104,.25);
+    border-radius: 8px;
+    background: var(--sc-green-soft);
+    overflow-x: auto;
+    font-family: var(--sc-math);
+    font-size: 1.03rem;
+    line-height: 1.75;
+    font-variant-numeric: lining-nums;
+    color: #294a3e;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .fact-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: .9rem;
+    margin: 1.5rem 0 2.2rem;
+  }
+
+  .fact-card {
+    padding: 1.1rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper-card);
+  }
+
+  .fact-card strong {
+    display: block;
+    font-family: var(--serif);
+    font-weight: 400;
+    color: var(--ink);
+    margin-bottom: .35rem;
+  }
+
+  .fact-card span {
+    display: block;
+    font-family: var(--mono);
+    font-size: .78rem;
+    color: var(--accent);
+    margin-bottom: .35rem;
+  }
+
+  .fact-card p { margin: 0; font-size: .78rem; line-height: 1.65; }
+
+  .sc-checklist {
+    list-style: none;
+    margin: 1.2rem 0 2rem;
+  }
+
+  .sc-checklist li {
+    position: relative;
+    padding: .65rem 0 .65rem 1.8rem;
+    border-bottom: 1px solid var(--line);
+    font-size: .9rem;
+  }
+
+  .sc-checklist li::before {
+    content: '✓';
+    position: absolute;
+    left: .15rem;
+    color: var(--sc-green);
+    font-family: var(--mono);
+  }
+
+  details {
+    margin: 1.2rem 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(250,248,244,.65);
+  }
+
+  summary {
+    padding: .9rem 1.1rem;
+    cursor: pointer;
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: .78rem;
+  }
+
+  details > div { padding: 0 1.1rem 1.1rem; }
+
+  .references {
+    margin-top: 3.4rem;
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .references h2 {
+    margin-top: 0;
+    margin-bottom: 1.25rem;
+  }
+
+  .reference-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: references;
+  }
+
+  .reference-list li {
+    position: relative;
+    counter-increment: references;
+    margin: 0 0 .9rem;
+    padding: 0 0 .9rem 2.65rem;
+    border-bottom: 1px solid rgba(26,24,20,.08);
+    color: var(--ink-soft);
+    font-family: var(--serif);
+    font-size: .84rem;
+    line-height: 1.72;
+  }
+
+  .reference-list li::before {
+    content: '[' counter(references) ']';
+    position: absolute;
+    left: 0;
+    top: .02rem;
+    width: 2rem;
+    color: var(--sc-blue);
+    font-family: var(--mono);
+    font-size: .72rem;
+  }
+
+  .reference-list cite { color: var(--ink); }
+
+  .reference-list a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(196,98,45,.25);
+    overflow-wrap: anywhere;
+  }
+
+  .reference-list a:hover { border-bottom-color: var(--accent); }
+
+  .reference-kind {
+    display: inline-block;
+    margin-left: .45rem;
+    padding: .08rem .4rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: .58rem;
+    letter-spacing: .04em;
+    vertical-align: .08rem;
+  }
+
+  .article-actions {
+    position: fixed;
+    top: 1.6rem;
+    right: 1.8rem;
+    z-index: 100;
+    display: flex;
+    gap: .5rem;
+  }
+
+  .article-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .42rem;
+    min-height: 38px;
+    padding: .45rem .78rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(247,244,239,.88);
+    backdrop-filter: blur(10px);
+    color: var(--ink-soft);
+    font-family: var(--mono);
+    font-size: .72rem;
+    font-weight: 300;
+    cursor: pointer;
+    transition: background .2s ease, color .2s ease, border-color .2s ease, transform .2s ease;
+  }
+
+  .article-action:hover {
+    transform: translateY(-1px);
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  .article-action:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .article-action[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  .article-action svg {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+  }
+
+  .action-toast {
+    position: fixed;
+    top: 4.75rem;
+    right: 1.8rem;
+    z-index: 110;
+    max-width: min(310px, calc(100vw - 2rem));
+    padding: .55rem .8rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: rgba(26,24,20,.92);
+    color: var(--paper);
+    box-shadow: 0 10px 28px rgba(26,24,20,.15);
+    font-family: var(--mono);
+    font-size: .68rem;
+    line-height: 1.55;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-5px);
+    transition: opacity .2s ease, transform .2s ease;
+  }
+
+  .action-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  html[data-theme="dark"] .post-hero {
+    background:
+      radial-gradient(circle at 18% 22%, rgba(225,138,87,.12), transparent 25%),
+      radial-gradient(circle at 82% 70%, rgba(132,185,207,.12), transparent 30%),
+      linear-gradient(145deg, #181919, #202120 55%, #171818);
+  }
+
+  html[data-theme="dark"] .hero-overlay {
+    background: linear-gradient(to bottom, rgba(19,20,20,0) 35%, rgba(19,20,20,.98) 100%);
+  }
+
+  html[data-theme="dark"] .hero-node {
+    border-color: rgba(255,255,255,.12);
+    background: rgba(31,32,31,.82);
+    box-shadow: 0 12px 32px rgba(0,0,0,.22);
+  }
+
+  html[data-theme="dark"] .hero-proof .hero-node:last-child {
+    border-color: rgba(225,138,87,.32);
+    background: rgba(57,39,30,.82);
+  }
+
+  html[data-theme="dark"] .sc-toc,
+  html[data-theme="dark"] .symbol-table,
+  html[data-theme="dark"] .truth-table,
+  html[data-theme="dark"] details {
+    background: rgba(32,33,32,.68);
+  }
+
+  html[data-theme="dark"] .math-block {
+    border-color: rgba(132,185,207,.24);
+    border-left-color: var(--sc-blue);
+    background: #19292f;
+    color: #d9eef6;
+    box-shadow: 0 8px 24px rgba(0,0,0,.16);
+  }
+
+  html[data-theme="dark"] .math-block.gold {
+    border-color: rgba(213,171,100,.23);
+    border-left-color: var(--sc-gold);
+    background: #31291d;
+    color: #f2dfba;
+  }
+
+  html[data-theme="dark"] .math-block.green {
+    border-color: rgba(142,186,167,.22);
+    border-left-color: var(--sc-green);
+    background: #1d3028;
+    color: #d9eee5;
+  }
+
+  html[data-theme="dark"] .math-note { border-top-color: rgba(255,255,255,.1); }
+
+  html[data-theme="dark"] .sc-callout {
+    border-color: rgba(213,171,100,.24);
+    background: var(--sc-gold-soft);
+  }
+
+  html[data-theme="dark"] .sc-callout strong { color: var(--sc-gold); }
+
+  html[data-theme="dark"] .protocol-stage {
+    border-color: rgba(255,255,255,.11);
+    background: rgba(31,32,31,.82);
+    box-shadow: 0 10px 30px rgba(0,0,0,.18);
+  }
+
+  html[data-theme="dark"] .stage-index {
+    border-color: rgba(132,185,207,.25);
+    background: var(--sc-blue-soft);
+  }
+
+  html[data-theme="dark"] .protocol-stage:nth-child(2) .stage-index {
+    border-color: rgba(213,171,100,.25);
+    background: var(--sc-gold-soft);
+  }
+
+  html[data-theme="dark"] .protocol-stage:nth-child(3) .stage-index {
+    border-color: rgba(142,186,167,.25);
+    background: var(--sc-green-soft);
+  }
+
+  html[data-theme="dark"] .round-card {
+    background: rgba(31,32,31,.82);
+  }
+
+  html[data-theme="dark"] .transcript {
+    border-color: rgba(142,186,167,.25);
+    background: var(--sc-green-soft);
+    color: #d9eee5;
+  }
+
+  html[data-theme="dark"] .reference-list li {
+    border-bottom-color: rgba(255,255,255,.08);
+  }
+
+  html[data-theme="dark"] .reference-list a {
+    border-bottom-color: rgba(225,138,87,.35);
+  }
+
+  html[data-theme="dark"] .article-action {
+    background: rgba(27,28,28,.9);
+    border-color: rgba(255,255,255,.14);
+    color: var(--ink-soft);
+  }
+
+  html[data-theme="dark"] .article-action:hover {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--paper);
+  }
+
+  html[data-theme="dark"] .action-toast {
+    border-color: rgba(255,255,255,.16);
+    background: rgba(238,234,226,.96);
+    color: #171817;
+    box-shadow: 0 10px 30px rgba(0,0,0,.3);
+  }
+
+  @media (max-width: 760px) {
+    .post-hero { min-height: 460px; }
+    .hero-proof {
+      grid-template-columns: 1fr 28px 1fr;
+      width: min(480px, 94vw);
+    }
+    .hero-proof .hero-node:nth-of-type(3) { grid-column: 1; }
+    .hero-proof .hero-arrow:nth-of-type(4) { grid-column: 2; }
+    .hero-proof .hero-node:nth-of-type(5) { grid-column: 3; }
+    .protocol-loop { grid-template-columns: 1fr 1fr; }
+    .loop-step:nth-child(2)::after { display: none; }
+    .fact-grid { grid-template-columns: 1fr; }
+    .sc-toc ol { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 520px) {
+    .back-fixed {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+    }
+    .article-wrap { padding-left: 1.15rem; padding-right: 1.15rem; }
+    .protocol-loop { grid-template-columns: 1fr; }
+    .loop-step::after { display: none; }
+    .message { grid-template-columns: 82px 1fr; gap: .5rem; }
+    .math-block {
+      margin-left: -.15rem;
+      margin-right: -.15rem;
+      padding: 1rem .85rem .92rem;
+      font-size: 1rem;
+    }
+    .sum-op { min-width: 2.15em; }
+    .sum-op.wide { min-width: 5.35em; }
+    .message .payload { font-size: .94rem; }
+    .symbol-table { font-size: .8rem; }
+    .article-actions { position: absolute; top: 1rem; right: 1rem; }
+    .article-action {
+      width: 38px;
+      min-width: 38px;
+      padding: 0;
+    }
+    .article-action span { display: none; }
+    .action-toast { top: 4rem; right: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="back-fixed">
+  <a class="back-btn" href="../index.html" aria-label="返回文章列表">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+      <path d="M19 12H5M12 5l-7 7 7 7"/>
+    </svg>
+    返回
+  </a>
+</div>
+
+<div class="article-actions" aria-label="文章操作">
+  <button class="article-action" id="share-button" type="button" aria-label="分享这篇笔记" title="分享这篇笔记">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+      <circle cx="18" cy="5" r="2.5"/>
+      <circle cx="6" cy="12" r="2.5"/>
+      <circle cx="18" cy="19" r="2.5"/>
+      <path d="M8.2 10.8l7.6-4.5M8.2 13.2l7.6 4.5"/>
+    </svg>
+    <span>分享</span>
+  </button>
+  <button class="article-action" id="theme-button" type="button" data-theme-toggle aria-label="切换为深色模式" aria-pressed="false" title="切换为深色模式">
+    <svg class="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+      <path d="M20 15.1A8.5 8.5 0 0 1 8.9 4a8.5 8.5 0 1 0 11.1 11.1z"/>
+    </svg>
+    <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+      <circle cx="12" cy="12" r="3.7"/><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"/>
+    </svg>
+    <span data-theme-label>深色</span>
+  </button>
+</div>
+<div class="action-toast" id="action-toast" role="status" aria-live="polite"></div>
+
+<div class="post-hero" aria-hidden="true">
+  <div class="sumcheck-hero">
+    <div class="hero-proof">
+      <div class="hero-node"><strong>T</strong><span>全局求和声明</span></div>
+      <div class="hero-arrow">→</div>
+      <div class="hero-node"><strong>M<sub>1</sub>(r<sub>1</sub>)</strong><span>固定第 1 个变量</span></div>
+      <div class="hero-arrow">→</div>
+      <div class="hero-node"><strong>M<sub>i</sub>(r<sub>i</sub>)</strong><span>逐轮压缩</span></div>
+      <div class="hero-arrow">→</div>
+      <div class="hero-node"><strong>f(r)</strong><span>随机点检查</span></div>
+    </div>
+  </div>
+  <div class="hero-overlay"></div>
+</div>
+
+<main class="article-wrap">
+  <div class="article-meta anim anim-1">
+    <span class="meta-tag">密码学 · 交互式证明</span>
+    <span class="meta-date">2026-07-31</span>
+    <span class="meta-readtime">约 12 分钟</span>
+  </div>
+
+  <h1 class="article-title anim anim-2">Sumcheck Protocol：从指数求和到随机点检查</h1>
+  <hr class="article-divider anim anim-3">
+
+  <article class="article-content anim anim-4">
+    <div class="sc-kicker">LEARNING NOTE · SUMCHECK</div>
+    <p class="sc-lead">Sumcheck Protocol（求和检查协议）通过“部分和多项式、一致性检查和随机挑战”，把一个包含 2<sup>m</sup> 项的多元多项式求和声明，逐轮压缩为最后一个随机点上的函数求值。</p>
+
+    <blockquote>它不是让 Verifier 重新计算整个和，而是让 Prover 逐轮解释部分和；Verifier 每轮随机固定一个变量，最终只亲自检查一个点。</blockquote>
+
+    <nav class="sc-toc" aria-label="文章目录">
+      <div class="sc-toc-title">Contents</div>
+      <ol>
+        <li><a href="#goal">协议目标与符号</a></li>
+        <li><a href="#protocol">通用协议流程</a></li>
+        <li><a href="#example">三变量数值例子</a></li>
+        <li><a href="#soundness">为什么随机检查可信</a></li>
+        <li><a href="#complexity">轮数与复杂度</a></li>
+        <li><a href="#triangle">数三角形应用</a></li>
+      </ol>
+    </nav>
+
+    <h2 id="goal">一、协议到底要证明什么？</h2>
+
+    <p>设 <em>f</em> 是定义在有限域上的 <em>m</em> 元多项式，其中 <em>m</em> 表示变量数量：</p>
+
+    <div class="math-block">
+      <div class="math-line" data-tex="f : \mathbb{F}^{m} \longrightarrow \mathbb{F}"></div>
+    </div>
+
+    <p>Prover 声称下面的布尔超立方体求和结果等于 <em>T</em>。字母 <em>T</em> 可以记作 Total（总和）：</p>
+
+    <div class="math-block gold">
+      <div class="math-line" data-tex="T := \sum_{b_1\in\{0,1\}} \sum_{b_2\in\{0,1\}} \cdots \sum_{b_m\in\{0,1\}} f(b_1,b_2,\ldots,b_m)"></div>
+      <span class="math-note">每个变量有 0、1 两种取值，因此总共有 2<sup>m</sup> 个求和点。</span>
+    </div>
+
+    <div class="sc-callout">
+      <strong>符号记忆</strong>
+      <p><em>T</em> 是 Total（总和声明），<em>P</em> 是真实的 Partial sum（部分和），<em>M</em> 是 Prover 发出的 Message（消息），<em>r</em> 是 Random challenge（随机挑战）。</p>
+    </div>
+
+    <table class="symbol-table">
+      <thead><tr><th>符号</th><th>含义</th></tr></thead>
+      <tbody>
+        <tr><td>𝔽</td><td>有限域；所有运算和随机挑战都在其中进行。</td></tr>
+        <tr><td>m</td><td>多项式 <em>f</em> 的变量数量，也是 Sumcheck 的轮数。</td></tr>
+        <tr><td>T</td><td>Prover 声称的最终求和结果（Total）。</td></tr>
+        <tr><td>P<sub>i</sub>(X)</td><td>第 <em>i</em> 轮真实的部分和多项式（Partial sum）。</td></tr>
+        <tr><td>M<sub>i</sub>(X)</td><td>Prover 在第 <em>i</em> 轮实际发送的消息多项式（Message）。</td></tr>
+        <tr><td>r<sub>i</sub></td><td>Verifier 收到 M<sub>i</sub> 后才产生的随机挑战（Random challenge）。</td></tr>
+        <tr><td>d</td><td>多项式对单个变量的最高次数；决定每轮发送多少系数和可靠性误差。</td></tr>
+      </tbody>
+    </table>
+
+    <div class="math-block green">
+      <div class="math-line" data-tex="P_i(X)\;\text{是真实部分和}\qquad\cdot\qquad M_i(X)\;\text{是消息多项式}"></div>
+      <span class="math-note">诚实情况下 M<sub>i</sub>=P<sub>i</sub>；Verifier 的任务是逐轮检验消息能否与前一轮声明衔接。</span>
+    </div>
+
+    <h2 id="protocol">二、通用协议流程</h2>
+
+    <div class="protocol-loop">
+      <div class="loop-step"><span class="loop-no">STEP 01</span><h3>发送消息多项式</h3><p>Prover 发送关于当前形式变量 X 的一元多项式 M<sub>i</sub>(X)。</p></div>
+      <div class="loop-step"><span class="loop-no">STEP 02</span><h3>检查一致性</h3><p>Verifier 检查 M<sub>i</sub>(0)+M<sub>i</sub>(1) 是否等于上一轮声明。</p></div>
+      <div class="loop-step"><span class="loop-no">STEP 03</span><h3>随机固定</h3><p>Verifier 随机选择 r<sub>i</sub>∈𝔽，把当前变量 X 固定为 r<sub>i</sub>。</p></div>
+      <div class="loop-step"><span class="loop-no">STEP 04</span><h3>继续降维</h3><p>把 M<sub>i</sub>(r<sub>i</sub>) 作为下一轮需要继续证明的新声明。</p></div>
+    </div>
+
+    <div class="protocol-stages">
+      <section class="protocol-stage">
+        <header class="stage-heading">
+          <span class="stage-index">01</span>
+          <div><span class="stage-role">INITIAL ROUND</span><h3>第 1 轮</h3></div>
+        </header>
+        <p>真实的第一轮部分和多项式为：</p>
+        <div class="math-block">
+          <div class="math-line" data-tex="P_1(X)=\sum_{b_2,\ldots,b_m\in\{0,1\}} f(X,b_2,\ldots,b_m)"></div>
+        </div>
+        <p>Prover 发送 M<sub>1</sub>(X)，Verifier 检查它在 X=0 和 X=1 时的和：</p>
+        <div class="math-block gold"><div class="math-line" data-tex="M_1(0)+M_1(1)=T"></div></div>
+        <p>检查通过后，Verifier 选择 r<sub>1</sub>←𝔽，并把 M<sub>1</sub>(r<sub>1</sub>) 作为下一轮声明。第一个变量因此不再在 {0,1} 上求和，而是被随机固定为 r<sub>1</sub>。</p>
+      </section>
+
+      <section class="protocol-stage">
+        <header class="stage-heading">
+          <span class="stage-index">02</span>
+          <div><span class="stage-role">REPEATED ROUND</span><h3>一般的第 i 轮</h3></div>
+        </header>
+        <div class="math-block">
+          <div class="math-line" data-tex="\begin{aligned}P_i(X)&=\sum_{b_{i+1},\ldots,b_m\in\{0,1\}}\\[-2pt]&\quad f(r_1,\ldots,r_{i-1},X,b_{i+1},\ldots,b_m)\end{aligned}"></div>
+        </div>
+        <p>Prover 发送 M<sub>i</sub>(X)，Verifier 检查相邻两轮的声明能否衔接：</p>
+        <div class="math-block gold"><div class="math-line" data-tex="M_i(0)+M_i(1)=M_{i-1}(r_{i-1})"></div></div>
+        <p>然后 Verifier 选择 r<sub>i</sub>←𝔽，并把当前声明更新为 C<sub>i</sub>=M<sub>i</sub>(r<sub>i</sub>)。</p>
+      </section>
+
+      <section class="protocol-stage">
+        <header class="stage-heading">
+          <span class="stage-index">03</span>
+          <div><span class="stage-role">FINAL ROUND</span><h3>最后一轮</h3></div>
+        </header>
+        <p>所有前置变量都已经固定，因此最后的真实多项式为：</p>
+        <div class="math-block"><div class="math-line" data-tex="P_m(X)=f(r_1,\ldots,r_{m-1},X)"></div></div>
+        <p>Verifier 选择最后一个随机数 r<sub>m</sub> 后，终于可以亲自计算一次 f，并检查：</p>
+        <div class="math-block green"><div class="math-line" data-tex="M_m(r_m)=f(r_1,\ldots,r_m)"></div></div>
+      </section>
+    </div>
+
+    <p>整个证明链可以浓缩为：</p>
+
+    <div class="transcript"><span data-tex="T\longrightarrow M_1(r_1)\longrightarrow M_2(r_2)\longrightarrow\cdots\longrightarrow M_m(r_m)\longrightarrow f(r_1,\ldots,r_m)"></span></div>
+
+    <h2 id="example">三、完整数值例子：𝔽<sub>17</sub> 上的三变量多项式</h2>
+
+    <p>取有限域 𝔽<sub>17</sub>，所有运算都模 17；取 m=3，并定义：</p>
+
+    <div class="math-block"><div class="math-line" data-tex="f(x_1,x_2,x_3)=x_1+2x_2+3x_3+x_1x_2\pmod{17}"></div></div>
+
+    <p>三个布尔变量共有 2³=8 个输入点：</p>
+
+    <table class="truth-table">
+      <thead><tr><th>b<sub>1</sub></th><th>b<sub>2</sub></th><th>b<sub>3</sub></th><th>f(b<sub>1</sub>,b<sub>2</sub>,b<sub>3</sub>)</th></tr></thead>
+      <tbody>
+        <tr><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+        <tr><td>0</td><td>0</td><td>1</td><td>3</td></tr>
+        <tr><td>0</td><td>1</td><td>0</td><td>2</td></tr>
+        <tr><td>0</td><td>1</td><td>1</td><td>5</td></tr>
+        <tr><td>1</td><td>0</td><td>0</td><td>1</td></tr>
+        <tr><td>1</td><td>0</td><td>1</td><td>4</td></tr>
+        <tr><td>1</td><td>1</td><td>0</td><td>4</td></tr>
+        <tr><td>1</td><td>1</td><td>1</td><td>7</td></tr>
+      </tbody>
+    </table>
+
+    <div class="math-block gold">
+      <div class="math-line" data-tex="T=0+3+2+5+1+4+4+7=26\equiv 9\pmod{17}"></div>
+    </div>
+
+    <p>因此 Prover 首先声称总和 T=9。</p>
+
+    <section class="round-card">
+      <div class="round-head"><strong>第 1 轮</strong><span>固定变量 x<sub>1</sub></span></div>
+      <div class="round-body">
+        <p>对 b<sub>2</sub>、b<sub>3</sub> 求和，得到：</p>
+        <div class="math-block"><div class="math-line" data-tex="P_1(X)=\sum_{b_2,b_3\in\{0,1\}}f(X,b_2,b_3)=6X+10"></div></div>
+        <div class="message"><span class="who">P → V</span><span class="payload"><span data-tex="M_1(X)=6X+10"></span>，系数消息为 <span data-tex="(10,6)"></span></span></div>
+        <div class="message verifier"><span class="who">V CHECK</span><span class="payload" data-tex="M_1(0)+M_1(1)=10+16=26\equiv9=T"></span></div>
+        <div class="message verifier"><span class="who">V → P</span><span class="payload">随机挑战 <span data-tex="r_1=2"></span></span></div>
+        <div class="message verifier"><span class="who">NEW CLAIM</span><span class="payload"><span data-tex="M_1(2)=22\equiv5"></span>，即 <span data-tex="\sum_{b_2,b_3\in\{0,1\}}f(2,b_2,b_3)=5"></span></span></div>
+      </div>
+    </section>
+
+    <section class="round-card">
+      <div class="round-head"><strong>第 2 轮</strong><span>固定变量 x<sub>2</sub></span></div>
+      <div class="round-body">
+        <p>代入 r<sub>1</sub>=2，只对 b<sub>3</sub> 求和：</p>
+        <div class="math-block"><div class="math-line" data-tex="P_2(X)=\sum_{b_3\in\{0,1\}}f(2,X,b_3)=7+8X"></div></div>
+        <div class="message"><span class="who">P → V</span><span class="payload"><span data-tex="M_2(X)=7+8X"></span>，系数消息为 <span data-tex="(7,8)"></span></span></div>
+        <div class="message verifier"><span class="who">V CHECK</span><span class="payload" data-tex="M_2(0)+M_2(1)=7+15=22\equiv5=M_1(2)"></span></div>
+        <div class="message verifier"><span class="who">V → P</span><span class="payload">随机挑战 <span data-tex="r_2=4"></span></span></div>
+        <div class="message verifier"><span class="who">NEW CLAIM</span><span class="payload"><span data-tex="M_2(4)=39\equiv5"></span>，即 <span data-tex="\sum_{b_3\in\{0,1\}}f(2,4,b_3)=5"></span></span></div>
+      </div>
+    </section>
+
+    <section class="round-card">
+      <div class="round-head"><strong>第 3 轮</strong><span>固定最后变量 x<sub>3</sub></span></div>
+      <div class="round-body">
+        <p>此时没有剩余求和变量：</p>
+        <div class="math-block"><div class="math-line" data-tex="P_3(X)=f(2,4,X)=1+3X"></div></div>
+        <div class="message"><span class="who">P → V</span><span class="payload"><span data-tex="M_3(X)=1+3X"></span>，系数消息为 <span data-tex="(1,3)"></span></span></div>
+        <div class="message verifier"><span class="who">V CHECK</span><span class="payload" data-tex="M_3(0)+M_3(1)=1+4=5=M_2(4)"></span></div>
+        <div class="message verifier"><span class="who">V RANDOM</span><span class="payload">选择 <span data-tex="r_3=6"></span></span></div>
+        <div class="message verifier"><span class="who">FINAL CHECK</span><span class="payload"><span data-tex="M_3(6)=19\equiv2"></span>，且 <span data-tex="f(2,4,6)=36\equiv2"></span>，因此接受</span></div>
+      </div>
+    </section>
+
+    <h3>完整交互记录</h3>
+
+    <div class="transcript"><span data-tex="T=9\to M_1=(10,6)\to r_1=2\to M_2=(7,8)\to r_2=4\to M_3=(1,3)\to r_3=6\to f(2,4,6)=2"></span></div>
+
+    <div class="sc-callout">
+      <strong>这个例子真正做了什么？</strong>
+      <p>它把 8 个布尔点上的求和声明，先压缩为固定第一个变量为 2 后的 4 项求和，再压缩为固定第二个变量为 4 后的 2 项求和，最终压缩为单点 f(2,4,6) 的检查。</p>
+    </div>
+
+    <h2 id="soundness">四、为什么随机检查能够抓住作弊？</h2>
+
+    <p>如果 Prover 发送的 M<sub>i</sub> 不等于真实的 P<sub>i</sub>，定义差多项式：</p>
+
+    <div class="math-block"><div class="math-line" data-tex="D_i(X)=M_i(X)-P_i(X)"></div></div>
+
+    <p>D<sub>i</sub> 是一个非零低度多项式。若次数不超过 d，它最多只有 d 个根，因此随机挑战恰好落在“两个多项式碰巧相等”的位置，其概率最多为：</p>
+
+    <div class="math-block gold"><div class="math-line" data-tex="\Pr_{r_i\leftarrow\mathbb{F}}\!\left[M_i(r_i)=P_i(r_i)\right]\leq\frac{d}{|\mathbb{F}|}"></div></div>
+
+    <p>经过 m 轮，使用联合界可得到总体可靠性误差：</p>
+
+    <div class="math-block green"><div class="math-line" data-tex="\Pr[\text{错误求和声明被接受}]\leq\frac{md}{|\mathbb{F}|}"></div></div>
+
+    <p>有限域越大、单变量次数越低，作弊者连续逃过随机检查的概率越小。</p>
+
+    <h2 id="complexity">五、轮数、次数与复杂度</h2>
+
+    <div class="fact-grid">
+      <div class="fact-card"><span>ROUNDS</span><strong>m 轮</strong><p>每轮随机固定一个变量，所以轮数由变量数量 m 决定。</p></div>
+      <div class="fact-card"><span>MESSAGE SIZE</span><strong>d+1 个域元素</strong><p>d 次一元多项式需要 d+1 个系数或取值来表示。</p></div>
+      <div class="fact-card"><span>VERIFIER</span><strong>约 O(dm)</strong><p>Verifier 每轮只检查低度一元多项式，不再计算 2<sup>m</sup> 个点。</p></div>
+    </div>
+
+    <div class="sc-callout">
+      <strong>容易混淆</strong>
+      <p>交互轮数是 m，不是 d+1。d+1 决定每轮传输多少个域元素。在三变量一次多项式中，m=3、d=1，因此是 3 轮、每轮 2 个系数。</p>
+    </div>
+
+    <h2 id="triangle">六、应用：验证图中的三角形数量</h2>
+
+    <p>设图的邻接矩阵为 A∈{0,1}<sup>n×n</sup>。图中的三角形数量可以写成：</p>
+
+    <div class="math-block"><div class="math-line" data-tex="\operatorname{Triangles}(G)=\frac{1}{6}\sum_{(i,j,k)\in[n]^3}A_{i,j}A_{j,k}A_{k,i}"></div></div>
+
+    <p>除以 6，是因为同一个三角形的三个顶点有 3!=6 种排列。把节点编号编码成二进制向量 X、Y、Z，并对邻接矩阵进行 Multi-Linear Extension（多线性扩展），得到 Ã(X,Y)，即可定义：</p>
+
+    <div class="math-block green"><div class="math-line" data-tex="f(X,Y,Z)=\widetilde{A}(X,Y)\cdot\widetilde{A}(Y,Z)\cdot\widetilde{A}(Z,X)"></div></div>
+
+    <p>X、Y、Z 各包含 log<sub>2</sub>n 个比特变量，总变量数量为 3log<sub>2</sub>n。因此，可以使用 3log<sub>2</sub>n 轮 Sumcheck，将对所有节点三元组的求和检查压缩为一个随机点上的 f 求值。</p>
+
+    <h2>七、最终记忆框架</h2>
+
+    <ul class="sc-checklist">
+      <li><strong>T：</strong>Prover 声称的全局求和结果（Total）。</li>
+      <li><strong>P<sub>i</sub>：</strong>真正的第 i 轮部分和多项式（Partial sum）。</li>
+      <li><strong>M<sub>i</sub>：</strong>Prover 发来的消息多项式（Message）。</li>
+      <li><strong>r<sub>i</sub>：</strong>Verifier 在收到 M<sub>i</sub> 后产生的随机挑战。</li>
+      <li><strong>一致性检查：</strong>M<sub>i</sub>(0)+M<sub>i</sub>(1)=M<sub>i−1</sub>(r<sub>i−1</sub>)。</li>
+      <li><strong>最终检查：</strong>M<sub>m</sub>(r<sub>m</sub>)=f(r<sub>1</sub>,…,r<sub>m</sub>)。</li>
+      <li><strong>轮数：</strong>变量数量 m；<strong>每轮消息：</strong>d 次多项式的 d+1 个系数。</li>
+    </ul>
+
+    <blockquote>Sumcheck 用低度多项式的“难以在随机点持续伪装”这一性质，把指数规模的全局求和，逐轮压缩成一个随机点上的局部检查。</blockquote>
+
+    <details>
+      <summary>复习自测：我是否真正理解了 Sumcheck？</summary>
+      <div>
+        <ol>
+          <li>T、P<sub>i</sub>、M<sub>i</sub> 和 r<sub>i</sub> 分别是什么？</li>
+          <li>为什么必须先发送 M<sub>i</sub>，再选择 r<sub>i</sub>？</li>
+          <li>为什么每轮检查 M<sub>i</sub>(0)+M<sub>i</sub>(1)？</li>
+          <li>为什么最终只需要计算一次 f(r<sub>1</sub>,…,r<sub>m</sub>)？</li>
+          <li>为什么协议轮数是 m，而不是 d+1？</li>
+        </ol>
+      </div>
+    </details>
+
+    <section class="references" aria-labelledby="references-title">
+      <h2 id="references-title">参考文献</h2>
+      <ol class="reference-list">
+        <li>
+          C. Lund, L. Fortnow, H. J. Karloff, and N. Nisan,
+          “<cite>Algebraic Methods for Interactive Proof Systems</cite>,”
+          <em>Journal of the ACM</em>, vol. 39, no. 4, pp. 859–868, Oct. 1992.
+          DOI: <a href="https://doi.org/10.1145/146585.146605" target="_blank" rel="noopener noreferrer">10.1145/146585.146605</a>
+          <span class="reference-kind">原始论文</span>
+        </li>
+        <li>
+          Y. Kalai, “<cite>Lecture 20: The Sum-Check Protocol</cite>,”
+          MIT 6.5620/6.875/18.425, <em>Foundations of Cryptography</em>, Nov. 19, 2025.
+          <a href="https://mit6875.github.io/LECNOTES/lec20.pdf" target="_blank" rel="noopener noreferrer">Lecture notes (PDF)</a>；
+          <a href="https://mit6875.github.io/" target="_blank" rel="noopener noreferrer">Course website</a>
+          <span class="reference-kind">课程讲义</span>
+        </li>
+        <li>
+          “<cite>GKR交互式证明协议，Sum-Check协议和 Multi-Linear Extension（2）</cite>,”
+          知乎专栏.
+          <a href="https://zhuanlan.zhihu.com/p/663138801" target="_blank" rel="noopener noreferrer">https://zhuanlan.zhihu.com/p/663138801</a>
+          （访问日期：2026-07-31）
+          <span class="reference-kind">辅助材料</span>
+        </li>
+      </ol>
+    </section>
+  </article>
+
+  <footer class="article-footer">
+    <a class="footer-back" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M19 12H5M12 5l-7 7 7 7"/>
+      </svg>
+      返回所有文章
+    </a>
+    <span class="footer-brand">Frieren · Cryptography Notes</span>
+  </footer>
+</main>
+<script defer src="../static/vendor/katex/katex.min.js"></script>
+<script defer src="../static/js/theme.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-tex]').forEach(function (element) {
+      katex.render(element.dataset.tex, element, {
+        displayMode: element.classList.contains('math-line'),
+        throwOnError: false,
+        strict: false
+      });
+    });
+
+    const shareButton = document.getElementById('share-button');
+    const toast = document.getElementById('action-toast');
+    let toastTimer;
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () {
+        toast.classList.remove('show');
+      }, 2200);
+    }
+
+    document.addEventListener('frieren-theme-change', function (event) {
+      showToast(event.detail.theme === 'dark' ? '已切换为深色模式' : '已切换为常规模式');
+    });
+
+    async function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+      const field = document.createElement('textarea');
+      field.value = text;
+      field.setAttribute('readonly', '');
+      field.style.position = 'fixed';
+      field.style.opacity = '0';
+      document.body.appendChild(field);
+      field.select();
+      const copied = document.execCommand('copy');
+      field.remove();
+      if (!copied) throw new Error('copy failed');
+    }
+
+    shareButton.addEventListener('click', async function () {
+      const canonical = document.querySelector('link[rel="canonical"]');
+      const url = canonical ? canonical.href : window.location.href;
+      const shareData = {
+        title: document.title,
+        text: 'Sumcheck Protocol：从指数求和到随机点检查',
+        url: url
+      };
+
+      if (navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
+        try {
+          await navigator.share(shareData);
+          return;
+        } catch (error) {
+          if (error && error.name === 'AbortError') return;
+        }
+      }
+
+      try {
+        await copyText(url);
+        showToast('公开链接已复制');
+      } catch (_) {
+        window.prompt('复制下面的公开链接：', url);
+      }
+    });
+  });
+</script>
+</body>
+</html>

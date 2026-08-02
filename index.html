@@ -1,11 +1,23 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Frieren · 碎碎念</title>
+<meta name="description" content="Frieren 的学习、研究与随想笔记。">
+<title>Frieren · Notes</title>
+<script>
+  (function () {
+    let theme;
+    try { theme = localStorage.getItem('frieren-theme'); } catch (_) {}
+    if (theme !== 'light' && theme !== 'dark') {
+      theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.dataset.theme = theme;
+  })();
+</script>
 <link rel="stylesheet" href="static/css/style.css">
 <link rel="stylesheet" href="static/css/index.css">
+<script defer src="static/js/theme.js"></script>
 </head>
 <body>
 
@@ -14,15 +26,28 @@
   <!-- ── Header ── -->
   <header class="site-header anim anim-1">
     <div>
-      <div class="site-name">Frieren</div>
-      <div class="site-desc">感悟 · 随想 · 生活</div>
+      <div class="site-eyebrow">INDEX / KNOWLEDGE NOTES</div>
+      <div class="site-name">Frieren <em>Notes</em></div>
+      <div class="site-desc">学习 · 研究 · 随想</div>
     </div>
-    <div class="post-count" id="post-count"></div>
+    <div class="site-tools">
+      <button class="index-theme-button" type="button" data-theme-toggle aria-pressed="false" aria-label="切换为深色模式" title="切换为深色模式">
+        <svg class="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+          <path d="M20 15.1A8.5 8.5 0 0 1 8.9 4a8.5 8.5 0 1 0 11.1 11.1z"/>
+        </svg>
+        <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+          <circle cx="12" cy="12" r="3.7"/><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"/>
+        </svg>
+        <span data-theme-label>深色</span>
+      </button>
+      <div class="post-count" id="post-count"></div>
+    </div>
   </header>
 
   <!-- ── Filter bar ── -->
-  <div class="filter-bar anim anim-2" id="filter-bar">
-    <button class="filter-btn active" data-tag="all">全部</button>
+  <div class="filter-row anim anim-2">
+    <span class="filter-label">FILTER / 分类</span>
+    <div class="filter-bar" id="filter-bar" role="group" aria-label="按分类筛选文章"></div>
   </div>
 
   <!-- ── Post list ── -->
@@ -34,25 +59,48 @@
 <script>
 let currentTag = 'all';
 
-/* 收集所有标签 */
+/* 创建全部分类按钮，并由容器统一处理点击。 */
 function buildFilters() {
   const tags = [...new Set(posts.map(p => p.tag))];
   const bar = document.getElementById('filter-bar');
-  tags.forEach(tag => {
-    const btn = document.createElement('button');
-    btn.className = 'filter-btn';
-    btn.dataset.tag = tag;
-    btn.textContent = tag;
-    btn.addEventListener('click', () => setFilter(tag));
-    bar.appendChild(btn);
+  const options = [
+    { tag: 'all', label: '全部', count: posts.length },
+    ...tags.map(tag => ({
+      tag,
+      label: tag,
+      count: posts.filter(post => post.tag === tag).length
+    }))
+  ];
+
+  bar.innerHTML = options.map(option => `
+    <button class="filter-btn" type="button" data-tag="${option.tag}" aria-pressed="false">
+      <span>${option.label}</span><small>${option.count}</small>
+    </button>
+  `).join('');
+
+  bar.addEventListener('click', event => {
+    const button = event.target.closest('.filter-btn');
+    if (button && bar.contains(button)) setFilter(button.dataset.tag, true);
   });
 }
 
-function setFilter(tag) {
+function setFilter(tag, updateHistory = false) {
+  const availableTags = new Set(['all', ...posts.map(post => post.tag)]);
+  if (!availableTags.has(tag)) tag = 'all';
   currentTag = tag;
-  document.querySelectorAll('.filter-btn').forEach(b =>
-    b.classList.toggle('active', b.dataset.tag === tag)
-  );
+  document.querySelectorAll('.filter-btn').forEach(button => {
+    const active = button.dataset.tag === tag;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+
+  if (updateHistory) {
+    const url = new URL(window.location.href);
+    if (tag === 'all') url.searchParams.delete('tag');
+    else url.searchParams.set('tag', tag);
+    history.pushState({ tag }, '', url);
+  }
+
   renderList();
 }
 
@@ -63,10 +111,11 @@ function renderList() {
 
   document.getElementById('post-count').textContent = `${filtered.length} 篇记录`;
 
-  document.getElementById('post-list').innerHTML = filtered.map(p => `
+  document.getElementById('post-list').innerHTML = filtered.map((p, index) => `
     <a class="post-item" href="${p.file}">
       <div class="post-info">
         <div class="post-meta-row">
+          <span class="post-index">${String(index + 1).padStart(2, '0')}</span>
           <span class="post-tag-label">${p.tag}</span>
           <span class="post-date-label">${p.date}</span>
         </div>
@@ -90,7 +139,13 @@ function renderList() {
 }
 
 buildFilters();
-renderList();
+const initialTag = new URL(window.location.href).searchParams.get('tag') || 'all';
+setFilter(initialTag);
+
+window.addEventListener('popstate', event => {
+  const tag = event.state?.tag || new URL(window.location.href).searchParams.get('tag') || 'all';
+  setFilter(tag);
+});
 </script>
 </body>
 </html>
