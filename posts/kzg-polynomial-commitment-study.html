@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="KZG Polynomial Commitment 学习笔记：从 Polynomial Commitment 的目标出发，理解隐藏点 tau、Structured Reference String、指数中的多项式求值、quotient polynomial、pairing verification，并通过 F_17 数值例子完整演示 Commit、Open 与 Verify。" name="description"/>
+<title>KZG Polynomial Commitment：从指数编码到点值证明 · Frieren</title>
+<link href="../HK.ico" rel="icon" type="image/x-icon"/>
+<link href="https://blog.fp1022.dpdns.org/posts/kzg-polynomial-commitment.html" rel="canonical"/>
+<link href="../static/css/style.css" rel="stylesheet"/>
+<link href="../static/css/post.css" rel="stylesheet"/>
+<link href="../static/vendor/katex/katex.min.css" rel="stylesheet"/>
+<script>
+  (function () {
+    let theme;
+    try { theme = localStorage.getItem('frieren-theme'); } catch (_) {}
+    if (theme !== 'light' && theme !== 'dark') {
+      theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.dataset.theme = theme;
+  })();
+</script>
+<style>
+  :root {
+    --sc-blue: #315b70;
+    --sc-blue-soft: #dce8eb;
+    --sc-green: #557568;
+    --sc-green-soft: #e2ebe5;
+    --sc-gold: #a7782f;
+    --sc-gold-soft: #f2e9d8;
+    --sc-red: #9e4d3f;
+    --sc-red-soft: #f1dfda;
+    --sc-math: "KaTeX_Main", "Latin Modern Math", "STIX Two Math", "Cambria Math", serif;
+  }
+
+  html[data-theme="dark"] {
+    --sc-blue: #84b9cf;
+    --sc-blue-soft: #1b3039;
+    --sc-green: #8ebaa7;
+    --sc-green-soft: #20352c;
+    --sc-gold: #d5ab64;
+    --sc-gold-soft: #392f20;
+    --sc-red: #d88c7e;
+    --sc-red-soft: #3a2724;
+  }
+
+  .post-hero {
+    height: 48vh;
+    min-height: 390px;
+    background:
+      radial-gradient(circle at 18% 22%, rgba(196,98,45,.18), transparent 24%),
+      radial-gradient(circle at 82% 70%, rgba(49,91,112,.17), transparent 28%),
+      linear-gradient(145deg, #eee8de, #f7f4ef 55%, #e8e2d8);
+  }
+
+  .sumcheck-hero {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 4rem 1.5rem 6rem;
+  }
+
+  .hero-proof {
+    width: min(920px, 92vw);
+    display: grid;
+    grid-template-columns: repeat(7, auto);
+    align-items: center;
+    justify-content: center;
+    gap: clamp(.45rem, 1.7vw, 1.3rem);
+    color: var(--ink);
+  }
+
+  .hero-node {
+    min-width: 82px;
+    padding: .8rem 1rem;
+    border: 1px solid rgba(26,24,20,.13);
+    border-radius: 7px;
+    background: rgba(250,248,244,.78);
+    box-shadow: 0 12px 30px rgba(26,24,20,.06);
+    backdrop-filter: blur(7px);
+    text-align: center;
+  }
+
+  .hero-node strong {
+    display: block;
+    font-family: var(--serif);
+    font-size: 1.25rem;
+    font-weight: 400;
+  }
+
+  .hero-node strong sub {
+    position: relative;
+    bottom: -.22em;
+    vertical-align: baseline;
+    font-size: .64em;
+    line-height: 0;
+  }
+
+  .hero-node span {
+    display: block;
+    margin-top: .18rem;
+    font-family: var(--mono);
+    font-size: .64rem;
+    color: var(--ink-mute);
+  }
+
+  .hero-arrow {
+    font-family: var(--mono);
+    color: var(--accent);
+    font-size: 1.15rem;
+  }
+
+  .hero-proof .hero-node:last-child {
+    border-color: rgba(196,98,45,.35);
+    background: rgba(232,213,200,.72);
+  }
+
+  .article-wrap { max-width: 900px; }
+  .article-content { color: var(--ink-soft); }
+  .article-content > p { max-width: 760px; }
+
+  .sc-lead {
+    font-family: var(--serif);
+    font-size: 1.18rem;
+    line-height: 1.9;
+    color: var(--ink);
+  }
+
+  .sc-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .3rem .75rem;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: .7rem;
+    letter-spacing: .06em;
+    margin-bottom: 1rem;
+  }
+
+  .sc-toc {
+    margin: 2.2rem 0 3rem;
+    padding: 1.3rem 1.5rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(250,248,244,.68);
+  }
+
+  .sc-toc-title {
+    font-family: var(--mono);
+    font-size: .72rem;
+    color: var(--ink-mute);
+    letter-spacing: .11em;
+    text-transform: uppercase;
+    margin-bottom: .85rem;
+  }
+
+  .sc-toc ol {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .45rem 2rem;
+    padding-left: 1.2rem;
+  }
+
+  .sc-toc a {
+    color: var(--ink-soft);
+    text-decoration: none;
+    font-size: .88rem;
+  }
+
+  .sc-toc a:hover { color: var(--accent); }
+
+  .math-block {
+    overflow-x: auto;
+    margin: 1.35rem 0 1.8rem;
+    padding: 1.2rem 1.45rem 1.1rem;
+    border: 1px solid rgba(49,91,112,.18);
+    border-left: 4px solid var(--sc-blue);
+    border-radius: 6px;
+    background: rgba(244,248,249,.92);
+    box-shadow: 0 8px 22px rgba(31,48,55,.045);
+    color: #173947;
+    font-family: var(--sc-math);
+    font-size: 1.14rem;
+    line-height: 1.75;
+    text-align: center;
+    letter-spacing: 0;
+    scrollbar-width: thin;
+  }
+
+  .math-block.gold {
+    border-left-color: var(--sc-gold);
+    border-top-color: rgba(167,120,47,.16);
+    border-right-color: rgba(167,120,47,.16);
+    border-bottom-color: rgba(167,120,47,.16);
+    background: rgba(250,247,239,.94);
+    color: #5c421a;
+  }
+
+  .math-block.green {
+    border-left-color: var(--sc-green);
+    border-top-color: rgba(85,117,104,.16);
+    border-right-color: rgba(85,117,104,.16);
+    border-bottom-color: rgba(85,117,104,.16);
+    background: rgba(244,248,245,.94);
+    color: #27473b;
+  }
+
+  .math-line {
+    min-width: max-content;
+    white-space: nowrap;
+    font-family: var(--sc-math);
+    font-variant-numeric: lining-nums;
+    font-feature-settings: "kern" 1, "liga" 1;
+  }
+
+  .math-line .katex-display { margin: 0; }
+  .math-line .katex { font-size: 1.08em; }
+  .math-line .katex .mord.mathnormal { font-family: "KaTeX_Math", var(--sc-math); }
+
+  .math-line sub,
+  .math-line sup,
+  .math-inline sub,
+  .math-inline sup,
+  .message .payload sub,
+  .message .payload sup,
+  .transcript sub,
+  .transcript sup,
+  .symbol-table td:first-child sub,
+  .symbol-table td:first-child sup {
+    position: relative;
+    vertical-align: baseline;
+    font-size: .68em;
+    line-height: 0;
+  }
+
+  .math-line sub,
+  .math-inline sub,
+  .message .payload sub,
+  .transcript sub,
+  .symbol-table td:first-child sub { bottom: -.28em; }
+
+  .math-line sup,
+  .math-inline sup,
+  .message .payload sup,
+  .transcript sup,
+  .symbol-table td:first-child sup { top: -.52em; }
+
+  .math-inline {
+    white-space: nowrap;
+    font-family: var(--sc-math);
+    font-size: 1.04em;
+    color: var(--ink-soft);
+  }
+
+  .article-content sub,
+  .article-content sup {
+    font-family: var(--sc-math);
+    font-size: .72em;
+    line-height: 0;
+  }
+
+  .sum-op {
+    display: inline-grid;
+    grid-template-rows: 1.02em .82em;
+    place-items: center;
+    min-width: 2.4em;
+    margin: 0 .08em;
+    vertical-align: -.42em;
+    line-height: 1;
+  }
+
+  .sum-op.wide { min-width: 5.9em; }
+
+  .sum-symbol {
+    font-size: 1.5em;
+    line-height: .82;
+    font-weight: 400;
+  }
+
+  .sum-index {
+    font-family: var(--sc-math);
+    font-size: .56em;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .sum-index sub { bottom: -.18em; }
+
+  .frac {
+    display: inline-grid;
+    grid-template-rows: auto auto;
+    min-width: 1.7em;
+    margin: 0 .12em;
+    vertical-align: -.46em;
+    line-height: 1.08;
+    text-align: center;
+  }
+
+  .frac > span:first-child {
+    padding: 0 .18em .08em;
+    border-bottom: 1px solid currentColor;
+  }
+
+  .frac > span:last-child { padding: .08em .18em 0; }
+
+  .prob-index {
+    display: inline-block;
+    margin: 0 .22em 0 .08em;
+    vertical-align: -.55em;
+    font-size: .58em;
+    line-height: 1;
+  }
+
+  .prob-index sub { bottom: -.16em; }
+
+  .math-label {
+    font-family: var(--mono);
+    font-size: .64rem;
+    letter-spacing: .08em;
+    color: currentColor;
+    opacity: .64;
+  }
+
+  .math-note {
+    display: block;
+    margin-top: .65rem;
+    padding-top: .55rem;
+    border-top: 1px solid rgba(49,91,112,.12);
+    font-family: var(--body);
+    font-size: .78rem;
+    line-height: 1.65;
+    color: var(--ink-mute);
+    text-align: center;
+  }
+
+  .symbol-table,
+  .truth-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0 2rem;
+    font-size: .88rem;
+    background: rgba(250,248,244,.7);
+  }
+
+  .symbol-table th,
+  .symbol-table td,
+  .truth-table th,
+  .truth-table td {
+    padding: .72rem .85rem;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .symbol-table th,
+  .truth-table th {
+    font-family: var(--mono);
+    font-weight: 300;
+    color: var(--ink-mute);
+    font-size: .72rem;
+    letter-spacing: .06em;
+    background: var(--paper-warm);
+  }
+
+  .symbol-table td:first-child {
+    width: 22%;
+    font-family: var(--sc-math);
+    color: var(--sc-blue);
+    font-size: 1.08rem;
+    white-space: nowrap;
+  }
+
+  .truth-table th,
+  .truth-table td { text-align: center; }
+
+  .sc-callout {
+    margin: 1.7rem 0;
+    padding: 1.15rem 1.3rem;
+    border: 1px solid rgba(167,120,47,.25);
+    border-radius: 8px;
+    background: var(--sc-gold-soft);
+  }
+
+  .sc-callout > strong {
+    display: block;
+    margin-bottom: .35rem;
+    color: #6c4c1e;
+    font-family: var(--mono);
+    font-size: .76rem;
+    letter-spacing: .06em;
+  }
+
+  .sc-callout p { margin: 0; font-size: .9rem; line-height: 1.75; }
+
+  /* Inline emphasis inside prose must stay inline.
+     Only the direct child <strong> above acts as the callout heading. */
+  .sc-callout p strong,
+  .fact-card p strong,
+  .article-content li strong,
+  .article-content figcaption strong {
+    display: inline;
+    margin: 0;
+    font-family: inherit;
+    font-size: inherit;
+    letter-spacing: inherit;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .protocol-loop {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: .8rem;
+    margin: 1.6rem 0 2.3rem;
+  }
+
+  .loop-step {
+    position: relative;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper-card);
+    min-height: 126px;
+  }
+
+  .loop-step::after {
+    content: '→';
+    position: absolute;
+    top: 50%;
+    right: -.68rem;
+    transform: translateY(-50%);
+    color: var(--accent);
+    font-family: var(--mono);
+  }
+
+  .loop-step:last-child::after { display: none; }
+
+  .loop-no {
+    font-family: var(--mono);
+    font-size: .65rem;
+    color: var(--accent);
+    letter-spacing: .08em;
+  }
+
+  .loop-step h3 {
+    margin: .25rem 0 .45rem;
+    font-size: 1rem;
+  }
+
+  .loop-step p { margin: 0; font-size: .78rem; line-height: 1.65; }
+
+  .protocol-stages {
+    display: grid;
+    gap: 1.15rem;
+    margin: 2rem 0 2.3rem;
+  }
+
+  .protocol-stage {
+    position: relative;
+    overflow: hidden;
+    padding: 1.25rem 1.35rem .15rem;
+    border: 1px solid rgba(49,91,112,.16);
+    border-radius: 10px;
+    background: rgba(250,248,244,.72);
+    box-shadow: 0 10px 28px rgba(26,24,20,.035);
+  }
+
+  .protocol-stage::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: var(--sc-blue);
+    opacity: .8;
+  }
+
+  .protocol-stage:nth-child(2)::before { background: var(--sc-gold); }
+  .protocol-stage:nth-child(3)::before { background: var(--sc-green); }
+
+  .stage-heading {
+    display: flex;
+    align-items: center;
+    gap: .85rem;
+    margin-bottom: 1.05rem;
+    padding-bottom: .85rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .stage-index {
+    display: grid;
+    place-items: center;
+    width: 35px;
+    height: 35px;
+    flex: 0 0 35px;
+    border: 1px solid rgba(49,91,112,.2);
+    border-radius: 50%;
+    background: rgba(220,232,235,.62);
+    color: var(--sc-blue);
+    font-family: var(--mono);
+    font-size: .68rem;
+  }
+
+  .protocol-stage:nth-child(2) .stage-index {
+    border-color: rgba(167,120,47,.2);
+    background: rgba(242,233,216,.66);
+    color: var(--sc-gold);
+  }
+
+  .protocol-stage:nth-child(3) .stage-index {
+    border-color: rgba(85,117,104,.2);
+    background: rgba(226,235,229,.72);
+    color: var(--sc-green);
+  }
+
+  .stage-role {
+    display: block;
+    margin-bottom: .1rem;
+    color: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: .58rem;
+    letter-spacing: .1em;
+  }
+
+  .article-content .protocol-stage h3 {
+    margin: 0;
+    font-size: 1.12rem;
+  }
+
+  .protocol-stage > p { margin-bottom: 1.15rem; }
+  .protocol-stage .math-block { margin: 1rem 0 1.25rem; }
+
+  .round-card {
+    margin: 1.5rem 0 2.2rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    background: rgba(250,248,244,.78);
+  }
+
+  .round-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: .85rem 1.1rem;
+    background: var(--paper-warm);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .round-head strong {
+    font-family: var(--serif);
+    font-weight: 400;
+    color: var(--ink);
+  }
+
+  .round-head span {
+    font-family: var(--mono);
+    font-size: .68rem;
+    color: var(--accent);
+  }
+
+  .round-body { padding: 1rem 1.2rem 1.25rem; }
+  .round-body p { margin: 0 0 .75rem; font-size: .9rem; }
+  .round-body p:last-child { margin-bottom: 0; }
+
+  .message {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: .8rem;
+    padding: .62rem 0;
+    border-bottom: 1px dashed var(--line);
+    align-items: baseline;
+  }
+
+  .message:last-child { border-bottom: 0; }
+  .message .who {
+    font-family: var(--mono);
+    font-size: .69rem;
+    color: var(--sc-blue);
+  }
+
+  .message.verifier .who { color: var(--accent); }
+  .message .payload {
+    overflow-x: auto;
+    font-family: var(--sc-math);
+    font-size: 1.01rem;
+    line-height: 1.75;
+    font-variant-numeric: lining-nums;
+    color: var(--ink-soft);
+  }
+
+  .transcript {
+    margin: 1.5rem 0 2.3rem;
+    padding: 1.2rem 1.4rem;
+    border: 1px solid rgba(85,117,104,.25);
+    border-radius: 8px;
+    background: var(--sc-green-soft);
+    overflow-x: auto;
+    font-family: var(--sc-math);
+    font-size: 1.03rem;
+    line-height: 1.75;
+    font-variant-numeric: lining-nums;
+    color: #294a3e;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .fact-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: .9rem;
+    margin: 1.5rem 0 2.2rem;
+  }
+
+  .fact-card {
+    padding: 1.1rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper-card);
+  }
+
+  .fact-card > strong {
+    display: block;
+    font-family: var(--serif);
+    font-weight: 400;
+    color: var(--ink);
+    margin-bottom: .35rem;
+  }
+
+  .fact-card > span {
+    display: block;
+    font-family: var(--mono);
+    font-size: .78rem;
+    color: var(--accent);
+    margin-bottom: .35rem;
+  }
+
+  /* Inline KaTeX / emphasis inside fact-card prose must remain inline. */
+  .fact-card p span,
+  .fact-card p .katex,
+  .fact-card strong span,
+  .fact-card strong .katex {
+    display: inline;
+    margin: 0;
+    font-family: inherit;
+    font-size: inherit;
+  }
+
+  .fact-card p { margin: 0; font-size: .78rem; line-height: 1.65; }
+
+  .sc-checklist {
+    list-style: none;
+    margin: 1.2rem 0 2rem;
+  }
+
+  .sc-checklist li {
+    position: relative;
+    padding: .65rem 0 .65rem 1.8rem;
+    border-bottom: 1px solid var(--line);
+    font-size: .9rem;
+  }
+
+  .sc-checklist li::before {
+    content: '✓';
+    position: absolute;
+    left: .15rem;
+    color: var(--sc-green);
+    font-family: var(--mono);
+  }
+
+  details {
+    margin: 1.2rem 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(250,248,244,.65);
+  }
+
+  summary {
+    padding: .9rem 1.1rem;
+    cursor: pointer;
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: .78rem;
+  }
+
+  details > div { padding: 0 1.1rem 1.1rem; }
+
+  .references {
+    margin-top: 3.4rem;
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .references h2 {
+    margin-top: 0;
+    margin-bottom: 1.25rem;
+  }
+
+  .reference-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: references;
+  }
+
+  .reference-list li {
+    position: relative;
+    counter-increment: references;
+    margin: 0 0 .9rem;
+    padding: 0 0 .9rem 2.65rem;
+    border-bottom: 1px solid rgba(26,24,20,.08);
+    color: var(--ink-soft);
+    font-family: var(--serif);
+    font-size: .84rem;
+    line-height: 1.72;
+  }
+
+  .reference-list li::before {
+    content: '[' counter(references) ']';
+    position: absolute;
+    left: 0;
+    top: .02rem;
+    width: 2rem;
+    color: var(--sc-blue);
+    font-family: var(--mono);
+    font-size: .72rem;
+  }
+
+  .reference-list cite { color: var(--ink); }
+
+  .reference-list a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(196,98,45,.25);
+    overflow-wrap: anywhere;
+  }
+
+  .reference-list a:hover { border-bottom-color: var(--accent); }
+
+  .reference-kind {
+    display: inline-block;
+    margin-left: .45rem;
+    padding: .08rem .4rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: .58rem;
+    letter-spacing: .04em;
+    vertical-align: .08rem;
+  }
+
+  .article-actions {
+    position: fixed;
+    top: 1.6rem;
+    right: 1.8rem;
+    z-index: 100;
+    display: flex;
+    gap: .5rem;
+  }
+
+  .article-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .42rem;
+    min-height: 38px;
+    padding: .45rem .78rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(247,244,239,.88);
+    backdrop-filter: blur(10px);
+    color: var(--ink-soft);
+    font-family: var(--mono);
+    font-size: .72rem;
+    font-weight: 300;
+    cursor: pointer;
+    transition: background .2s ease, color .2s ease, border-color .2s ease, transform .2s ease;
+  }
+
+  .article-action:hover {
+    transform: translateY(-1px);
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  .article-action:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .article-action[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  .article-action svg {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+  }
+
+  .action-toast {
+    position: fixed;
+    top: 4.75rem;
+    right: 1.8rem;
+    z-index: 110;
+    max-width: min(310px, calc(100vw - 2rem));
+    padding: .55rem .8rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: rgba(26,24,20,.92);
+    color: var(--paper);
+    box-shadow: 0 10px 28px rgba(26,24,20,.15);
+    font-family: var(--mono);
+    font-size: .68rem;
+    line-height: 1.55;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-5px);
+    transition: opacity .2s ease, transform .2s ease;
+  }
+
+  .action-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  html[data-theme="dark"] .post-hero {
+    background:
+      radial-gradient(circle at 18% 22%, rgba(225,138,87,.12), transparent 25%),
+      radial-gradient(circle at 82% 70%, rgba(132,185,207,.12), transparent 30%),
+      linear-gradient(145deg, #181919, #202120 55%, #171818);
+  }
+
+  html[data-theme="dark"] .hero-overlay {
+    background: linear-gradient(to bottom, rgba(19,20,20,0) 35%, rgba(19,20,20,.98) 100%);
+  }
+
+  html[data-theme="dark"] .hero-node {
+    border-color: rgba(255,255,255,.12);
+    background: rgba(31,32,31,.82);
+    box-shadow: 0 12px 32px rgba(0,0,0,.22);
+  }
+
+  html[data-theme="dark"] .hero-proof .hero-node:last-child {
+    border-color: rgba(225,138,87,.32);
+    background: rgba(57,39,30,.82);
+  }
+
+  html[data-theme="dark"] .sc-toc,
+  html[data-theme="dark"] .symbol-table,
+  html[data-theme="dark"] .truth-table,
+  html[data-theme="dark"] details {
+    background: rgba(32,33,32,.68);
+  }
+
+  html[data-theme="dark"] .math-block {
+    border-color: rgba(132,185,207,.24);
+    border-left-color: var(--sc-blue);
+    background: #19292f;
+    color: #d9eef6;
+    box-shadow: 0 8px 24px rgba(0,0,0,.16);
+  }
+
+  html[data-theme="dark"] .math-block.gold {
+    border-color: rgba(213,171,100,.23);
+    border-left-color: var(--sc-gold);
+    background: #31291d;
+    color: #f2dfba;
+  }
+
+  html[data-theme="dark"] .math-block.green {
+    border-color: rgba(142,186,167,.22);
+    border-left-color: var(--sc-green);
+    background: #1d3028;
+    color: #d9eee5;
+  }
+
+  html[data-theme="dark"] .math-note { border-top-color: rgba(255,255,255,.1); }
+
+  html[data-theme="dark"] .sc-callout {
+    border-color: rgba(213,171,100,.24);
+    background: var(--sc-gold-soft);
+  }
+
+  html[data-theme="dark"] .sc-callout > strong { color: var(--sc-gold); }
+
+  html[data-theme="dark"] .protocol-stage {
+    border-color: rgba(255,255,255,.11);
+    background: rgba(31,32,31,.82);
+    box-shadow: 0 10px 30px rgba(0,0,0,.18);
+  }
+
+  html[data-theme="dark"] .stage-index {
+    border-color: rgba(132,185,207,.25);
+    background: var(--sc-blue-soft);
+  }
+
+  html[data-theme="dark"] .protocol-stage:nth-child(2) .stage-index {
+    border-color: rgba(213,171,100,.25);
+    background: var(--sc-gold-soft);
+  }
+
+  html[data-theme="dark"] .protocol-stage:nth-child(3) .stage-index {
+    border-color: rgba(142,186,167,.25);
+    background: var(--sc-green-soft);
+  }
+
+  html[data-theme="dark"] .round-card {
+    background: rgba(31,32,31,.82);
+  }
+
+  html[data-theme="dark"] .transcript {
+    border-color: rgba(142,186,167,.25);
+    background: var(--sc-green-soft);
+    color: #d9eee5;
+  }
+
+  html[data-theme="dark"] .reference-list li {
+    border-bottom-color: rgba(255,255,255,.08);
+  }
+
+  html[data-theme="dark"] .reference-list a {
+    border-bottom-color: rgba(225,138,87,.35);
+  }
+
+  html[data-theme="dark"] .article-action {
+    background: rgba(27,28,28,.9);
+    border-color: rgba(255,255,255,.14);
+    color: var(--ink-soft);
+  }
+
+  html[data-theme="dark"] .article-action:hover {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--paper);
+  }
+
+  html[data-theme="dark"] .action-toast {
+    border-color: rgba(255,255,255,.16);
+    background: rgba(238,234,226,.96);
+    color: #171817;
+    box-shadow: 0 10px 30px rgba(0,0,0,.3);
+  }
+
+  @media (max-width: 760px) {
+    .post-hero { min-height: 460px; }
+    .hero-proof {
+      grid-template-columns: 1fr 28px 1fr;
+      width: min(480px, 94vw);
+    }
+    .hero-proof .hero-node:nth-of-type(3) { grid-column: 1; }
+    .hero-proof .hero-arrow:nth-of-type(4) { grid-column: 2; }
+    .hero-proof .hero-node:nth-of-type(5) { grid-column: 3; }
+    .protocol-loop { grid-template-columns: 1fr 1fr; }
+    .loop-step:nth-child(2)::after { display: none; }
+    .fact-grid { grid-template-columns: 1fr; }
+    .sc-toc ol { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 520px) {
+    .back-fixed {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+    }
+    .article-wrap { padding-left: 1.15rem; padding-right: 1.15rem; }
+    .protocol-loop { grid-template-columns: 1fr; }
+    .loop-step::after { display: none; }
+    .message { grid-template-columns: 82px 1fr; gap: .5rem; }
+    .math-block {
+      margin-left: -.15rem;
+      margin-right: -.15rem;
+      padding: 1rem .85rem .92rem;
+      font-size: 1rem;
+    }
+    .sum-op { min-width: 2.15em; }
+    .sum-op.wide { min-width: 5.35em; }
+    .message .payload { font-size: .94rem; }
+    .symbol-table { font-size: .8rem; }
+    .article-actions { position: absolute; top: 1rem; right: 1rem; }
+    .article-action {
+      width: 38px;
+      min-width: 38px;
+      padding: 0;
+    }
+    .article-action span { display: none; }
+    .action-toast { top: 4rem; right: 1rem; }
+  }
+
+  .gkr-figure {
+    margin: 1.8rem 0 2.35rem;
+    padding: 1rem 1rem .85rem;
+    border: 1px solid rgba(49,91,112,.16);
+    border-radius: 10px;
+    background: rgba(250,248,244,.76);
+    box-shadow: 0 10px 28px rgba(26,24,20,.035);
+    overflow-x: auto;
+  }
+
+  .gkr-figure svg {
+    display: block;
+    width: min(100%, 860px);
+    height: auto;
+    margin: 0 auto;
+  }
+
+  .gkr-figure figcaption {
+    margin-top: .8rem;
+    padding-top: .7rem;
+    border-top: 1px solid var(--line);
+    color: var(--ink-mute);
+    font-family: var(--body);
+    font-size: .8rem;
+    line-height: 1.65;
+    text-align: center;
+  }
+
+  .gkr-figure .svg-node {
+    fill: rgba(250,248,244,.96);
+    stroke: var(--sc-blue);
+    stroke-width: 1.5;
+  }
+
+  .gkr-figure .svg-node-accent {
+    fill: var(--sc-gold-soft);
+    stroke: var(--sc-gold);
+    stroke-width: 1.8;
+  }
+
+  .gkr-figure .svg-node-green {
+    fill: var(--sc-green-soft);
+    stroke: var(--sc-green);
+    stroke-width: 1.6;
+  }
+
+  .gkr-figure .svg-edge {
+    stroke: var(--ink-mute);
+    stroke-width: 1.4;
+    fill: none;
+  }
+
+  .gkr-figure .svg-edge-accent {
+    stroke: var(--sc-gold);
+    stroke-width: 2.1;
+    fill: none;
+  }
+
+  .gkr-figure .svg-text {
+    fill: var(--ink);
+    font-family: var(--mono);
+    font-size: 15px;
+  }
+
+  .gkr-figure .svg-small {
+    fill: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .gkr-figure .svg-title {
+    fill: var(--ink);
+    font-family: var(--serif);
+    font-size: 20px;
+  }
+
+  html[data-theme="dark"] .gkr-figure {
+    border-color: rgba(255,255,255,.11);
+    background: rgba(31,32,31,.82);
+    box-shadow: 0 10px 30px rgba(0,0,0,.18);
+  }
+
+  html[data-theme="dark"] .gkr-figure .svg-node {
+    fill: #202625;
+  }
+
+</style>
+</head>
+<body>
+<div class="back-fixed">
+<a aria-label="返回文章列表" class="back-btn" href="../index.html">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="M19 12H5M12 5l-7 7 7 7"></path>
+</svg>
+    返回
+  </a>
+</div>
+<div aria-label="文章操作" class="article-actions">
+<button aria-label="分享这篇笔记" class="article-action" id="share-button" title="分享这篇笔记" type="button">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" viewbox="0 0 24 24">
+<circle cx="18" cy="5" r="2.5"></circle>
+<circle cx="6" cy="12" r="2.5"></circle>
+<circle cx="18" cy="19" r="2.5"></circle>
+<path d="M8.2 10.8l7.6-4.5M8.2 13.2l7.6 4.5"></path>
+</svg>
+<span>分享</span>
+</button>
+<button aria-label="切换为深色模式" aria-pressed="false" class="article-action" data-theme-toggle="" id="theme-button" title="切换为深色模式" type="button">
+<svg aria-hidden="true" class="theme-icon-moon" fill="none" stroke="currentColor" stroke-width="1.6" viewbox="0 0 24 24">
+<path d="M20 15.1A8.5 8.5 0 0 1 8.9 4a8.5 8.5 0 1 0 11.1 11.1z"></path>
+</svg>
+<svg aria-hidden="true" class="theme-icon-sun" fill="none" stroke="currentColor" stroke-width="1.6" viewbox="0 0 24 24">
+<circle cx="12" cy="12" r="3.7"></circle><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"></path>
+</svg>
+<span data-theme-label="">深色</span>
+</button>
+</div>
+<div aria-live="polite" class="action-toast" id="action-toast" role="status"></div>
+<div aria-hidden="true" class="post-hero">
+<div class="sumcheck-hero">
+<div class="hero-proof">
+<div class="hero-node"><strong>f(X)</strong><span>Polynomial</span></div>
+<div class="hero-arrow">→</div>
+<div class="hero-node"><strong>C=g<sup>f(τ)</sup></strong><span>Commit</span></div>
+<div class="hero-arrow">→</div>
+<div class="hero-node"><strong>π=g<sup>q(τ)</sup></strong><span>Open at z</span></div>
+<div class="hero-arrow">→</div>
+<div class="hero-node"><strong>e(·,·)</strong><span>Verify</span></div>
+</div>
+</div><div class="hero-overlay"></div>
+</div>
+<main class="article-wrap">
+<div class="article-meta anim anim-1"><span class="meta-tag">证明系统 · Polynomial Commitment · KZG</span><span class="meta-date">2026-08-03</span><span class="meta-readtime">约 20 分钟</span></div>
+<h1 class="article-title anim anim-2">KZG Polynomial Commitment：从指数编码到点值证明</h1>
+<hr class="article-divider anim anim-3"/>
+<nav aria-label="密码学学习顺序" class="lesson-nav anim anim-3" data-learning-nav="" data-post-id="20" hidden=""></nav>
+<article class="article-content anim anim-4">
+<div class="sc-kicker">LEARNING NOTE · KZG POLYNOMIAL COMMITMENT</div>
+<p class="sc-lead">KZG Polynomial Commitment 允许 Prover 先对一个 polynomial 作出短承诺，随后证明该 polynomial 在指定点上的 evaluation，而无需向 Verifier 发送整个 polynomial。其基本结构由 <span data-tex="\mathsf{Gen}"></span>、<span data-tex="\mathsf{Com}"></span>、<span data-tex="\mathsf{Open}"></span> 和 <span data-tex="\mathsf{Ver}"></span> 四个算法组成。</p>
+<nav aria-label="文章目录" class="sc-toc">
+<div class="sc-toc-title">Contents</div>
+<ol>
+<li><a href="#overview">目标、角色与形式化接口</a></li>
+<li><a href="#protocol">KZG 算法流程</a></li>
+<li><a href="#derivation">正确性推导</a></li>
+<li><a href="#example">数值例子：F₁₇</a></li>
+<li><a href="#properties">关键性质与注意点</a></li>
+<li><a href="#memory">速记总结</a></li>
+</ol>
+</nav>
+<h2 id="overview">一、目标、角色与形式化接口</h2>
+<p>设 Prover 持有 degree 至多为 <span data-tex="d"></span> 的 polynomial：</p>
+<div class="math-block">
+<div class="math-line" data-tex="f(X)=a_0+a_1X+\cdots+a_dX^d\in\mathbb F_p[X]."></div>
+</div>
+<p>Prover 首先发送 commitment <span data-tex="C"></span>。之后 Verifier 给出公开查询点 <span data-tex="z"></span>，Prover 返回 <span data-tex="y=f(z)"></span> 和 opening proof <span data-tex="\pi"></span>。Verifier 检查 <span data-tex="y"></span> 是否确实来自此前由 <span data-tex="C"></span> 绑定的 polynomial。</p>
+<table class="symbol-table">
+<thead><tr><th>对象</th><th>状态</th><th>用途</th></tr></thead>
+<tbody>
+<tr><td><span data-tex="\tau"></span></td><td>隐藏</td><td>Setup 阶段产生的 trapdoor；生成 SRS 后不应再被参与方掌握。</td></tr>
+<tr><td><span data-tex="\mathsf{pp}"></span> / SRS</td><td>公开</td><td>Prover 和 Verifier 共同使用的公共参数。</td></tr>
+<tr><td><span data-tex="f(X)"></span></td><td>Prover 持有</td><td>被承诺的 polynomial。</td></tr>
+<tr><td><span data-tex="C"></span></td><td>公开</td><td>Polynomial commitment。</td></tr>
+<tr><td><span data-tex="z"></span></td><td>公开</td><td>Verifier 指定的 evaluation point。</td></tr>
+<tr><td><span data-tex="y,\pi"></span></td><td>公开</td><td>Evaluation 与 opening proof。</td></tr>
+<tr><td><span data-tex="q(X)"></span></td><td>Prover 本地</td><td>构造 opening proof 使用的 quotient polynomial。</td></tr>
+</tbody>
+</table>
+<p>形式化地，可以写成：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="\mathsf{Gen}(1^\lambda,d)\rightarrow\mathsf{pp},\qquad \mathsf{Com}(\mathsf{pp},f)\rightarrow C."></div>
+<div class="math-line" data-tex="\mathsf{Open}(\mathsf{pp},f,z)\rightarrow(y,\pi),\qquad \mathsf{Ver}(\mathsf{pp},C,z,y,\pi)\rightarrow\{0,1\}."></div>
+</div>
+<p>Correctness 要求诚实生成的 commitment 和 opening 能够通过验证：</p>
+<div class="math-block">
+<div class="math-line" data-tex="\mathsf{Ver}(\mathsf{pp},C,z,y,\pi)=1."></div>
+</div>
+<h2 id="protocol">二、KZG 算法流程</h2>
+<h3>2.1 Gen</h3>
+<p>Setup 选择阶为素数 <span data-tex="p"></span> 的双线性群 <span data-tex="G_1,G_2,G_T"></span>，生成元 <span data-tex="g\in G_1"></span>、<span data-tex="h\in G_2"></span>，以及 bilinear pairing：</p>
+<div class="math-block">
+<div class="math-line" data-tex="e:G_1\times G_2\rightarrow G_T,\qquad e(g^a,h^b)=e(g,h)^{ab}."></div>
+</div>
+<p>随后采样隐藏值 <span data-tex="\tau\leftarrow\mathbb F_p"></span>，并生成：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="\mathsf{pp}=\left(g,g^\tau,g^{\tau^2},\ldots,g^{\tau^d};\ h,h^\tau\right)."></div>
+</div>
+<p>SRS 公开后，<span data-tex="\tau"></span> 应被销毁或通过多方 setup 保证最终值不被任何单一参与方掌握。</p>
+<p class="math-note">小结：后续算法只使用 SRS 中的群元素，不需要知道 <span data-tex="\tau"></span>。</p>
+<h3>2.2 Com</h3>
+<p>对于：</p>
+<div class="math-block">
+<div class="math-line" data-tex="f(X)=\sum_{i=0}^{d}a_iX^i,"></div>
+</div>
+<p>Prover 使用 SRS 计算：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="C=\prod_{i=0}^{d}\left(g^{\tau^i}\right)^{a_i}."></div>
+</div>
+<p>然后把 <span data-tex="C"></span> 发送给 Verifier。这个计算只涉及公开 SRS 与 polynomial coefficients。</p>
+<p class="math-note">小结：<span data-tex="C"></span> 是对 <span data-tex="f"></span> 的短群承诺。</p>
+<h3>2.3 Open</h3>
+<p>Verifier 指定公开点 <span data-tex="z\in\mathbb F_p"></span>。Prover 计算：</p>
+<div class="math-block">
+<div class="math-line" data-tex="y=f(z),\qquad q(X)=\frac{f(X)-y}{X-z}."></div>
+</div>
+<p>若 <span data-tex="q(X)=\sum_i q_iX^i"></span>，则 Prover 使用 SRS 计算：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="\pi=\prod_i\left(g^{\tau^i}\right)^{q_i}."></div>
+</div>
+<p>Prover 将 <span data-tex="(y,\pi)"></span> 发送给 Verifier，完整的 <span data-tex="q(X)"></span> 无需发送。</p>
+<p class="math-note">小结：Opening 公开的是一个 evaluation 和一个短 proof。</p>
+<h3>2.4 Ver</h3>
+<p>Verifier 使用公开的 <span data-tex="\mathsf{pp},C,z,y,\pi"></span>，从 SRS 中取得 <span data-tex="h^\tau"></span>，并根据公开 <span data-tex="z"></span> 计算 <span data-tex="h^z"></span>。随后检查：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="e(C/g^y,h)\stackrel{?}{=}e(\pi,h^\tau/h^z)."></div>
+</div>
+<p>若等式成立则接受，否则拒绝。Verifier 不需要恢复 <span data-tex="\tau"></span>、<span data-tex="f(\tau)"></span> 或 <span data-tex="q(\tau)"></span>。</p>
+<figure class="gkr-figure">
+<svg aria-labelledby="flow-title flow-desc" role="img" viewbox="0 0 900 420">
+<title id="flow-title">KZG protocol flow</title>
+<desc id="flow-desc">Setup publishes SRS, Prover commits, Verifier sends z, Prover opens, and Verifier checks.</desc>
+<text class="svg-title" text-anchor="middle" x="450" y="30">KZG protocol flow</text>
+<rect class="svg-node" height="60" rx="10" width="180" x="50" y="70"></rect>
+<rect class="svg-node-green" height="60" rx="10" width="180" x="360" y="70"></rect>
+<rect class="svg-node-accent" height="60" rx="10" width="180" x="670" y="70"></rect>
+<text class="svg-text" text-anchor="middle" x="140" y="106">Setup</text>
+<text class="svg-text" text-anchor="middle" x="450" y="106">Prover</text>
+<text class="svg-text" text-anchor="middle" x="760" y="106">Verifier</text>
+<line style="stroke:var(--sc-line);stroke-width:1.4" x1="140" x2="140" y1="130" y2="375"></line>
+<line style="stroke:var(--sc-line);stroke-width:1.4" x1="450" x2="450" y1="130" y2="375"></line>
+<line style="stroke:var(--sc-line);stroke-width:1.4" x1="760" x2="760" y1="130" y2="375"></line>
+<path class="svg-edge-accent" d="M160 170 H740"></path>
+<polygon fill="var(--sc-gold)" points="752,170 738,163 738,177"></polygon>
+<text class="svg-small" text-anchor="middle" x="450" y="160">public SRS</text>
+<path class="svg-edge-accent" d="M470 225 H740"></path>
+<polygon fill="var(--sc-gold)" points="752,225 738,218 738,232"></polygon>
+<text class="svg-small" text-anchor="middle" x="605" y="215">C</text>
+<path class="svg-edge" d="M740 280 H470"></path>
+<polygon fill="var(--sc-green)" points="458,280 472,273 472,287"></polygon>
+<text class="svg-small" text-anchor="middle" x="605" y="270">z</text>
+<path class="svg-edge-accent" d="M470 335 H740"></path>
+<polygon fill="var(--sc-gold)" points="752,335 738,328 738,342"></polygon>
+<text class="svg-small" text-anchor="middle" x="605" y="325">(y, π)</text>
+<text class="svg-small" text-anchor="middle" x="760" y="395">Verify → accept / reject</text>
+</svg>
+<figcaption>协议运行顺序：Setup 发布 SRS，Prover 先提交 <span data-tex="C"></span>，Verifier 再给出 <span data-tex="z"></span>，Prover 返回 <span data-tex="(y,\pi)"></span>，最后由 Verifier 检查 pairing equation。</figcaption>
+</figure>
+<h2 id="derivation">三、正确性推导</h2>
+<p>下面只解释上述算法为什么成立。这里出现的 <span data-tex="f(\tau)"></span>、<span data-tex="q(\tau)"></span> 是对隐藏指数的数学展开，不是协议参与方额外执行的计算。</p>
+<h3>3.1 Commitment 的指数形式</h3>
+<p>由 <span data-tex="f(X)=\sum_{i=0}^{d}a_iX^i"></span>，Prover 实际计算的 commitment 可以展开为：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="C=\prod_{i=0}^{d}(g^{\tau^i})^{a_i}=\prod_{i=0}^{d}g^{a_i\tau^i}=g^{\sum_{i=0}^{d}a_i\tau^i}=g^{f(\tau)}."></div>
+</div>
+<p>因此常把 KZG commitment 简写为 <span data-tex="C=g^{f(\tau)}"></span>。它表示的是 SRS 群运算的代数结果，而不是 Prover 先获得 <span data-tex="f(\tau)"></span> 再计算指数。</p>
+<h3>3.2 Quotient Polynomial</h3>
+<p>将 <span data-tex="f(X)"></span> 除以 <span data-tex="X-z"></span>：</p>
+<div class="math-block">
+<div class="math-line" data-tex="f(X)=q(X)(X-z)+r."></div>
+</div>
+<p>令 <span data-tex="X=z"></span>，得到：</p>
+<div class="math-block">
+<div class="math-line" data-tex="f(z)=q(z)(z-z)+r=r."></div>
+</div>
+<p>如果 <span data-tex="y=f(z)"></span>，则：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="f(X)=q(X)(X-z)+y\iff f(X)-y=(X-z)q(X)\iff q(X)=\frac{f(X)-y}{X-z}."></div>
+</div>
+<p>因此：</p>
+<div class="math-block">
+<div class="math-line" data-tex="f(z)=y\iff(X-z)\mid(f(X)-y)."></div>
+</div>
+<p>这就是 opening 使用 quotient polynomial 的原因。</p>
+<h3>3.3 Opening Proof 的指数形式</h3>
+<p>对于 <span data-tex="q(X)=\sum_i q_iX^i"></span>：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="\pi=\prod_i(g^{\tau^i})^{q_i}=g^{\sum_iq_i\tau^i}=g^{q(\tau)}."></div>
+</div>
+<p>所以 <span data-tex="\pi"></span> 可以理解为 quotient polynomial 在隐藏点上的指数编码。</p>
+<h3>3.4 Pairing Verification</h3>
+<p>由：</p>
+<div class="math-block">
+<div class="math-line" data-tex="f(X)-y=(X-z)q(X),"></div>
+</div>
+<p>形式上令 <span data-tex="X=\tau"></span>：</p>
+<div class="math-block">
+<div class="math-line" data-tex="f(\tau)-y=(\tau-z)q(\tau)."></div>
+</div>
+<p>Pairing 左侧为：</p>
+<div class="math-block">
+<div class="math-line" data-tex="e(C/g^y,h)=e(g^{f(\tau)-y},h)=e(g,h)^{f(\tau)-y}."></div>
+</div>
+<p>右侧为：</p>
+<div class="math-block">
+<div class="math-line" data-tex="e(\pi,h^\tau/h^z)=e(g^{q(\tau)},h^{\tau-z})=e(g,h)^{q(\tau)(\tau-z)}."></div>
+</div>
+<p>因为两个指数相等，所以：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="e(C/g^y,h)=e(\pi,h^\tau/h^z)."></div>
+</div>
+<p class="math-note">小结：Verifier 实际比较 pairing；隐藏指数只用于说明这两个 pairing 为什么相等。</p>
+<h2 id="example">四、数值例子：在 F₁₇ 中演示</h2>
+<p>为了把隐藏指数中的关系写成具体数字，取一个仅用于教学的参数：</p>
+<div class="math-block">
+<div class="math-line" data-tex="\mathbb F_{17},\qquad \tau=5,\qquad f(X)=3+2X+4X^2."></div>
+</div>
+<p>实际 KZG 中 <span data-tex="\tau"></span> 不会公开，这里只是为了演示计算。</p>
+<h3>4.1 Gen 与 Com</h3>
+<p>因为 <span data-tex="\tau^2=25\equiv8\pmod{17}"></span>，SRS 的相关部分可以写成 <span data-tex="(g,g^5,g^8)"></span>。Prover 计算：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="C=g^3(g^5)^2(g^8)^4=g^{3+10+32}=g^{45}=g^{11}."></div>
+</div>
+<p>而：</p>
+<div class="math-block">
+<div class="math-line" data-tex="f(5)=3+2\cdot5+4\cdot5^2=113\equiv11\pmod{17},"></div>
+</div>
+<p>所以这个结果与 <span data-tex="C=g^{f(\tau)}"></span> 一致。</p>
+<h3>4.2 Open</h3>
+<p>设 Verifier 查询 <span data-tex="z=2"></span>。Prover 计算：</p>
+<div class="math-block">
+<div class="math-line" data-tex="y=f(2)=3+2\cdot2+4\cdot2^2=23\equiv6\pmod{17}."></div>
+</div>
+<p>随后：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="q(X)=\frac{f(X)-6}{X-2}=\frac{4X^2+2X+14}{X-2}=4X+10."></div>
+</div>
+<p>验证乘回去：</p>
+<div class="math-block">
+<div class="math-line" data-tex="(X-2)(4X+10)=4X^2+2X-20\equiv4X^2+2X+14=f(X)-6\pmod{17}."></div>
+</div>
+<p>在教学参数下 <span data-tex="q(5)=4\cdot5+10=30\equiv13\pmod{17}"></span>，因此 <span data-tex="\pi=g^{13}"></span>。</p>
+<h3>4.3 Verification 对应的指数关系</h3>
+<div class="math-block green">
+<div class="math-line" data-tex="f(\tau)-y=11-6=5,\qquad q(\tau)(\tau-z)=13(5-2)=39\equiv5\pmod{17}."></div>
+</div>
+<p>两个指数相等，因此 pairing verification 通过。</p>
+<h3>4.4 错误 Evaluation</h3>
+<p>如果 Prover 错误声称 <span data-tex="f(2)=7"></span>，则：</p>
+<div class="math-block">
+<div class="math-line" data-tex="f(2)-7=6-7=-1\equiv16\neq0\pmod{17}."></div>
+</div>
+<p>因此：</p>
+<div class="math-block">
+<div class="math-line" data-tex="(X-2)\nmid(f(X)-7),"></div>
+</div>
+<p>不能得到满足 <span data-tex="f(X)-7=(X-2)q'(X)"></span> 的 polynomial <span data-tex="q'(X)"></span>。</p>
+<h2 id="properties">五、关键性质与注意点</h2>
+<ul class="sc-checklist">
+<li><strong>Commitment size：</strong>基础 KZG commitment 是一个群元素。</li>
+<li><strong>Opening size：</strong>单点 opening proof 也是一个群元素。</li>
+<li><strong>Binding：</strong>Prover 在 commitment 之后不能自由改变被承诺 polynomial 的 evaluation。</li>
+<li><strong>Degree bound：</strong>SRS 支持的最高 power 与允许的最大 polynomial degree 对应。</li>
+<li><strong>Trusted setup：</strong>最终 <span data-tex="\tau"></span> 必须保持未知。</li>
+<li><strong>Hiding：</strong>基础 KZG 主要提供 binding 与 succinct opening；不发送 <span data-tex="f"></span> 并不等于 commitment 自动隐藏 <span data-tex="f"></span>。</li>
+</ul>
+<p>KZG 的 computational binding 并不是因为单个 <span data-tex="f(\tau)"></span> 在信息论上唯一确定整个 <span data-tex="f"></span>，而是依赖隐藏的 <span data-tex="\tau"></span>、degree bound 以及相应的双线性群计算困难假设。</p>
+<h2 id="memory">六、速记总结</h2>
+<table class="symbol-table">
+<thead><tr><th>阶段</th><th>核心式子</th><th>含义</th></tr></thead>
+<tbody>
+<tr><td>Gen</td><td><span data-tex="\{g^{\tau^i}\},h,h^\tau"></span></td><td>生成公开 SRS，隐藏 <span data-tex="\tau"></span>。</td></tr>
+<tr><td>Com</td><td><span data-tex="C=\prod_i(g^{\tau^i})^{a_i}=g^{f(\tau)}"></span></td><td>对 polynomial 作短承诺。</td></tr>
+<tr><td>Open</td><td><span data-tex="q(X)=(f(X)-y)/(X-z),\ \pi=g^{q(\tau)}"></span></td><td>把 evaluation 转成 quotient relation。</td></tr>
+<tr><td>Ver</td><td><span data-tex="e(C/g^y,h)=e(\pi,h^\tau/h^z)"></span></td><td>用 pairing 检查 opening。</td></tr>
+</tbody>
+</table>
+<div class="math-block green">
+<div class="math-line" data-tex="\mathsf{Gen}\rightarrow\mathsf{Com}\rightarrow\mathsf{Open}\rightarrow\mathsf{Ver}."></div>
+</div>
+<p>可以把 KZG 记成三件事：SRS 提供隐藏点 powers 的群编码；因子定理把 <span data-tex="f(z)=y"></span> 转成 quotient polynomial；pairing 在不知道隐藏指数的情况下检查两边是否一致。</p>
+<details>
+<summary>复习自测</summary>
+<div>
+<ol>
+<li><span data-tex="\mathsf{Com}"></span> 中 Prover 实际计算的是什么？为什么不需要知道 <span data-tex="\tau"></span>？</li>
+<li>为什么 <span data-tex="f(z)=y"></span> 可以转化成 <span data-tex="(X-z)\mid(f(X)-y)"></span>？</li>
+<li><span data-tex="\pi"></span> 与 quotient polynomial 有什么关系？</li>
+<li>Verifier 实际检查什么？它是否需要计算 <span data-tex="f(\tau)"></span>？</li>
+<li>基础 KZG 的 binding 与 hiding 有什么区别？</li>
+</ol>
+</div>
+</details>
+<section aria-labelledby="references-title" class="references">
+<h2 id="references-title">参考文献</h2>
+<ol class="reference-list">
+<li>A. Kate, G. M. Zaverucha, and I. Goldberg, “<cite>Constant-Size Commitments to Polynomials and Their Applications</cite>,” ASIACRYPT 2010. <span class="reference-kind">KZG Polynomial Commitment</span></li>
+<li>“<cite>Multilinear Extension：从 Boolean Table 到低度多项式</cite>,” Frieren · Cryptography Notes. <a href="multilinear-extension.html">相关笔记</a> <span class="reference-kind">MLE</span></li>
+<li>“<cite>Sumcheck Protocol：逐轮压缩求和</cite>,” Frieren · Cryptography Notes. <a href="sumcheck-protocol-notes.html">相关笔记</a> <span class="reference-kind">Sumcheck</span></li>
+<li>“<cite>GKR Protocol：从电路执行到逐层多项式验证</cite>,” Frieren · Cryptography Notes. <a href="gkr-protocol-notes.html">相关笔记</a> <span class="reference-kind">GKR</span></li>
+</ol>
+</section>
+</article>
+<footer class="article-footer">
+<a class="footer-back" href="../index.html">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="M19 12H5M12 5l-7 7 7 7"></path>
+</svg>
+      返回所有文章
+    </a>
+<span class="footer-brand">Frieren · Cryptography Notes</span>
+</footer>
+</main>
+<script defer="" src="../static/vendor/katex/katex.min.js"></script>
+<script defer="" src="../static/js/theme.js"></script>
+<script defer="" src="../static/js/posts-data.js"></script>
+<script defer="" src="../static/js/learning-path.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-tex]').forEach(function (element) {
+      katex.render(element.dataset.tex, element, {
+        displayMode: element.classList.contains('math-line'),
+        throwOnError: false,
+        strict: false
+      });
+    });
+
+    const shareButton = document.getElementById('share-button');
+    const toast = document.getElementById('action-toast');
+    let toastTimer;
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () {
+        toast.classList.remove('show');
+      }, 2200);
+    }
+
+    document.addEventListener('frieren-theme-change', function (event) {
+      showToast(event.detail.theme === 'dark' ? '已切换为深色模式' : '已切换为常规模式');
+    });
+
+    async function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+      const field = document.createElement('textarea');
+      field.value = text;
+      field.setAttribute('readonly', '');
+      field.style.position = 'fixed';
+      field.style.opacity = '0';
+      document.body.appendChild(field);
+      field.select();
+      const copied = document.execCommand('copy');
+      field.remove();
+      if (!copied) throw new Error('copy failed');
+    }
+
+    shareButton.addEventListener('click', async function () {
+      const canonical = document.querySelector('link[rel="canonical"]');
+      const url = canonical ? canonical.href : window.location.href;
+      const shareData = {
+        title: document.title,
+        text: 'KZG Polynomial Commitment：从指数编码到点值证明',
+        url: url
+      };
+
+      if (navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
+        try {
+          await navigator.share(shareData);
+          return;
+        } catch (error) {
+          if (error && error.name === 'AbortError') return;
+        }
+      }
+
+      try {
+        await copyText(url);
+        showToast('公开链接已复制');
+      } catch (_) {
+        window.prompt('复制下面的公开链接：', url);
+      }
+    });
+  });
+</script>
+</body>
+</html>

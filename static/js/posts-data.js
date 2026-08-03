@@ -110,6 +110,20 @@ window.posts = [
   learningOrder: 7,
   learningLabel: "GKR 协议"
 },
+{
+  id: 20,
+  file: "posts/kzg-polynomial-commitment.html",
+  title: "KZG Polynomial Commitment：从指数编码到点值证明",
+  tag: "证明系统与零知识证明",
+  date: "2026-08-03",
+  excerpt: "从 Gen、Com、Open 与 Ver 四个算法出发，理解 KZG 如何利用隐藏点的 SRS 编码 polynomial commitment，并通过 quotient polynomial 与 bilinear pairing 验证指定点上的 evaluation。",
+  readTime: "约 20 分钟",
+  cover: "",
+  emoji: "KZG",
+  learningOrder: 8,
+  learningLabel: "KZG Polynomial Commitment"
+},
+
   {
     id: 7,
     file: "posts/des.html",
