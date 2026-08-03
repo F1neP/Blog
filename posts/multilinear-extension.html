@@ -1,0 +1,1317 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="Multilinear Extension（MLE）学习笔记：从 Boolean Lagrange basis 出发，理解固定 basis、唯一多线性扩展、数值构造、随机域点求值，以及 MLE 在 Sumcheck 与 GKR 中的作用。" name="description"/>
+<title>Multilinear Extension：从 Boolean Table 到低度多项式 · Frieren</title>
+<link href="../HK.ico" rel="icon" type="image/x-icon"/>
+<link href="https://blog.fp1022.dpdns.org/posts/multilinear-extension.html" rel="canonical"/>
+<link href="../static/css/style.css" rel="stylesheet"/>
+<link href="../static/css/post.css" rel="stylesheet"/>
+<link href="../static/vendor/katex/katex.min.css" rel="stylesheet"/>
+<script>
+  (function () {
+    let theme;
+    try { theme = localStorage.getItem('frieren-theme'); } catch (_) {}
+    if (theme !== 'light' && theme !== 'dark') {
+      theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.dataset.theme = theme;
+  })();
+</script>
+<style>
+  :root {
+    --sc-blue: #315b70;
+    --sc-blue-soft: #dce8eb;
+    --sc-green: #557568;
+    --sc-green-soft: #e2ebe5;
+    --sc-gold: #a7782f;
+    --sc-gold-soft: #f2e9d8;
+    --sc-red: #9e4d3f;
+    --sc-red-soft: #f1dfda;
+    --sc-math: "KaTeX_Main", "Latin Modern Math", "STIX Two Math", "Cambria Math", serif;
+  }
+
+  html[data-theme="dark"] {
+    --sc-blue: #84b9cf;
+    --sc-blue-soft: #1b3039;
+    --sc-green: #8ebaa7;
+    --sc-green-soft: #20352c;
+    --sc-gold: #d5ab64;
+    --sc-gold-soft: #392f20;
+    --sc-red: #d88c7e;
+    --sc-red-soft: #3a2724;
+  }
+
+  .post-hero {
+    height: 48vh;
+    min-height: 390px;
+    background:
+      radial-gradient(circle at 18% 22%, rgba(196,98,45,.18), transparent 24%),
+      radial-gradient(circle at 82% 70%, rgba(49,91,112,.17), transparent 28%),
+      linear-gradient(145deg, #eee8de, #f7f4ef 55%, #e8e2d8);
+  }
+
+  .sumcheck-hero {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 4rem 1.5rem 6rem;
+  }
+
+  .hero-proof {
+    width: min(920px, 92vw);
+    display: grid;
+    grid-template-columns: repeat(7, auto);
+    align-items: center;
+    justify-content: center;
+    gap: clamp(.45rem, 1.7vw, 1.3rem);
+    color: var(--ink);
+  }
+
+  .hero-node {
+    min-width: 82px;
+    padding: .8rem 1rem;
+    border: 1px solid rgba(26,24,20,.13);
+    border-radius: 7px;
+    background: rgba(250,248,244,.78);
+    box-shadow: 0 12px 30px rgba(26,24,20,.06);
+    backdrop-filter: blur(7px);
+    text-align: center;
+  }
+
+  .hero-node strong {
+    display: block;
+    font-family: var(--serif);
+    font-size: 1.25rem;
+    font-weight: 400;
+  }
+
+  .hero-node strong sub {
+    position: relative;
+    bottom: -.22em;
+    vertical-align: baseline;
+    font-size: .64em;
+    line-height: 0;
+  }
+
+  .hero-node span {
+    display: block;
+    margin-top: .18rem;
+    font-family: var(--mono);
+    font-size: .64rem;
+    color: var(--ink-mute);
+  }
+
+  .hero-arrow {
+    font-family: var(--mono);
+    color: var(--accent);
+    font-size: 1.15rem;
+  }
+
+  .hero-proof .hero-node:last-child {
+    border-color: rgba(196,98,45,.35);
+    background: rgba(232,213,200,.72);
+  }
+
+  .article-wrap { max-width: 900px; }
+  .article-content { color: var(--ink-soft); }
+  .article-content > p { max-width: 760px; }
+
+  .sc-lead {
+    font-family: var(--serif);
+    font-size: 1.18rem;
+    line-height: 1.9;
+    color: var(--ink);
+  }
+
+  .sc-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .3rem .75rem;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: .7rem;
+    letter-spacing: .06em;
+    margin-bottom: 1rem;
+  }
+
+  .sc-toc {
+    margin: 2.2rem 0 3rem;
+    padding: 1.3rem 1.5rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(250,248,244,.68);
+  }
+
+  .sc-toc-title {
+    font-family: var(--mono);
+    font-size: .72rem;
+    color: var(--ink-mute);
+    letter-spacing: .11em;
+    text-transform: uppercase;
+    margin-bottom: .85rem;
+  }
+
+  .sc-toc ol {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .45rem 2rem;
+    padding-left: 1.2rem;
+  }
+
+  .sc-toc a {
+    color: var(--ink-soft);
+    text-decoration: none;
+    font-size: .88rem;
+  }
+
+  .sc-toc a:hover { color: var(--accent); }
+
+  .math-block {
+    overflow-x: auto;
+    margin: 1.35rem 0 1.8rem;
+    padding: 1.2rem 1.45rem 1.1rem;
+    border: 1px solid rgba(49,91,112,.18);
+    border-left: 4px solid var(--sc-blue);
+    border-radius: 6px;
+    background: rgba(244,248,249,.92);
+    box-shadow: 0 8px 22px rgba(31,48,55,.045);
+    color: #173947;
+    font-family: var(--sc-math);
+    font-size: 1.14rem;
+    line-height: 1.75;
+    text-align: center;
+    letter-spacing: 0;
+    scrollbar-width: thin;
+  }
+
+  .math-block.gold {
+    border-left-color: var(--sc-gold);
+    border-top-color: rgba(167,120,47,.16);
+    border-right-color: rgba(167,120,47,.16);
+    border-bottom-color: rgba(167,120,47,.16);
+    background: rgba(250,247,239,.94);
+    color: #5c421a;
+  }
+
+  .math-block.green {
+    border-left-color: var(--sc-green);
+    border-top-color: rgba(85,117,104,.16);
+    border-right-color: rgba(85,117,104,.16);
+    border-bottom-color: rgba(85,117,104,.16);
+    background: rgba(244,248,245,.94);
+    color: #27473b;
+  }
+
+  .math-line {
+    min-width: max-content;
+    white-space: nowrap;
+    font-family: var(--sc-math);
+    font-variant-numeric: lining-nums;
+    font-feature-settings: "kern" 1, "liga" 1;
+  }
+
+  .math-line .katex-display { margin: 0; }
+  .math-line .katex { font-size: 1.08em; }
+  .math-line .katex .mord.mathnormal { font-family: "KaTeX_Math", var(--sc-math); }
+
+  .math-line sub,
+  .math-line sup,
+  .math-inline sub,
+  .math-inline sup,
+  .message .payload sub,
+  .message .payload sup,
+  .transcript sub,
+  .transcript sup,
+  .symbol-table td:first-child sub,
+  .symbol-table td:first-child sup {
+    position: relative;
+    vertical-align: baseline;
+    font-size: .68em;
+    line-height: 0;
+  }
+
+  .math-line sub,
+  .math-inline sub,
+  .message .payload sub,
+  .transcript sub,
+  .symbol-table td:first-child sub { bottom: -.28em; }
+
+  .math-line sup,
+  .math-inline sup,
+  .message .payload sup,
+  .transcript sup,
+  .symbol-table td:first-child sup { top: -.52em; }
+
+  .math-inline {
+    white-space: nowrap;
+    font-family: var(--sc-math);
+    font-size: 1.04em;
+    color: var(--ink-soft);
+  }
+
+  .article-content sub,
+  .article-content sup {
+    font-family: var(--sc-math);
+    font-size: .72em;
+    line-height: 0;
+  }
+
+  .sum-op {
+    display: inline-grid;
+    grid-template-rows: 1.02em .82em;
+    place-items: center;
+    min-width: 2.4em;
+    margin: 0 .08em;
+    vertical-align: -.42em;
+    line-height: 1;
+  }
+
+  .sum-op.wide { min-width: 5.9em; }
+
+  .sum-symbol {
+    font-size: 1.5em;
+    line-height: .82;
+    font-weight: 400;
+  }
+
+  .sum-index {
+    font-family: var(--sc-math);
+    font-size: .56em;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .sum-index sub { bottom: -.18em; }
+
+  .frac {
+    display: inline-grid;
+    grid-template-rows: auto auto;
+    min-width: 1.7em;
+    margin: 0 .12em;
+    vertical-align: -.46em;
+    line-height: 1.08;
+    text-align: center;
+  }
+
+  .frac > span:first-child {
+    padding: 0 .18em .08em;
+    border-bottom: 1px solid currentColor;
+  }
+
+  .frac > span:last-child { padding: .08em .18em 0; }
+
+  .prob-index {
+    display: inline-block;
+    margin: 0 .22em 0 .08em;
+    vertical-align: -.55em;
+    font-size: .58em;
+    line-height: 1;
+  }
+
+  .prob-index sub { bottom: -.16em; }
+
+  .math-label {
+    font-family: var(--mono);
+    font-size: .64rem;
+    letter-spacing: .08em;
+    color: currentColor;
+    opacity: .64;
+  }
+
+  .math-note {
+    display: block;
+    margin-top: .65rem;
+    padding-top: .55rem;
+    border-top: 1px solid rgba(49,91,112,.12);
+    font-family: var(--body);
+    font-size: .78rem;
+    line-height: 1.65;
+    color: var(--ink-mute);
+    text-align: center;
+  }
+
+  .symbol-table,
+  .truth-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0 2rem;
+    font-size: .88rem;
+    background: rgba(250,248,244,.7);
+  }
+
+  .symbol-table th,
+  .symbol-table td,
+  .truth-table th,
+  .truth-table td {
+    padding: .72rem .85rem;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .symbol-table th,
+  .truth-table th {
+    font-family: var(--mono);
+    font-weight: 300;
+    color: var(--ink-mute);
+    font-size: .72rem;
+    letter-spacing: .06em;
+    background: var(--paper-warm);
+  }
+
+  .symbol-table td:first-child {
+    width: 22%;
+    font-family: var(--sc-math);
+    color: var(--sc-blue);
+    font-size: 1.08rem;
+    white-space: nowrap;
+  }
+
+  .truth-table th,
+  .truth-table td { text-align: center; }
+
+  .sc-callout {
+    margin: 1.7rem 0;
+    padding: 1.15rem 1.3rem;
+    border: 1px solid rgba(167,120,47,.25);
+    border-radius: 8px;
+    background: var(--sc-gold-soft);
+  }
+
+  .sc-callout strong {
+    display: block;
+    margin-bottom: .35rem;
+    color: #6c4c1e;
+    font-family: var(--mono);
+    font-size: .76rem;
+    letter-spacing: .06em;
+  }
+
+  .sc-callout p { margin: 0; font-size: .9rem; line-height: 1.75; }
+
+  .protocol-loop {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: .8rem;
+    margin: 1.6rem 0 2.3rem;
+  }
+
+  .loop-step {
+    position: relative;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper-card);
+    min-height: 126px;
+  }
+
+  .loop-step::after {
+    content: '→';
+    position: absolute;
+    top: 50%;
+    right: -.68rem;
+    transform: translateY(-50%);
+    color: var(--accent);
+    font-family: var(--mono);
+  }
+
+  .loop-step:last-child::after { display: none; }
+
+  .loop-no {
+    font-family: var(--mono);
+    font-size: .65rem;
+    color: var(--accent);
+    letter-spacing: .08em;
+  }
+
+  .loop-step h3 {
+    margin: .25rem 0 .45rem;
+    font-size: 1rem;
+  }
+
+  .loop-step p { margin: 0; font-size: .78rem; line-height: 1.65; }
+
+  .protocol-stages {
+    display: grid;
+    gap: 1.15rem;
+    margin: 2rem 0 2.3rem;
+  }
+
+  .protocol-stage {
+    position: relative;
+    overflow: hidden;
+    padding: 1.25rem 1.35rem .15rem;
+    border: 1px solid rgba(49,91,112,.16);
+    border-radius: 10px;
+    background: rgba(250,248,244,.72);
+    box-shadow: 0 10px 28px rgba(26,24,20,.035);
+  }
+
+  .protocol-stage::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: var(--sc-blue);
+    opacity: .8;
+  }
+
+  .protocol-stage:nth-child(2)::before { background: var(--sc-gold); }
+  .protocol-stage:nth-child(3)::before { background: var(--sc-green); }
+
+  .stage-heading {
+    display: flex;
+    align-items: center;
+    gap: .85rem;
+    margin-bottom: 1.05rem;
+    padding-bottom: .85rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .stage-index {
+    display: grid;
+    place-items: center;
+    width: 35px;
+    height: 35px;
+    flex: 0 0 35px;
+    border: 1px solid rgba(49,91,112,.2);
+    border-radius: 50%;
+    background: rgba(220,232,235,.62);
+    color: var(--sc-blue);
+    font-family: var(--mono);
+    font-size: .68rem;
+  }
+
+  .protocol-stage:nth-child(2) .stage-index {
+    border-color: rgba(167,120,47,.2);
+    background: rgba(242,233,216,.66);
+    color: var(--sc-gold);
+  }
+
+  .protocol-stage:nth-child(3) .stage-index {
+    border-color: rgba(85,117,104,.2);
+    background: rgba(226,235,229,.72);
+    color: var(--sc-green);
+  }
+
+  .stage-role {
+    display: block;
+    margin-bottom: .1rem;
+    color: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: .58rem;
+    letter-spacing: .1em;
+  }
+
+  .article-content .protocol-stage h3 {
+    margin: 0;
+    font-size: 1.12rem;
+  }
+
+  .protocol-stage > p { margin-bottom: 1.15rem; }
+  .protocol-stage .math-block { margin: 1rem 0 1.25rem; }
+
+  .round-card {
+    margin: 1.5rem 0 2.2rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    background: rgba(250,248,244,.78);
+  }
+
+  .round-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: .85rem 1.1rem;
+    background: var(--paper-warm);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .round-head strong {
+    font-family: var(--serif);
+    font-weight: 400;
+    color: var(--ink);
+  }
+
+  .round-head span {
+    font-family: var(--mono);
+    font-size: .68rem;
+    color: var(--accent);
+  }
+
+  .round-body { padding: 1rem 1.2rem 1.25rem; }
+  .round-body p { margin: 0 0 .75rem; font-size: .9rem; }
+  .round-body p:last-child { margin-bottom: 0; }
+
+  .message {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: .8rem;
+    padding: .62rem 0;
+    border-bottom: 1px dashed var(--line);
+    align-items: baseline;
+  }
+
+  .message:last-child { border-bottom: 0; }
+  .message .who {
+    font-family: var(--mono);
+    font-size: .69rem;
+    color: var(--sc-blue);
+  }
+
+  .message.verifier .who { color: var(--accent); }
+  .message .payload {
+    overflow-x: auto;
+    font-family: var(--sc-math);
+    font-size: 1.01rem;
+    line-height: 1.75;
+    font-variant-numeric: lining-nums;
+    color: var(--ink-soft);
+  }
+
+  .transcript {
+    margin: 1.5rem 0 2.3rem;
+    padding: 1.2rem 1.4rem;
+    border: 1px solid rgba(85,117,104,.25);
+    border-radius: 8px;
+    background: var(--sc-green-soft);
+    overflow-x: auto;
+    font-family: var(--sc-math);
+    font-size: 1.03rem;
+    line-height: 1.75;
+    font-variant-numeric: lining-nums;
+    color: #294a3e;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .fact-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: .9rem;
+    margin: 1.5rem 0 2.2rem;
+  }
+
+  .fact-card {
+    padding: 1.1rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper-card);
+  }
+
+  .fact-card strong {
+    display: block;
+    font-family: var(--serif);
+    font-weight: 400;
+    color: var(--ink);
+    margin-bottom: .35rem;
+  }
+
+  .fact-card span {
+    display: block;
+    font-family: var(--mono);
+    font-size: .78rem;
+    color: var(--accent);
+    margin-bottom: .35rem;
+  }
+
+  .fact-card p { margin: 0; font-size: .78rem; line-height: 1.65; }
+
+  .sc-checklist {
+    list-style: none;
+    margin: 1.2rem 0 2rem;
+  }
+
+  .sc-checklist li {
+    position: relative;
+    padding: .65rem 0 .65rem 1.8rem;
+    border-bottom: 1px solid var(--line);
+    font-size: .9rem;
+  }
+
+  .sc-checklist li::before {
+    content: '✓';
+    position: absolute;
+    left: .15rem;
+    color: var(--sc-green);
+    font-family: var(--mono);
+  }
+
+  details {
+    margin: 1.2rem 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(250,248,244,.65);
+  }
+
+  summary {
+    padding: .9rem 1.1rem;
+    cursor: pointer;
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: .78rem;
+  }
+
+  details > div { padding: 0 1.1rem 1.1rem; }
+
+  .references {
+    margin-top: 3.4rem;
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .references h2 {
+    margin-top: 0;
+    margin-bottom: 1.25rem;
+  }
+
+  .reference-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: references;
+  }
+
+  .reference-list li {
+    position: relative;
+    counter-increment: references;
+    margin: 0 0 .9rem;
+    padding: 0 0 .9rem 2.65rem;
+    border-bottom: 1px solid rgba(26,24,20,.08);
+    color: var(--ink-soft);
+    font-family: var(--serif);
+    font-size: .84rem;
+    line-height: 1.72;
+  }
+
+  .reference-list li::before {
+    content: '[' counter(references) ']';
+    position: absolute;
+    left: 0;
+    top: .02rem;
+    width: 2rem;
+    color: var(--sc-blue);
+    font-family: var(--mono);
+    font-size: .72rem;
+  }
+
+  .reference-list cite { color: var(--ink); }
+
+  .reference-list a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(196,98,45,.25);
+    overflow-wrap: anywhere;
+  }
+
+  .reference-list a:hover { border-bottom-color: var(--accent); }
+
+  .reference-kind {
+    display: inline-block;
+    margin-left: .45rem;
+    padding: .08rem .4rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: .58rem;
+    letter-spacing: .04em;
+    vertical-align: .08rem;
+  }
+
+  .article-actions {
+    position: fixed;
+    top: 1.6rem;
+    right: 1.8rem;
+    z-index: 100;
+    display: flex;
+    gap: .5rem;
+  }
+
+  .article-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .42rem;
+    min-height: 38px;
+    padding: .45rem .78rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(247,244,239,.88);
+    backdrop-filter: blur(10px);
+    color: var(--ink-soft);
+    font-family: var(--mono);
+    font-size: .72rem;
+    font-weight: 300;
+    cursor: pointer;
+    transition: background .2s ease, color .2s ease, border-color .2s ease, transform .2s ease;
+  }
+
+  .article-action:hover {
+    transform: translateY(-1px);
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  .article-action:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .article-action[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  .article-action svg {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+  }
+
+  .action-toast {
+    position: fixed;
+    top: 4.75rem;
+    right: 1.8rem;
+    z-index: 110;
+    max-width: min(310px, calc(100vw - 2rem));
+    padding: .55rem .8rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: rgba(26,24,20,.92);
+    color: var(--paper);
+    box-shadow: 0 10px 28px rgba(26,24,20,.15);
+    font-family: var(--mono);
+    font-size: .68rem;
+    line-height: 1.55;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-5px);
+    transition: opacity .2s ease, transform .2s ease;
+  }
+
+  .action-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  html[data-theme="dark"] .post-hero {
+    background:
+      radial-gradient(circle at 18% 22%, rgba(225,138,87,.12), transparent 25%),
+      radial-gradient(circle at 82% 70%, rgba(132,185,207,.12), transparent 30%),
+      linear-gradient(145deg, #181919, #202120 55%, #171818);
+  }
+
+  html[data-theme="dark"] .hero-overlay {
+    background: linear-gradient(to bottom, rgba(19,20,20,0) 35%, rgba(19,20,20,.98) 100%);
+  }
+
+  html[data-theme="dark"] .hero-node {
+    border-color: rgba(255,255,255,.12);
+    background: rgba(31,32,31,.82);
+    box-shadow: 0 12px 32px rgba(0,0,0,.22);
+  }
+
+  html[data-theme="dark"] .hero-proof .hero-node:last-child {
+    border-color: rgba(225,138,87,.32);
+    background: rgba(57,39,30,.82);
+  }
+
+  html[data-theme="dark"] .sc-toc,
+  html[data-theme="dark"] .symbol-table,
+  html[data-theme="dark"] .truth-table,
+  html[data-theme="dark"] details {
+    background: rgba(32,33,32,.68);
+  }
+
+  html[data-theme="dark"] .math-block {
+    border-color: rgba(132,185,207,.24);
+    border-left-color: var(--sc-blue);
+    background: #19292f;
+    color: #d9eef6;
+    box-shadow: 0 8px 24px rgba(0,0,0,.16);
+  }
+
+  html[data-theme="dark"] .math-block.gold {
+    border-color: rgba(213,171,100,.23);
+    border-left-color: var(--sc-gold);
+    background: #31291d;
+    color: #f2dfba;
+  }
+
+  html[data-theme="dark"] .math-block.green {
+    border-color: rgba(142,186,167,.22);
+    border-left-color: var(--sc-green);
+    background: #1d3028;
+    color: #d9eee5;
+  }
+
+  html[data-theme="dark"] .math-note { border-top-color: rgba(255,255,255,.1); }
+
+  html[data-theme="dark"] .sc-callout {
+    border-color: rgba(213,171,100,.24);
+    background: var(--sc-gold-soft);
+  }
+
+  html[data-theme="dark"] .sc-callout strong { color: var(--sc-gold); }
+
+  html[data-theme="dark"] .protocol-stage {
+    border-color: rgba(255,255,255,.11);
+    background: rgba(31,32,31,.82);
+    box-shadow: 0 10px 30px rgba(0,0,0,.18);
+  }
+
+  html[data-theme="dark"] .stage-index {
+    border-color: rgba(132,185,207,.25);
+    background: var(--sc-blue-soft);
+  }
+
+  html[data-theme="dark"] .protocol-stage:nth-child(2) .stage-index {
+    border-color: rgba(213,171,100,.25);
+    background: var(--sc-gold-soft);
+  }
+
+  html[data-theme="dark"] .protocol-stage:nth-child(3) .stage-index {
+    border-color: rgba(142,186,167,.25);
+    background: var(--sc-green-soft);
+  }
+
+  html[data-theme="dark"] .round-card {
+    background: rgba(31,32,31,.82);
+  }
+
+  html[data-theme="dark"] .transcript {
+    border-color: rgba(142,186,167,.25);
+    background: var(--sc-green-soft);
+    color: #d9eee5;
+  }
+
+  html[data-theme="dark"] .reference-list li {
+    border-bottom-color: rgba(255,255,255,.08);
+  }
+
+  html[data-theme="dark"] .reference-list a {
+    border-bottom-color: rgba(225,138,87,.35);
+  }
+
+  html[data-theme="dark"] .article-action {
+    background: rgba(27,28,28,.9);
+    border-color: rgba(255,255,255,.14);
+    color: var(--ink-soft);
+  }
+
+  html[data-theme="dark"] .article-action:hover {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--paper);
+  }
+
+  html[data-theme="dark"] .action-toast {
+    border-color: rgba(255,255,255,.16);
+    background: rgba(238,234,226,.96);
+    color: #171817;
+    box-shadow: 0 10px 30px rgba(0,0,0,.3);
+  }
+
+  @media (max-width: 760px) {
+    .post-hero { min-height: 460px; }
+    .hero-proof {
+      grid-template-columns: 1fr 28px 1fr;
+      width: min(480px, 94vw);
+    }
+    .hero-proof .hero-node:nth-of-type(3) { grid-column: 1; }
+    .hero-proof .hero-arrow:nth-of-type(4) { grid-column: 2; }
+    .hero-proof .hero-node:nth-of-type(5) { grid-column: 3; }
+    .protocol-loop { grid-template-columns: 1fr 1fr; }
+    .loop-step:nth-child(2)::after { display: none; }
+    .fact-grid { grid-template-columns: 1fr; }
+    .sc-toc ol { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 520px) {
+    .back-fixed {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+    }
+    .article-wrap { padding-left: 1.15rem; padding-right: 1.15rem; }
+    .protocol-loop { grid-template-columns: 1fr; }
+    .loop-step::after { display: none; }
+    .message { grid-template-columns: 82px 1fr; gap: .5rem; }
+    .math-block {
+      margin-left: -.15rem;
+      margin-right: -.15rem;
+      padding: 1rem .85rem .92rem;
+      font-size: 1rem;
+    }
+    .sum-op { min-width: 2.15em; }
+    .sum-op.wide { min-width: 5.35em; }
+    .message .payload { font-size: .94rem; }
+    .symbol-table { font-size: .8rem; }
+    .article-actions { position: absolute; top: 1rem; right: 1rem; }
+    .article-action {
+      width: 38px;
+      min-width: 38px;
+      padding: 0;
+    }
+    .article-action span { display: none; }
+    .action-toast { top: 4rem; right: 1rem; }
+  }
+
+  .gkr-figure {
+    margin: 1.8rem 0 2.35rem;
+    padding: 1rem 1rem .85rem;
+    border: 1px solid rgba(49,91,112,.16);
+    border-radius: 10px;
+    background: rgba(250,248,244,.76);
+    box-shadow: 0 10px 28px rgba(26,24,20,.035);
+    overflow-x: auto;
+  }
+
+  .gkr-figure svg {
+    display: block;
+    width: min(100%, 860px);
+    height: auto;
+    margin: 0 auto;
+  }
+
+  .gkr-figure figcaption {
+    margin-top: .8rem;
+    padding-top: .7rem;
+    border-top: 1px solid var(--line);
+    color: var(--ink-mute);
+    font-family: var(--body);
+    font-size: .8rem;
+    line-height: 1.65;
+    text-align: center;
+  }
+
+  .gkr-figure .svg-node {
+    fill: rgba(250,248,244,.96);
+    stroke: var(--sc-blue);
+    stroke-width: 1.5;
+  }
+
+  .gkr-figure .svg-node-accent {
+    fill: var(--sc-gold-soft);
+    stroke: var(--sc-gold);
+    stroke-width: 1.8;
+  }
+
+  .gkr-figure .svg-node-green {
+    fill: var(--sc-green-soft);
+    stroke: var(--sc-green);
+    stroke-width: 1.6;
+  }
+
+  .gkr-figure .svg-edge {
+    stroke: var(--ink-mute);
+    stroke-width: 1.4;
+    fill: none;
+  }
+
+  .gkr-figure .svg-edge-accent {
+    stroke: var(--sc-gold);
+    stroke-width: 2.1;
+    fill: none;
+  }
+
+  .gkr-figure .svg-text {
+    fill: var(--ink);
+    font-family: var(--mono);
+    font-size: 15px;
+  }
+
+  .gkr-figure .svg-small {
+    fill: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .gkr-figure .svg-title {
+    fill: var(--ink);
+    font-family: var(--serif);
+    font-size: 20px;
+  }
+
+  html[data-theme="dark"] .gkr-figure {
+    border-color: rgba(255,255,255,.11);
+    background: rgba(31,32,31,.82);
+    box-shadow: 0 10px 30px rgba(0,0,0,.18);
+  }
+
+  html[data-theme="dark"] .gkr-figure .svg-node {
+    fill: #202625;
+  }
+
+</style>
+</head>
+<body>
+<div class="back-fixed">
+<a aria-label="返回文章列表" class="back-btn" href="../index.html">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="M19 12H5M12 5l-7 7 7 7"></path>
+</svg>
+    返回
+  </a>
+</div>
+<div aria-label="文章操作" class="article-actions">
+<button aria-label="分享这篇笔记" class="article-action" id="share-button" title="分享这篇笔记" type="button">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" viewbox="0 0 24 24">
+<circle cx="18" cy="5" r="2.5"></circle>
+<circle cx="6" cy="12" r="2.5"></circle>
+<circle cx="18" cy="19" r="2.5"></circle>
+<path d="M8.2 10.8l7.6-4.5M8.2 13.2l7.6 4.5"></path>
+</svg>
+<span>分享</span>
+</button>
+<button aria-label="切换为深色模式" aria-pressed="false" class="article-action" data-theme-toggle="" id="theme-button" title="切换为深色模式" type="button">
+<svg aria-hidden="true" class="theme-icon-moon" fill="none" stroke="currentColor" stroke-width="1.6" viewbox="0 0 24 24">
+<path d="M20 15.1A8.5 8.5 0 0 1 8.9 4a8.5 8.5 0 1 0 11.1 11.1z"></path>
+</svg>
+<svg aria-hidden="true" class="theme-icon-sun" fill="none" stroke="currentColor" stroke-width="1.6" viewbox="0 0 24 24">
+<circle cx="12" cy="12" r="3.7"></circle><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"></path>
+</svg>
+<span data-theme-label="">深色</span>
+</button>
+</div>
+<div aria-live="polite" class="action-toast" id="action-toast" role="status"></div>
+<div aria-hidden="true" class="post-hero">
+<div class="sumcheck-hero"><div class="hero-proof">
+<div class="hero-node"><strong>f(b)</strong><span>Boolean Table</span></div><div class="hero-arrow">→</div>
+<div class="hero-node"><strong>χ<sub>b</sub>(x)</strong><span>固定插值基</span></div><div class="hero-arrow">→</div>
+<div class="hero-node"><strong>f̃(x)</strong><span>Multilinear Extension</span></div><div class="hero-arrow">→</div>
+<div class="hero-node"><strong>f̃(r)</strong><span>随机域点求值</span></div>
+</div></div><div class="hero-overlay"></div>
+</div>
+<main class="article-wrap">
+<div class="article-meta anim anim-1"><span class="meta-tag">证明系统 · Multilinear Extension</span><span class="meta-date">2026-08-03</span><span class="meta-readtime">约 18 分钟</span></div>
+<h1 class="article-title anim anim-2">Multilinear Extension：从 Boolean Table 到低度多项式</h1>
+<hr class="article-divider anim anim-3"/>
+<nav aria-label="密码学学习顺序" class="lesson-nav anim anim-3" data-learning-nav="" data-post-id="19" hidden=""></nav>
+<article class="article-content anim anim-4">
+<div class="sc-kicker">LEARNING NOTE · MULTILINEAR EXTENSION</div>
+<p class="sc-lead">Multilinear Extension（MLE，多线性扩展）解决一个在现代证明系统中反复出现的问题：我们手里往往只有一张定义在 Boolean Hypercube 上的离散 table，但 Sumcheck 等代数化验证工具需要低度多项式。MLE 在完全保留所有 Boolean 点取值的同时，把这张 table 唯一地延拓为有限域上的 multilinear polynomial。</p>
+<blockquote>MLE 的核心不是“压缩数据”，而是“给离散数据一个低度代数表示”：固定的是插值 basis，真正携带数据的是每个 basis 前面的 table value。</blockquote>
+<nav aria-label="文章目录" class="sc-toc"><div class="sc-toc-title">Contents</div><ol>
+<li><a href="#why">为什么需要 MLE</a></li><li><a href="#definition">什么是 Multilinear Extension</a></li><li><a href="#one-dimensional">从一维 Lagrange Basis 开始</a></li><li><a href="#boolean-basis">Boolean Hypercube 上的 Basis</a></li><li><a href="#construction">MLE 的统一构造</a></li><li><a href="#same-basis">同一 Basis 为什么得到不同 MLE</a></li><li><a href="#uniqueness">为什么 MLE 唯一</a></li><li><a href="#random-point">随机域点求值意味着什么</a></li><li><a href="#proof-systems">MLE 在证明系统中的作用</a></li><li><a href="#memory">最终记忆框架</a></li>
+</ol></nav>
+<div class="sc-callout"><strong>与本系列其他笔记的关系</strong><p>Sumcheck 负责把 Boolean Hypercube 上的低度多项式大求和压缩到随机点检查；MLE 负责把原本没有代数结构的 Boolean table 转换成低度多项式；GKR 再利用 MLE 与 Sumcheck 逐层验证电路。可结合 <a href="sumcheck-protocol-notes.html">Sumcheck Protocol</a> 和 <a href="gkr-protocol-notes.html">GKR Protocol</a> 一起阅读。</p></div>
+<h2 id="why">一、为什么需要 MLE？</h2>
+<p>考虑一个任意函数：</p><div class="math-block"><div class="math-line" data-tex="f:\{0,1\}^m\longrightarrow\mathbb F"></div><span class="math-note">它可以完全没有代数结构；也可以直接把它理解成一张长度为 2^m 的 table。</span></div>
+<p>例如，当 <span data-tex="m=2"></span> 时：</p><table class="truth-table"><thead><tr><th>b</th><th>f(b)</th></tr></thead><tbody><tr><td>00</td><td>1</td></tr><tr><td>01</td><td>0</td></tr><tr><td>10</td><td>1</td></tr><tr><td>11</td><td>1</td></tr></tbody></table>
+<p>这张 table 告诉我们四个 Boolean 输入上的值，却不能直接告诉我们：</p><div class="math-block gold"><div class="math-line" data-tex="f(2,3)\ ?"></div><span class="math-note">原函数的定义域只有 {0,1}²，因此 (2,3) 根本不在定义域中。</span></div>
+<p>更重要的是，任意 table 本身没有“低度多项式”这一结构。为了使用 Sumcheck、随机多项式一致性检查等工具，我们希望构造：</p><div class="math-block green"><div class="math-line" data-tex="\widetilde f:\mathbb F^m\longrightarrow\mathbb F"></div></div>
+<p>它既保留原 table 在所有 Boolean points 上的值，又具有非常低的 individual degree。这就是 Multilinear Extension。</p><div class="transcript"><span data-tex="\text{Boolean Table}\longrightarrow\text{Low-degree Algebraic Representation}"></span></div>
+<h2 id="definition">二、什么是 Multilinear Extension？</h2>
+<p><strong>Multilinear</strong> 的要求是：固定其他变量以后，多项式关于任意单个变量都是一次或常数：</p><div class="math-block"><div class="math-line" data-tex="\deg_{x_j}\widetilde f\le 1,\qquad j=1,\ldots,m"></div></div>
+<div class="fact-grid"><div class="fact-card"><span>MULTILINEAR</span><strong>1 + x₁ + 3x₂ + 5x₁x₂</strong><p>每个变量自身最高只出现一次，因此是 multilinear。</p></div><div class="fact-card"><span>NOT MULTILINEAR</span><strong>x₁² + x₂</strong><p>x₁ 的 individual degree 为 2，因此不是 multilinear。</p></div><div class="fact-card"><span>CROSS TERM</span><strong>x₁x₂x₃</strong><p>总次数可以大于 1；multilinear 并不要求 total degree 为 1。</p></div></div>
+<p>一个函数 <span data-tex="\widetilde f:\mathbb F^m\to\mathbb F"></span> 是 <span data-tex="f:\{0,1\}^m\to\mathbb F"></span> 的 MLE，需要同时满足：</p><ul class="sc-checklist"><li><strong>Extension：</strong>对所有 <span data-tex="b\in\{0,1\}^m"></span>，都有 <span data-tex="\widetilde f(b)=f(b)"></span>。</li><li><strong>Multilinearity：</strong>对每个变量 <span data-tex="x_j"></span> 都有 <span data-tex="\deg_{x_j}\widetilde f\le1"></span>。</li></ul>
+<div class="sc-callout"><strong>为什么叫 Extension？</strong><p>原函数只定义在 <span data-tex="\{0,1\}^m"></span> 上，而 <span data-tex="\widetilde f"></span> 的定义域扩大为整个 <span data-tex="\mathbb F^m"></span>，同时在原来的 Boolean points 上保持完全一致。</p></div>
+<h2 id="one-dimensional">三、从一维 Lagrange Basis 开始</h2>
+<p>Boolean MLE 的 basis 并不是临时规定出来的。先看一维插值。假设：</p><div class="math-block"><div class="math-line" data-tex="f(0)=a,\qquad f(1)=b"></div></div>
+<p>我们希望找到两个一次多项式，分别负责“选中 0”和“选中 1”：</p><div class="math-block green"><div class="math-line" data-tex="\ell_0(x)=1-x,\qquad \ell_1(x)=x"></div></div>
+<table class="truth-table"><thead><tr><th>x</th><th>ℓ₀(x)=1−x</th><th>ℓ₁(x)=x</th></tr></thead><tbody><tr><td>0</td><td>1</td><td>0</td></tr><tr><td>1</td><td>0</td><td>1</td></tr></tbody></table>
+<p>因此一维插值立即得到：</p><div class="math-block gold"><div class="math-line" data-tex="\widetilde f(x)=f(0)(1-x)+f(1)x"></div></div>
+<figure class="gkr-figure"><svg aria-labelledby="oned-title oned-desc" role="img" viewbox="0 0 860 300"><title id="oned-title">One-dimensional Boolean Lagrange basis</title><desc id="oned-desc">The functions one minus x and x exchange values zero and one at the Boolean endpoints.</desc><text class="svg-title" text-anchor="middle" x="430" y="30">Boolean Lagrange basis in one dimension</text><line class="svg-edge" x1="120" x2="740" y1="235" y2="235"></line><line class="svg-edge" x1="170" x2="170" y1="55" y2="245"></line><line class="svg-edge-accent" x1="170" x2="670" y1="75" y2="225"></line><line style="stroke:var(--sc-green);stroke-width:2.1;fill:none" x1="170" x2="670" y1="225" y2="75"></line><circle class="svg-node-accent" cx="170" cy="75" r="6"></circle><circle class="svg-node-accent" cx="670" cy="225" r="6"></circle><circle class="svg-node-green" cx="170" cy="225" r="6"></circle><circle class="svg-node-green" cx="670" cy="75" r="6"></circle><text class="svg-small" x="155" y="260">0</text><text class="svg-small" x="655" y="260">1</text><text class="svg-small" x="115" y="82">1</text><text class="svg-small" x="115" y="232">0</text><text class="svg-text" x="565" y="145">ℓ₀(x)=1−x</text><text class="svg-text" x="565" y="105">ℓ₁(x)=x</text></svg><figcaption><span data-tex="1-x"></span> 与 <span data-tex="x"></span> 分别在 Boolean endpoints 上实现 <span data-tex="(1,0)"></span> 与 <span data-tex="(0,1)"></span>。这就是后面所有 Boolean multilinear basis 的一维来源。</figcaption></figure>
+<p>所以“固定 basis”真正表达的是：<strong>只要插值节点仍然是 0 和 1，并且要求一次插值，这两个 basis 就由条件确定。</strong></p>
+<h2 id="boolean-basis">四、Boolean Hypercube 上的 Basis</h2>
+<p>现在把一维选择器扩展到 <span data-tex="m"></span> 个坐标。对于 Boolean label：</p><div class="math-block"><div class="math-line" data-tex="b=(b_1,\ldots,b_m)\in\{0,1\}^m"></div></div>
+<p>定义：</p><div class="math-block green"><div class="math-line" data-tex="\chi_b(x)=\prod_{j:b_j=0}(1-x_j)\prod_{j:b_j=1}x_j"></div></div>
+<p>等价地，一维因子可以统一写成：</p><div class="math-block"><div class="math-line" data-tex="\chi(b_j,x_j)=1-b_j-x_j+2b_jx_j"></div><div class="math-line" data-tex="\chi(b,x)=\prod_{j=1}^{m}\chi(b_j,x_j)"></div></div>
+<p>只有当每一个坐标都匹配时，所有因子才同时为 1；任意一个 bit 不匹配，就会出现 0 因子。因此对 Boolean points：</p><div class="math-block gold"><div class="math-line" data-tex="\chi_b(c)=\begin{cases}1,&amp;b=c,\\0,&amp;b\ne c.\end{cases}"></div></div><div class="sc-callout">
+<strong>多分量连乘为什么能锁定唯一 Boolean 点？</strong>
+<p>可以把 <span data-tex="\chi_b(x)"></span> 看成多个“一维匹配条件”的乘积。对第 <span data-tex="j"></span> 个坐标，如果目标 bit 是 <span data-tex="b_j=0"></span>，对应因子就是 <span data-tex="1-x_j"></span>；如果 <span data-tex="b_j=1"></span>，对应因子就是 <span data-tex="x_j"></span>。当 <span data-tex="x\in\{0,1\}^m"></span> 时，每个因子都只可能是 0 或 1：该坐标与 <span data-tex="b_j"></span> 匹配时因子为 1，不匹配时因子为 0。</p>
+<div class="math-block green">
+<div class="math-line" data-tex="\chi_b(x)=\prod_{j=1}^m \underbrace{\bigl[b_jx_j+(1-b_j)(1-x_j)\bigr]}_{\text{第 }j\text{ 个坐标是否匹配}}"></div>
+</div>
+<p>因此这个连乘具有一种 Boolean AND 的效果：<strong>所有坐标都匹配时，所有因子都是 1，乘积才为 1；只要有一个坐标不匹配，就出现一个 0 因子，整个乘积立即变为 0。</strong>于是，在 Boolean Hypercube 上，<span data-tex="\chi_b"></span> 恰好只“选中”唯一目标点 <span data-tex="b"></span>。</p>
+<p>需要注意，这个 AND 只是理解 <strong>Boolean points 上 selector 性质</strong>的直觉。当 <span data-tex="x\notin\{0,1\}^m"></span> 时，各因子可以是有限域中的一般元素，<span data-tex="\chi_b(x)"></span> 也不再局限于 0 或 1；这正是它能够延拓为有限域多项式并在随机域点上求值的原因。</p>
+</div>
+<figure class="gkr-figure"><svg aria-labelledby="basis-title2 basis-desc2" role="img" viewbox="0 0 860 360"><title id="basis-title2">Boolean basis as one-hot selector</title><desc id="basis-desc2">The basis chi 10 selects only Boolean point 10 among four points.</desc><text class="svg-title" text-anchor="middle" x="430" y="30">χ₁₀ selects exactly one Boolean point</text><line class="svg-edge" x1="170" x2="170" y1="90" y2="280"></line><line class="svg-edge" x1="170" x2="420" y1="280" y2="280"></line><line class="svg-edge" x1="170" x2="420" y1="90" y2="90"></line><line class="svg-edge" x1="420" x2="420" y1="90" y2="280"></line><circle class="svg-node" cx="170" cy="280" r="28"></circle><circle class="svg-node" cx="170" cy="90" r="28"></circle><circle class="svg-node-accent" cx="420" cy="280" r="32"></circle><circle class="svg-node" cx="420" cy="90" r="28"></circle><text class="svg-text" text-anchor="middle" x="170" y="286">00</text><text class="svg-text" text-anchor="middle" x="170" y="96">01</text><text class="svg-text" text-anchor="middle" x="420" y="286">10</text><text class="svg-text" text-anchor="middle" x="420" y="96">11</text><text class="svg-text" x="535" y="120">χ₁₀=x₁(1−x₂)</text><text class="svg-small" x="535" y="166">at 10 → 1</text><text class="svg-small" x="535" y="202">at 00 → 0</text><text class="svg-small" x="535" y="238">at 01 → 0</text><text class="svg-small" x="535" y="274">at 11 → 0</text></svg><figcaption>每一个 <span data-tex="\chi_b"></span> 都像一个 one-hot selector：它只负责 Boolean Hypercube 中位置 <span data-tex="b"></span> 的数据。</figcaption></figure>
+<figure class="gkr-figure">
+<svg aria-labelledby="stitch-title stitch-desc" role="img" viewbox="0 0 860 350">
+<title id="stitch-title">MLE as stitching data values with selector bases</title>
+<desc id="stitch-desc">Four table values are multiplied by four fixed selector bases and summed into one multilinear polynomial.</desc>
+<text class="svg-title" text-anchor="middle" x="430" y="30">Data × Selector → One Polynomial</text>
+<rect class="svg-node" height="58" rx="10" width="145" x="45" y="85"></rect>
+<rect class="svg-node" height="58" rx="10" width="145" x="45" y="165"></rect>
+<rect class="svg-node" height="58" rx="10" width="145" x="45" y="245"></rect>
+<text class="svg-small" text-anchor="middle" x="117" y="108">table value</text>
+<text class="svg-text" text-anchor="middle" x="117" y="132">f(00)</text>
+<text class="svg-small" text-anchor="middle" x="117" y="188">table value</text>
+<text class="svg-text" text-anchor="middle" x="117" y="212">f(01)</text>
+<text class="svg-small" text-anchor="middle" x="117" y="268">…</text>
+<text class="svg-text" text-anchor="middle" x="117" y="292">f(11)</text>
+<text class="svg-text" text-anchor="middle" x="224" y="119">×</text>
+<text class="svg-text" text-anchor="middle" x="224" y="199">×</text>
+<text class="svg-text" text-anchor="middle" x="224" y="279">×</text>
+<rect class="svg-node-green" height="58" rx="10" width="165" x="255" y="85"></rect>
+<rect class="svg-node-green" height="58" rx="10" width="165" x="255" y="165"></rect>
+<rect class="svg-node-green" height="58" rx="10" width="165" x="255" y="245"></rect>
+<text class="svg-small" text-anchor="middle" x="337" y="108">fixed selector</text>
+<text class="svg-text" text-anchor="middle" x="337" y="132">χ₀₀(x)</text>
+<text class="svg-small" text-anchor="middle" x="337" y="188">fixed selector</text>
+<text class="svg-text" text-anchor="middle" x="337" y="212">χ₀₁(x)</text>
+<text class="svg-small" text-anchor="middle" x="337" y="268">fixed selector</text>
+<text class="svg-text" text-anchor="middle" x="337" y="292">χ₁₁(x)</text>
+<text class="svg-text" text-anchor="middle" x="470" y="119">+</text>
+<text class="svg-text" text-anchor="middle" x="470" y="199">+</text>
+<text class="svg-text" text-anchor="middle" x="470" y="279">+</text>
+<path class="svg-edge-accent" d="M500 112 C560 112, 565 175, 610 175"></path>
+<path class="svg-edge-accent" d="M500 192 C560 192, 565 175, 610 175"></path>
+<path class="svg-edge-accent" d="M500 272 C560 272, 565 175, 610 175"></path>
+<rect class="svg-node-accent" height="82" rx="12" width="205" x="610" y="135"></rect>
+<text class="svg-small" text-anchor="middle" x="712" y="164">one multilinear polynomial</text>
+<text class="svg-text" text-anchor="middle" x="712" y="194">f̃(x)=Σ f(b)χᵦ(x)</text>
+</svg>
+<figcaption>每个 <span data-tex="\chi_b"></span> 只负责一个 Boolean 位置；把该位置的数据 <span data-tex="f(b)"></span> 乘上对应 selector，再把所有项相加，就得到一个统一的 multilinear polynomial。</figcaption>
+</figure>
+<div class="sc-callout">
+<strong>为什么要这样构造？——把离散值“串”进一个多项式</strong>
+<p>可以把 MLE 的构造理解成一个插值问题：我们先要求每个 basis polynomial <span data-tex="\chi_b"></span> 在自己的 Boolean 位置 <span data-tex="b"></span> 上取 1，在其他 Boolean 位置全部取 0。这个“只选中一个位置”的条件先确定了 basis 的作用；随后再把该位置真正的数据 <span data-tex="f(b)"></span> 乘上这个 selector。最后把所有位置相加：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="\widetilde f(x)=\sum_{b\in\{0,1\}^m}\underbrace{f(b)}_{\text{该位置的数据}}\underbrace{\chi_b(x)}_{\text{该位置的选择器}}"></div>
+</div>
+<p>因此，它并不是“先猜出一个神奇公式，再证明恰好可用”，而是从我们希望插值函数满足的条件出发构造出来的。简单地说，就是<strong>把不同 Boolean 位置上的离散值，用一组固定的选择器 basis 串进同一个 multilinear polynomial 中</strong>。</p>
+</div>
+<h2 id="construction">五、MLE 的统一构造</h2>
+<p>有了这些 selector basis以后，MLE 的构造就不再神秘：对每一个 Boolean 位置取“该位置的数据 × 该位置的 selector”，再把所有位置相加。于是任意 Boolean table 的 MLE 都可以统一写成：</p><div class="math-block green"><div class="math-line" data-tex="\boxed{\widetilde f(x)=\sum_{b\in\{0,1\}^m}f(b)\chi_b(x)}"></div></div>
+<div class="fact-grid"><div class="fact-card"><span>FIXED BASIS</span><strong>χ_b(x)</strong><p>只由 Boolean label b 和维度 m 决定，负责表示“位置”。</p></div><div class="fact-card"><span>DATA</span><strong>f(b)</strong><p>真正来自当前 table 的数据，作为对应 basis 的系数。</p></div><div class="fact-card"><span>MLE</span><strong>Σ f(b)χ_b(x)</strong><p>固定 basis 与当前 table values 组合后得到的具体多项式。</p></div></div>
+<p>在 Boolean point <span data-tex="c"></span> 上：</p><div class="math-block"><div class="math-line" data-tex="\widetilde f(c)=\sum_b f(b)\chi_b(c)=f(c)"></div><span class="math-note">除 b=c 外的所有 basis 都为 0，而 χ_c(c)=1。</span></div>
+<h3>完整数值例子</h3><p>设：</p><div class="math-block"><div class="math-line" data-tex="f(00)=1,\quad f(01)=0,\quad f(10)=1,\quad f(11)=1"></div></div>
+<p>当 <span data-tex="m=2"></span> 时，固定的四个 basis 是：</p><div class="math-block"><div class="math-line" data-tex="\chi_{00}=(1-x_1)(1-x_2),\qquad\chi_{01}=(1-x_1)x_2"></div><div class="math-line" data-tex="\chi_{10}=x_1(1-x_2),\qquad\chi_{11}=x_1x_2"></div></div>
+<p>带入 table values：</p><div class="math-block green"><div class="math-line" data-tex="\begin{aligned}\widetilde f(x_1,x_2)&amp;=1\chi_{00}+0\chi_{01}+1\chi_{10}+1\chi_{11}\\&amp;=(1-x_1)(1-x_2)+x_1(1-x_2)+x_1x_2\\&amp;=1-x_2+x_1x_2.\end{aligned}"></div></div>
+<h2 id="same-basis">六、同一组 Basis 为什么会得到不同 MLE？</h2>
+<p>这是最容易混淆的一点。<strong>相同大小的 Boolean domain 使用同一组 basis，并不意味着最终多项式相同。</strong>因为 basis 只是坐标系，真正的数据在 <span data-tex="f(b)"></span> 中。</p>
+<table class="truth-table"><thead><tr><th>b</th><th>A(b)</th><th>B(b)</th><th>固定 basis</th></tr></thead><tbody><tr><td>00</td><td>1</td><td>0</td><td>χ₀₀</td></tr><tr><td>01</td><td>0</td><td>1</td><td>χ₀₁</td></tr><tr><td>10</td><td>1</td><td>1</td><td>χ₁₀</td></tr><tr><td>11</td><td>1</td><td>0</td><td>χ₁₁</td></tr></tbody></table>
+<p>对于 <span data-tex="A=[1,0,1,1]"></span>：</p><div class="math-block green"><div class="math-line" data-tex="\widetilde A(x_1,x_2)=1-x_2+x_1x_2"></div></div>
+<p>而 <span data-tex="B=[0,1,1,0]"></span> 使用完全相同的四个 basis，却得到：</p><div class="math-block gold"><div class="math-line" data-tex="\begin{aligned}\widetilde B(x_1,x_2)&amp;=\chi_{01}+\chi_{10}\\&amp;=(1-x_1)x_2+x_1(1-x_2)\\&amp;=x_1+x_2-2x_1x_2.\end{aligned}"></div></div>
+<figure class="gkr-figure"><svg aria-labelledby="same-title same-desc" role="img" viewbox="0 0 860 330"><title id="same-title">Same basis but different coefficients</title><desc id="same-desc">Two data tables use the same four Boolean bases but different coefficients, resulting in different multilinear extensions.</desc><text class="svg-title" text-anchor="middle" x="430" y="30">Same basis ≠ same multilinear extension</text><rect class="svg-node" height="82" rx="12" width="210" x="55" y="78"></rect><rect class="svg-node-green" height="82" rx="12" width="210" x="325" y="78"></rect><rect class="svg-node-accent" height="82" rx="12" width="210" x="595" y="78"></rect><text class="svg-small" text-anchor="middle" x="160" y="108">Fixed basis</text><text class="svg-text" text-anchor="middle" x="160" y="137">χ₀₀ χ₀₁ χ₁₀ χ₁₁</text><text class="svg-small" text-anchor="middle" x="430" y="108">Table A coefficients</text><text class="svg-text" text-anchor="middle" x="430" y="137">1 0 1 1</text><text class="svg-small" text-anchor="middle" x="700" y="108">Result</text><text class="svg-text" text-anchor="middle" x="700" y="137">Ã(x)</text><rect class="svg-node" height="82" rx="12" width="210" x="55" y="205"></rect><rect class="svg-node-green" height="82" rx="12" width="210" x="325" y="205"></rect><rect class="svg-node-accent" height="82" rx="12" width="210" x="595" y="205"></rect><text class="svg-small" text-anchor="middle" x="160" y="235">Same fixed basis</text><text class="svg-text" text-anchor="middle" x="160" y="264">χ₀₀ χ₀₁ χ₁₀ χ₁₁</text><text class="svg-small" text-anchor="middle" x="430" y="235">Table B coefficients</text><text class="svg-text" text-anchor="middle" x="430" y="264">0 1 1 0</text><text class="svg-small" text-anchor="middle" x="700" y="235">Different result</text><text class="svg-text" text-anchor="middle" x="700" y="264">B̃(x)</text></svg><figcaption>basis 是固定的“坐标系”，table values 是坐标。换一组系数，就会得到另一个 multilinear polynomial。</figcaption></figure>
+<div class="sc-callout"><strong>一句话消除这个疑问</strong><p><span data-tex="\chi_b"></span> 决定“这个位置如何被选中”，<span data-tex="f(b)"></span> 决定“这个位置装的是什么数据”。因此，同样的 basis 可以表示任意不同的 Boolean tables。</p></div>
+<h3>Basis 的数量也是固定的吗？</h3><p>固定的是<strong>给定维度以后</strong>的 basis family。如果 <span data-tex="f:\{0,1\}^m\to\mathbb F"></span>，则一共有 <span data-tex="2^m"></span> 个 basis：</p><div class="math-block"><div class="math-line" data-tex="\{\chi_b\}_{b\in\{0,1\}^m}"></div></div>
+<table class="truth-table"><thead><tr><th>m</th><th>Boolean points</th><th>basis 数量</th></tr></thead><tbody><tr><td>1</td><td>0, 1</td><td>2</td></tr><tr><td>2</td><td>00, 01, 10, 11</td><td>4</td></tr><tr><td>3</td><td>000, …, 111</td><td>8</td></tr><tr><td>m</td><td>{0,1}<sup>m</sup></td><td>2<sup>m</sup></td></tr></tbody></table>
+<h2 id="uniqueness">七、为什么 MLE 是唯一的？</h2>
+<p>必须把“存在一个 polynomial extension”和“存在唯一的 multilinear extension”区分开。如果只要求在 Boolean points 上取值相同，那么 polynomial extension 并不唯一。例如 <span data-tex="x"></span> 与 <span data-tex="x^2"></span> 在 0 和 1 上取值相同；但后者不是 multilinear。加入 individual degree 至多为 1 的条件以后，MLE 就唯一。</p>
+<div class="sc-callout"><strong>唯一性的核心证明思路</strong><p>假设两个 multilinear polynomials 在全部 Boolean points 上一致。取它们之差 <span data-tex="P"></span>，则 <span data-tex="P"></span> 在整个 Boolean Hypercube 上都为 0。只需证明这样的 multilinear <span data-tex="P"></span> 必须是零多项式。</p></div>
+<p>对 <span data-tex="m"></span> 做归纳。对于最后一个变量可写成：</p><div class="math-block gold"><div class="math-line" data-tex="P(x_1,\ldots,x_m)=A(x_1,\ldots,x_{m-1})+x_mB(x_1,\ldots,x_{m-1})"></div></div>
+<p>令 <span data-tex="x_m=0"></span>，得到 <span data-tex="A=0"></span> 在所有低一维 Boolean points 上成立，于是 <span data-tex="A\equiv0"></span>；再令 <span data-tex="x_m=1"></span>，得到 <span data-tex="B=0"></span>，所以 <span data-tex="P\equiv0"></span>。</p>
+<p>也可以从线性代数角度获得直觉：</p><div class="math-block"><div class="math-line" data-tex="P(x)=\sum_{S\subseteq[m]}a_S\prod_{j\in S}x_j"></div></div><p>它恰好有 <span data-tex="2^m"></span> 个自由系数，而 Boolean Hypercube 也恰好有 <span data-tex="2^m"></span> 个点。MLE 正是在这两个同维空间之间建立一一对应。</p>
+<h2 id="random-point">八、随机域点求值意味着什么？</h2>
+<p>MLE 的关键价值之一，是现在可以在 <span data-tex="r\in\mathbb F^m\setminus\{0,1\}^m"></span> 上求值。继续使用前面的两个 table，在 <span data-tex="\mathbb F_7"></span> 中取 <span data-tex="r=(2,3)"></span>。</p>
+<p>固定 basis 在这个点上的权重为：</p><table class="truth-table"><thead><tr><th>basis</th><th>χ_b(2,3) mod 7</th></tr></thead><tbody><tr><td>χ₀₀</td><td>2</td></tr><tr><td>χ₀₁</td><td>4</td></tr><tr><td>χ₁₀</td><td>3</td></tr><tr><td>χ₁₁</td><td>6</td></tr></tbody></table>
+<p>于是：</p><div class="math-block green"><div class="math-line" data-tex="\widetilde A(2,3)=1\cdot2+0\cdot4+1\cdot3+1\cdot6=4\pmod7"></div></div><div class="math-block gold"><div class="math-line" data-tex="\widetilde B(2,3)=0\cdot2+1\cdot4+1\cdot3+0\cdot6=0\pmod7"></div></div>
+<p>所以即使 labels、basis、evaluation point 全部相同，只要 table data 不同，MLE evaluation 通常也不同。</p>
+<div class="sc-callout"><strong>随机点不是“虚拟 gate”</strong><p><span data-tex="\widetilde f(2,3)"></span> 不对应编号为 (2,3) 的真实数据项。它是整张 table 通过 multilinear polynomial 在该 field point 上得到的 algebraic evaluation，可以理解为低度结构下的随机代数指纹。</p></div>
+<p>MLE 也<strong>不是信息论意义上的压缩</strong>。长度为 <span data-tex="2^m"></span> 的 table 对应的 multilinear polynomial 仍有 <span data-tex="2^m"></span> 个自由度。改变的是表示形式，而不是数据量。</p>
+<h2 id="proof-systems">九、MLE 在证明系统中的作用</h2>
+<div class="protocol-stages"><section class="protocol-stage"><header class="stage-heading"><span class="stage-index">01</span><div><span class="stage-role">ALGEBRAIZATION</span><h3>把任意 Boolean Table 变成低度对象</h3></div></header><p>原始函数可以完全没有代数结构；MLE 为其提供 individual degree 1 的多项式表示。</p></section><section class="protocol-stage"><header class="stage-heading"><span class="stage-index">02</span><div><span class="stage-role">RANDOM EVALUATION</span><h3>允许在整个有限域上进行随机检查</h3></div></header><p>Verifier 不再局限于 Boolean labels，而可以提出 <span data-tex="r\in\mathbb F^m"></span> 上的多项式声明。</p></section><section class="protocol-stage"><header class="stage-heading"><span class="stage-index">03</span><div><span class="stage-role">SUMCHECK / GKR</span><h3>为后续低度归约提供接口</h3></div></header><p>Sumcheck 可以处理低度多项式求和；GKR 把每一层 gate-value function <span data-tex="V_i"></span> 以及 wiring predicates 变成 MLE，再利用 Sumcheck 逐层归约。</p></section></div>
+<h3>在 GKR 中具体对应什么？</h3><p>第 <span data-tex="i"></span> 层的 gate values：</p><div class="math-block"><div class="math-line" data-tex="V_i:\{0,1\}^m\to\mathbb F"></div></div><p>取：</p><div class="math-block green"><div class="math-line" data-tex="\widetilde V_i:\mathbb F^m\to\mathbb F"></div></div><p>wiring predicates：</p><div class="math-block"><div class="math-line" data-tex="\operatorname{ADD}_i,\operatorname{MULT}_i:\{0,1\}^{3m}\to\{0,1\}"></div></div><p>同样取：</p><div class="math-block gold"><div class="math-line" data-tex="\widetilde{\operatorname{ADD}}_i,\widetilde{\operatorname{MULT}}_i:\mathbb F^{3m}\to\mathbb F"></div></div>
+<div class="sc-callout"><strong>注意维度变化</strong><p>MLE 的构造原则完全相同，但 basis family 的维度取决于原函数定义域。<span data-tex="V_i"></span> 使用 <span data-tex="m"></span> 个 Boolean variables；wiring predicate 同时输入父 gate 与两个 child gate labels，因此使用 <span data-tex="3m"></span> 个 Boolean variables。</p></div><p>完整的 layer-to-layer reduction 请继续参阅 <a href="gkr-protocol-notes.html">《GKR Protocol：从电路执行到逐层多项式验证》</a>。</p>
+<h2 id="memory">十、最终记忆框架</h2>
+<table class="symbol-table"><thead><tr><th>对象</th><th>作用</th></tr></thead><tbody><tr><td>f(b)</td><td>Boolean table 中位置 b 的真实数据。</td></tr><tr><td>1−x, x</td><td>Boolean domain {0,1} 上的一维 Lagrange basis。</td></tr><tr><td>χ_b(x)</td><td>多变量 Boolean selector basis；在 b 上为 1，其余 Boolean points 上为 0。</td></tr><tr><td>f̃(x)</td><td>由 table values 与固定 basis 组合得到的唯一 multilinear extension。</td></tr><tr><td>f̃(r)</td><td>MLE 在非 Boolean field point 上的代数求值，不对应某个真实 table entry。</td></tr></tbody></table>
+<div class="fact-grid"><div class="fact-card"><span>BASIS</span><strong>Fixed by the Domain</strong><p>相同维度、相同 Boolean labeling 下，basis family 相同。</p></div><div class="fact-card"><span>DATA</span><strong>f(b) Changes</strong><p>不同 table 的数据作为不同系数。</p></div><div class="fact-card"><span>RESULT</span><strong>f̃ Changes</strong><p>因此相同 basis 可以表示任意不同的 MLE。</p></div></div>
+<ul class="sc-checklist"><li><strong>MLE 是 extension：</strong>定义域从 <span data-tex="\{0,1\}^m"></span> 扩展到 <span data-tex="\mathbb F^m"></span>。</li><li><strong>MLE 是 multilinear：</strong>每个变量 individual degree 至多为 1。</li><li><strong>basis 来自 Boolean Lagrange interpolation：</strong>一维是 <span data-tex="1-x"></span> 与 <span data-tex="x"></span>。</li><li><strong>固定的是 basis，不是数据：</strong><span data-tex="f(b)"></span> 才是不同 table 的系数。</li><li><strong>MLE 唯一：</strong>在 multilinearity 约束下，Boolean Hypercube 上的全部值唯一决定整个 polynomial。</li><li><strong>随机域点不是实际数据项：</strong><span data-tex="\widetilde f(r)"></span> 是整张 table 的代数 evaluation。</li><li><strong>MLE 不压缩信息：</strong>它改变的是表示方式，使数据获得低度代数结构。</li></ul>
+<blockquote><strong>一句话总结：</strong>Multilinear Extension 用固定的 Boolean Lagrange basis 把一张任意 Boolean table 唯一地写成低度多项式；basis 负责位置，table value 负责数据，而随机域点求值为 Sumcheck、GKR 等协议提供了可验证的代数接口。</blockquote>
+<details><summary>复习自测：我是否真正理解了 MLE？</summary><div><ol><li>为什么一维 Boolean basis 必然是 <span data-tex="1-x"></span> 与 <span data-tex="x"></span>？</li><li>为什么 <span data-tex="x_1x_2x_3"></span> 是 multilinear？</li><li><span data-tex="\chi_b(c)"></span> 在 Boolean points 上具有什么 selector 性质？</li><li>为什么不同 table 可以使用完全相同的 basis？</li><li>对于 <span data-tex="m=3"></span>，一共有多少个 Boolean basis polynomials？</li><li>为什么 polynomial extension 不唯一，但 multilinear extension 唯一？</li><li><span data-tex="\widetilde f(2,3)"></span> 为什么不能理解成编号为 (2,3) 的 table entry？</li><li>MLE 为什么适合与 Sumcheck 组合？</li></ol></div></details>
+<section aria-labelledby="references-title" class="references"><h2 id="references-title">参考文献</h2><ol class="reference-list"><li>Y. Kalai, “<cite>Lecture 21: The GKR Protocol</cite>,” MIT 6.5620, <em>Foundations of Cryptography</em>, Nov. 24, 2025. <span class="reference-kind">MLE 定义与构造来源</span></li><li>“<cite>Sumcheck Protocol：逐轮压缩求和</cite>,” Frieren · Cryptography Notes. <a href="sumcheck-protocol-notes.html">前置笔记</a> <span class="reference-kind">Sumcheck</span></li><li>“<cite>GKR Protocol：从电路执行到逐层多项式验证</cite>,” Frieren · Cryptography Notes. <a href="gkr-protocol-notes.html">后续笔记</a> <span class="reference-kind">GKR</span></li></ol></section>
+</article>
+<footer class="article-footer">
+<a class="footer-back" href="../index.html">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="M19 12H5M12 5l-7 7 7 7"></path>
+</svg>
+      返回所有文章
+    </a>
+<span class="footer-brand">Frieren · Cryptography Notes</span>
+</footer>
+</main>
+<script defer="" src="../static/vendor/katex/katex.min.js"></script>
+<script defer="" src="../static/js/theme.js"></script>
+<script defer="" src="../static/js/posts-data.js"></script>
+<script defer="" src="../static/js/learning-path.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-tex]').forEach(function (element) {
+      katex.render(element.dataset.tex, element, {
+        displayMode: element.classList.contains('math-line'),
+        throwOnError: false,
+        strict: false
+      });
+    });
+
+    const shareButton = document.getElementById('share-button');
+    const toast = document.getElementById('action-toast');
+    let toastTimer;
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () {
+        toast.classList.remove('show');
+      }, 2200);
+    }
+
+    document.addEventListener('frieren-theme-change', function (event) {
+      showToast(event.detail.theme === 'dark' ? '已切换为深色模式' : '已切换为常规模式');
+    });
+
+    async function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+      const field = document.createElement('textarea');
+      field.value = text;
+      field.setAttribute('readonly', '');
+      field.style.position = 'fixed';
+      field.style.opacity = '0';
+      document.body.appendChild(field);
+      field.select();
+      const copied = document.execCommand('copy');
+      field.remove();
+      if (!copied) throw new Error('copy failed');
+    }
+
+    shareButton.addEventListener('click', async function () {
+      const canonical = document.querySelector('link[rel="canonical"]');
+      const url = canonical ? canonical.href : window.location.href;
+      const shareData = {
+        title: document.title,
+        text: 'Multilinear Extension：从 Boolean Table 到低度多项式',
+        url: url
+      };
+
+      if (navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
+        try {
+          await navigator.share(shareData);
+          return;
+        } catch (error) {
+          if (error && error.name === 'AbortError') return;
+        }
+      }
+
+      try {
+        await copyText(url);
+        showToast('公开链接已复制');
+      } catch (_) {
+        window.prompt('复制下面的公开链接：', url);
+      }
+    });
+  });
+</script>
+</body>
+</html>

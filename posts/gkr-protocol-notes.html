@@ -1106,13 +1106,13 @@
 <div class="article-meta anim anim-1">
 <span class="meta-tag">证明系统 · GKR</span>
 <span class="meta-date">2026-08-02</span>
-<span class="meta-readtime">约 20 分钟</span>
+<span class="meta-readtime">约 21 分钟</span>
 </div>
 <h1 class="article-title anim anim-2">GKR Protocol：从电路执行到逐层多项式验证</h1>
 <hr class="article-divider anim anim-3"/>
-<nav aria-label="密码学学习顺序" class="lesson-nav anim anim-3" data-learning-nav="" data-post-id="3" hidden=""></nav>
+<nav aria-label="密码学学习顺序" class="lesson-nav anim anim-3" data-learning-nav="" data-post-id="18" hidden=""></nav>
 <script id="post-metadata" type="application/json">{
-  "id": 3,
+  "id": 18,
   "slug": "gkr-protocol-notes",
   "title": "GKR Protocol：从电路执行到逐层多项式验证",
   "href": "gkr-protocol-notes.html",
@@ -1122,7 +1122,7 @@
   "description": "从分层电路与 gate-value table 出发，依次理解 Multilinear Extension、wiring predicate 与逐层 Sumcheck 归约。"
 }</script><article class="article-content anim anim-4">
 <div class="sc-kicker">LEARNING NOTE · GKR</div>
-<p class="sc-lead">GKR Protocol（Goldwasser–Kalai–Rothblum Protocol）的核心目标，是让 Verifier 不必重新执行整个大规模电路，就能验证 Prover 声称的输出是否正确。它先把电路按层组织，再把每一层的 gate-value table 通过 Multilinear Extension（MLE，多线性扩展）变成低度多项式，最后利用 Sumcheck 将“这一层正确”逐层归约为“下一层正确”，直到到达 Verifier 已知的输入层。</p>
+<p class="sc-lead">GKR Protocol（Goldwasser–Kalai–Rothblum Protocol）的核心目标，是让 Verifier 不必重新执行整个大规模电路，就能验证 Prover 声称的输出是否正确。它先把电路按层组织，再把每一层的 gate-value table 通过 Multilinear Extension（MLE，多线性扩展）变成低度多项式，最后利用 Sumcheck 将关于 <span data-tex="L_i"></span> 的声明逐步归约为关于 <span data-tex="L_{i+1}"></span> 的声明，直到到达 Verifier 已知的 input layer。</p>
 <blockquote>GKR 的核心不是逐个检查 gate，而是把整层计算编码成一个低度多项式声明，再把输出层声明逐层压缩到输入层。</blockquote>
 <nav aria-label="文章目录" class="sc-toc">
 <div class="sc-toc-title">Contents</div>
@@ -1139,10 +1139,10 @@
 <div class="fact-grid">
 <div class="fact-card"><span>PROVER</span><strong>poly(S)</strong><p>Prover 本来就承担大规模计算，因此允许其工作量随电路规模增长。</p></div>
 <div class="fact-card"><span>VERIFIER</span><strong>远小于 S</strong><p>目标是避免重新计算整个电路，只维护少量随机点声明。</p></div>
-<div class="fact-card"><span>ROUNDS / COMM.</span><strong>D · polylog(S)</strong><p>讲义给出的 GKR 复杂度随电路深度线性增长，并只对电路规模呈多对数增长。</p></div>
+<div class="fact-card"><span>ROUNDS / COMM.</span><strong>D · polylog(S)</strong><p>GKR 的轮数与通信复杂度随电路深度线性增长，并只对电路规模呈多对数增长。</p></div>
 </div>
-<p>整篇讲义可以压缩成一条路线：</p>
-<div class="transcript"><span data-tex="\text{Circuit}\longrightarrow\text{Layering}\longrightarrow\text{MLE}\longrightarrow\text{Polynomial Identity}\longrightarrow\text{Sumcheck}\longrightarrow\text{Next Layer}"></span></div>
+<p>整个 GKR 协议可以压缩成一条路线：</p>
+<div class="transcript"><span data-tex="\text{Circuit}\longrightarrow\text{Layering}\longrightarrow\text{MLE}\longrightarrow\text{Polynomial Identity}\longrightarrow\text{Sumcheck}\longrightarrow\text{Layer }i+1"></span></div>
 <h2 id="intuition">二、为什么简单的逐层抽查不够？</h2>
 <p>最直接的想法是：Verifier 从输出 gate 开始，让 Prover 给出它两个 child gate 的值。如果输出是假的，那么至少一个 child value 必然有问题；Verifier 随机挑一个 child 继续向下检查，直到输入层。</p>
 <div class="protocol-loop">
@@ -1158,49 +1158,61 @@
 <strong>下一步该解决什么？</strong>
 <p>随机域点检查只有在对象具有低度多项式结构时才真正有用。但电路执行首先产生的是大量离散 gate values。于是 GKR 接下来先做两件事：第一，把电路整理成逐层的 value table；第二，再把这些 table 转换成低度多项式。先处理第一件事。</p>
 </div>
-
 <h2 id="layering">三、先把电路整理成可编码的分层数据</h2>
-<p>GKR 先把电路变成 layered circuit。讲义约定：</p>
+<p>GKR 首先把电路整理成 layered circuit，并采用如下层编号：</p>
 <div class="math-block">
 <div class="math-line" data-tex="L_0,L_1,\ldots,L_D"></div>
-<span class="math-note">L_0 是 output layer，L_D 是 input layer；每个 gate 只连接到相邻下一层的 gate。</span>
+<span class="math-note">L₀ 是 output layer，L_D 是 input layer；Layer i 中的 gate 从 Layer i+1 取得输入，因此层编号朝输入端递增。</span>
+</div><div class="sc-callout">
+<strong>先固定层编号与两个方向</strong>
+<p>本文始终采用 <span data-tex="L_0"></span> 为 output layer、<span data-tex="L_D"></span> 为 input layer 的编号方式，因此 <strong>层编号从输出端向输入端递增</strong>对于相邻两层，Layer <span data-tex="i"></span> 的 gate 从 Layer <span data-tex="i+1"></span> 的 child gates 取得输入，所以实际计算方向是 <span data-tex="L_{i+1}\rightarrow L_i"></span>；而 GKR 的验证归约从输出声明向输入推进，方向正好相反，即 <span data-tex="L_i\rightarrow L_{i+1}"></span>。后文统一使用明确的层号 <span data-tex="L_i"></span> 与 <span data-tex="L_{i+1}"></span> 表述相邻层关系。</p>
 </div>
 <figure class="gkr-figure">
-<svg aria-labelledby="layer-title layer-desc" role="img" viewbox="0 0 860 430">
-<title id="layer-title">Layered arithmetic circuit</title>
-<desc id="layer-desc">A triangular layered circuit with one output gate, two middle gates, and four input gates. Edges connect only adjacent layers.</desc>
-<text class="svg-title" text-anchor="middle" x="430" y="32">Layered circuit: one claim descends layer by layer</text>
-<text class="svg-small" x="70" y="92">L₀ · output</text>
-<text class="svg-small" x="70" y="208">L₁</text>
-<text class="svg-small" x="70" y="348">L₂ · input</text>
-<!-- edges -->
-<line class="svg-edge" x1="430" x2="315" y1="92" y2="195"></line>
-<line class="svg-edge" x1="430" x2="545" y1="92" y2="195"></line>
-<line class="svg-edge" x1="315" x2="205" y1="195" y2="335"></line>
-<line class="svg-edge" x1="315" x2="355" y1="195" y2="335"></line>
-<line class="svg-edge" x1="545" x2="505" y1="195" y2="335"></line>
-<line class="svg-edge" x1="545" x2="655" y1="195" y2="335"></line>
-<!-- nodes -->
-<circle class="svg-node-accent" cx="430" cy="92" r="34"></circle>
-<circle class="svg-node-green" cx="315" cy="195" r="31"></circle>
-<circle class="svg-node-green" cx="545" cy="195" r="31"></circle>
-<circle class="svg-node" cx="205" cy="335" r="29"></circle>
-<circle class="svg-node" cx="355" cy="335" r="29"></circle>
-<circle class="svg-node" cx="505" cy="335" r="29"></circle>
-<circle class="svg-node" cx="655" cy="335" r="29"></circle>
-<text class="svg-text" text-anchor="middle" x="430" y="98">×</text>
-<text class="svg-text" text-anchor="middle" x="315" y="201">+</text>
-<text class="svg-text" text-anchor="middle" x="545" y="201">×</text>
-<text class="svg-text" text-anchor="middle" x="205" y="341">x₀</text>
-<text class="svg-text" text-anchor="middle" x="355" y="341">x₁</text>
-<text class="svg-text" text-anchor="middle" x="505" y="341">x₂</text>
-<text class="svg-text" text-anchor="middle" x="655" y="341">x₃</text>
-<text class="svg-small" text-anchor="middle" x="430" y="405">Every edge goes only to the next layer; dummy gates can be added to equalize layer sizes.</text>
+<svg aria-labelledby="layer-title layer-desc" role="img" viewbox="0 0 860 470">
+<title id="layer-title">Layer indexing, computation direction, and GKR reduction direction</title>
+<desc id="layer-desc">A layered arithmetic circuit with output layer L0 on top and input layer L2 on the bottom. Computation flows upward from Li+1 to Li, while GKR verification reduction flows downward from Li to Li+1.</desc>
+<text class="svg-title" text-anchor="middle" x="430" y="30">Layer indexing and the two directions</text>
+<text class="svg-small" x="130" y="92">L₀ · output</text>
+<text class="svg-small" x="130" y="218">L₁</text>
+<text class="svg-small" x="130" y="365">L₂ · input</text>
+<!-- circuit edges -->
+<line class="svg-edge" x1="430" x2="330" y1="95" y2="205"></line>
+<line class="svg-edge" x1="430" x2="530" y1="95" y2="205"></line>
+<line class="svg-edge" x1="330" x2="240" y1="205" y2="350"></line>
+<line class="svg-edge" x1="330" x2="380" y1="205" y2="350"></line>
+<line class="svg-edge" x1="530" x2="480" y1="205" y2="350"></line>
+<line class="svg-edge" x1="530" x2="620" y1="205" y2="350"></line>
+<!-- gates -->
+<circle class="svg-node-accent" cx="430" cy="95" r="34"></circle>
+<circle class="svg-node-green" cx="330" cy="205" r="31"></circle>
+<circle class="svg-node-green" cx="530" cy="205" r="31"></circle>
+<circle class="svg-node" cx="240" cy="350" r="29"></circle>
+<circle class="svg-node" cx="380" cy="350" r="29"></circle>
+<circle class="svg-node" cx="480" cy="350" r="29"></circle>
+<circle class="svg-node" cx="620" cy="350" r="29"></circle>
+<text class="svg-text" text-anchor="middle" x="430" y="101">×</text>
+<text class="svg-text" text-anchor="middle" x="330" y="211">+</text>
+<text class="svg-text" text-anchor="middle" x="530" y="211">×</text>
+<text class="svg-text" text-anchor="middle" x="240" y="356">x₀</text>
+<text class="svg-text" text-anchor="middle" x="380" y="356">x₁</text>
+<text class="svg-text" text-anchor="middle" x="480" y="356">x₂</text>
+<text class="svg-text" text-anchor="middle" x="620" y="356">x₃</text>
+<!-- computation direction: upward -->
+<line style="stroke:var(--sc-green);stroke-width:2.2;fill:none" x1="75" x2="75" y1="350" y2="112"></line>
+<polygon fill="var(--sc-green)" points="75,101 68,116 82,116"></polygon>
+<text class="svg-small" text-anchor="middle" x="75" y="405">computation</text>
+<text class="svg-small" text-anchor="middle" x="75" y="425">Lᵢ₊₁ → Lᵢ</text>
+<!-- verification reduction direction: downward -->
+<line class="svg-edge-accent" x1="785" x2="785" y1="112" y2="350"></line>
+<polygon fill="var(--sc-gold)" points="785,361 778,346 792,346"></polygon>
+<text class="svg-small" text-anchor="middle" x="785" y="405">GKR reduction</text>
+<text class="svg-small" text-anchor="middle" x="785" y="425">Lᵢ → Lᵢ₊₁</text>
+<text class="svg-small" text-anchor="middle" x="430" y="452">Layer index increases toward the input.</text>
 </svg>
-<figcaption>分层后，output layer 位于顶部，input layer 位于底部，每条边只跨越相邻两层。GKR 正是在这种结构上，把关于 <span data-tex="\widetilde V_i"></span> 的声明逐层归约到 <span data-tex="\widetilde V_{i+1}"></span>。</figcaption>
+<figcaption>图中纵向位置与层编号保持固定语义：顶部是 output layer，底部是 input layer。电路计算由输入侧向输出侧进行，即 <span data-tex="L_{i+1}\rightarrow L_i"></span>；GKR 的验证归约则从输出声明向输入推进，即 <span data-tex="L_i\rightarrow L_{i+1}"></span>。</figcaption>
 </figure>
-<p>讲义的 Step 1 先将 Boolean circuit arithmetize 为只含 ADD 与 MULT gate 的 arithmetic circuit，并在简化描述中写作 over <span data-tex="\mathrm{GF}(2)"></span>。随后 MLE 与 Sumcheck 使用一般有限域 <span data-tex="\mathbb F"></span> 的记号。这里沿用讲义的符号安排，重点放在 GKR 的归约结构。</p>
-<p>为了让每个 gate 都有固定长度的二进制标签，讲义进一步假设每层恰有：</p>
+<p>首先将 Boolean circuit 算术化为只含 ADD 与 MULT gate 的 arithmetic circuit。后续的 MLE 与 Sumcheck 统一使用有限域 <span data-tex="\mathbb F"></span> 上的多项式记号，这样 gate values、wiring predicates 与随机点检查都可以在同一代数框架下表达。</p>
+<p>为了让每个 gate 都有固定长度的二进制标签，可以把每层补齐为：</p>
 <div class="math-block"><div class="math-line" data-tex="S=2^m"></div></div>
 <p>如果某层实际 gate 数不足，就加入 dummy gates。于是每个 gate 都能用 <span data-tex="m=\log_2 S"></span> 个 bit 唯一编号：</p>
 <div class="transcript"><span data-tex="00\cdots0,\ 00\cdots1,\ \ldots,\ 11\cdots1"></span></div>
@@ -1217,11 +1229,11 @@
 <p><span data-tex="V_i(p)"></span> 是真实 gate value；而当 <span data-tex="z_i\notin\{0,1\}^m"></span> 时，<span data-tex="\widetilde V_i(z_i)"></span> 不对应任何真实 gate，它是整层数据的随机代数求值。</p>
 </div>
 <h3>一个极小的分层电路</h3>
-<p>假设输入层有四个值：</p>
+<p>假设 input layer <span data-tex="L_2"></span> 有四个值：</p>
 <div class="math-block"><div class="math-line" data-tex="V_2=[1,0,1,1]"></div></div>
-<p>下一层有两个有效 gate：</p>
+<p>Layer 1（即更靠近输出端的中间层）有两个有效 gate：</p>
 <div class="math-block"><div class="math-line" data-tex="g_0=x_0+x_1,\qquad g_1=x_2x_3"></div></div>
-<p>在讲义的简化 arithmetic setting 下，这里得到：</p>
+<p>在这个简化的 arithmetic circuit 例子中，可以得到：</p>
 <div class="math-block"><div class="math-line" data-tex="V_1=[1,1,0,0]"></div></div>
 <p>再假设 output gate 计算 <span data-tex="g_0g_1"></span>，则：</p>
 <div class="math-block"><div class="math-line" data-tex="V_0=[1,0,0,0]"></div></div>
@@ -1233,10 +1245,11 @@
 <div class="math-line" data-tex="\text{如何把 }V_i\text{ 保真地延拓为有限域上的低度多项式？}"></div>
 </div>
 <p>这正是 Multilinear Extension 要解决的问题。</p>
-
 <h2 id="mle">四、Multilinear Extension：给 Gate-Value Table 加上低度结构</h2>
-
-<p>现在 MLE 的输入对象已经很明确：不是抽象的“某些数据”，而是上一节得到的整层 gate-value function <span data-tex="V_i"></span>。我们希望在不改变任何 Boolean gate label 上取值的前提下，把它延拓到整个有限域。</p>
+<p>现在 MLE 的输入对象已经很明确：不是抽象的“某些数据”，而是上一节得到的整层 gate-value function <span data-tex="V_i"></span>。我们希望在不改变任何 Boolean gate label 上取值的前提下，把它延拓到整个有限域。</p><div class="sc-callout">
+<strong>进一步阅读 · Multilinear Extension 专篇</strong>
+<p>本节保留理解 GKR 所需的 MLE 定义、构造和数值直觉。如果希望单独系统理解 Boolean Lagrange basis 的来源、为什么 basis 固定但不同 table 会得到不同 MLE、MLE 的唯一性，以及随机域点求值的含义，可参阅 <a href="multilinear-extension.html">《Multilinear Extension：从 Boolean Table 到低度多项式》</a>。</p>
+</div>
 <p>这是理解 GKR 的关键。假设一层有 <span data-tex="S=2^m"></span> 个 gate，我们给每个 gate 一个 <em>m</em>-bit 标签，因此这一层的 gate values 可以写成一个函数：</p>
 <div class="math-block">
 <div class="math-line" data-tex="V_i:\{0,1\}^m\longrightarrow \mathbb{F}"></div>
@@ -1340,18 +1353,17 @@
 <p>因此，MLE 做的不是信息压缩，而是：</p>
 <div class="transcript"><span data-tex="\text{Discrete Table}\longrightarrow\text{Low-degree Algebraic Representation}"></span></div>
 <p>原来长度为 <span data-tex="2^m"></span> 的 table 仍然包含同样多的信息；真正改变的是我们现在拥有了低度结构，因此能够应用随机多项式一致性检查和 Sumcheck。</p>
-<p>完成 MLE 后，<strong>gate values 已经被代数化</strong>。但要验证某一层是否真的由下一层正确计算得到，还必须知道父 gate 连接哪两个 child gate，以及它执行的是 ADD 还是 MULT。因此还差最后一个离散对象：电路的 wiring。</p>
-
+<p>完成 MLE 后，<strong>gate values 已经被代数化</strong>。但要验证 Layer i 是否真的由 Layer i+1 正确计算得到，还必须知道父 gate 连接哪两个 child gate，以及它执行的是 ADD 还是 MULT。因此还差最后一个离散对象：电路的 wiring。</p>
 <h2 id="wiring">五、Wiring Predicate：把电路连接关系也代数化</h2>
-<p>只有 layer values 还不够。Verifier 还需要知道第 <em>i</em> 层的 gate <em>p</em> 究竟连接下一层的哪两个 gate。GKR 用两个 Boolean indicator functions 编码 wiring：</p>
+<p>只有 layer values 还不够。Verifier 还需要知道第 <em>i</em> 层的 gate <em>p</em> 究竟从 Layer <span data-tex="i+1"></span> 的哪两个 child gates 取得输入。GKR 用两个 Boolean indicator functions 编码 wiring：</p>
 <div class="math-block">
 <div class="math-line" data-tex="\operatorname{ADD}_i(p,w_1,w_2)\in\{0,1\}"></div>
 <div class="math-line" data-tex="\operatorname{MULT}_i(p,w_1,w_2)\in\{0,1\}"></div>
 </div>
 <p>其中：</p>
 <ul class="sc-checklist">
-<li><span data-tex="\operatorname{ADD}_i(p,w_1,w_2)=1"></span>：第 <em>i</em> 层 gate <em>p</em> 是 ADD gate，并且它的两个输入来自下一层的 <span data-tex="w_1,w_2"></span>。</li>
-<li><span data-tex="\operatorname{MULT}_i(p,w_1,w_2)=1"></span>：第 <em>i</em> 层 gate <em>p</em> 是 MULT gate，并且它的两个输入来自下一层的 <span data-tex="w_1,w_2"></span>。</li>
+<li><span data-tex="\operatorname{ADD}_i(p,w_1,w_2)=1"></span>：第 <em>i</em> 层 gate <em>p</em> 是 ADD gate，并且它的两个输入来自 Layer <span data-tex="i+1"></span> 中的 <span data-tex="w_1,w_2"></span>。</li>
+<li><span data-tex="\operatorname{MULT}_i(p,w_1,w_2)=1"></span>：第 <em>i</em> 层 gate <em>p</em> 是 MULT gate，并且它的两个输入来自 Layer <span data-tex="i+1"></span> 中的 <span data-tex="w_1,w_2"></span>。</li>
 <li>其余组合的值均为 0。</li>
 </ul>
 <p>例如，如果 gate <span data-tex="p=01"></span> 是一个 ADD gate，而且它连接 <span data-tex="w_1=10"></span> 与 <span data-tex="w_2=11"></span>，那么：</p>
@@ -1367,10 +1379,11 @@
 <strong>为什么 wiring predicate 很重要？</strong>
 <p>它把“电路拓扑结构”从一个组合对象变成了 algebraic indicator。对所有 <span data-tex="w_1,w_2"></span> 求和时，只有真正连接到 <em>p</em> 的那一对 child gates 会通过 indicator 留下来。</p>
 </div>
-<p>现在，<span data-tex="\widetilde V_i"></span> 描述这一层的值，<span data-tex="\widetilde{\operatorname{ADD}}_i"></span> 与 <span data-tex="\widetilde{\operatorname{MULT}}_i"></span> 描述这一层如何连接到下一层。也就是说，<strong>数值和拓扑都已经变成低度代数对象</strong>。下一步就可以把“这一层计算正确”写成一个统一的多项式求和恒等式。</p>
-
-<h2 id="reduction">六、核心归约：从 Layer i 到 Layer i+1</h2>
-
+<p>现在，<span data-tex="\widetilde V_i"></span> 描述 Layer <span data-tex="i"></span> 的值，<span data-tex="\widetilde{\operatorname{ADD}}_i"></span> 与 <span data-tex="\widetilde{\operatorname{MULT}}_i"></span> 描述 Layer <span data-tex="i"></span> 与 Layer <span data-tex="i+1"></span> 之间的连接关系。也就是说，<strong>数值和拓扑都已经变成低度代数对象</strong>。接下来就可以把“Layer <span data-tex="i"></span> 是否由 Layer <span data-tex="i+1"></span> 正确计算得到”写成统一的多项式求和恒等式。</p>
+<h2 id="reduction">六、核心归约：从 Layer i 到 Layer i+1</h2><div class="sc-callout">
+<strong>本节方向约定</strong>
+<p>下面所有公式都遵循同一方向：Layer <span data-tex="i"></span> 的 gate value 由 Layer <span data-tex="i+1"></span> 的 child values 计算得到，而验证过程把关于 <span data-tex="\widetilde V_i"></span> 的声明归约到关于 <span data-tex="\widetilde V_{i+1}"></span> 的声明。前者是计算方向，后者是验证方向。</p>
+</div>
 <p>这一节只做一件事：把上一节准备好的 <em>value polynomial</em> 与 <em>wiring polynomials</em> 合在一起，形成 Sumcheck 可以直接处理的 layer-consistency claim。</p>
 <p>从 MLE 定义开始：</p>
 <div class="math-block"><div class="math-line" data-tex="\widetilde V_i(z_i)=\sum_{p\in\{0,1\}^m}V_i(p)\chi(p,z_i)"></div></div>
@@ -1379,7 +1392,7 @@
 <div class="math-line" data-tex="V_i(p)=V_{i+1}(w_1)+V_{i+1}(w_2)\qquad\text{if }p\text{ is ADD}"></div>
 <div class="math-line" data-tex="V_i(p)=V_{i+1}(w_1)V_{i+1}(w_2)\qquad\text{if }p\text{ is MULT}"></div>
 </div>
-<p>利用 ADD/MULT wiring predicates，可以把所有 gate 的情况统一写进一个求和式。讲义给出的核心关系是：</p>
+<p>利用 ADD/MULT wiring predicates，可以把所有 gate 的情况统一写进一个求和式。核心关系是：</p>
 <div class="math-block green">
 <div class="math-line" data-tex="\begin{aligned}v_i=\widetilde V_i(z_i)=\sum_{p,w_1,w_2}\Big[&amp;\widetilde{\operatorname{ADD}}_i(p,w_1,w_2)\big(\widetilde V_{i+1}(w_1)+\widetilde V_{i+1}(w_2)\big)\\+&amp;\widetilde{\operatorname{MULT}}_i(p,w_1,w_2)\widetilde V_{i+1}(w_1)\widetilde V_{i+1}(w_2)\Big]\chi(p,z_i).\end{aligned}"></div>
 </div>
@@ -1390,12 +1403,12 @@
 <p>于是第 <em>i</em> 层的 claim 被改写成：</p>
 <div class="math-block green">
 <div class="math-line" data-tex="v_i=\sum_{p,w_1,w_2\in\{0,1\}^m}f_i(p,w_1,w_2)"></div>
-<span class="math-note">现在右边已经是一个 Boolean Hypercube 上的低度多项式求和，因此可以直接调用上一篇已经整理过的 Sumcheck。</span>
+<span class="math-note">现在右边已经是 Boolean Hypercube 上的低度多项式求和，因此可以直接调用 Sumcheck。</span>
 </div>
 <h3>Sumcheck 在这里到底做了什么？</h3>
 <p>这里不再展开 Sumcheck 的逐轮消息。只需要记住它把上面的巨大求和声明压缩到随机点：</p>
 <div class="transcript"><span data-tex="\sum_{p,w_1,w_2}f_i(p,w_1,w_2)\longrightarrow f_i(z_0,z_1,z_2)"></span></div>
-<p>而当 Verifier 展开这个随机点上的 <span data-tex="f_i(z_0,z_1,z_2)"></span> 时，除了 wiring MLE 之外，真正未知的只剩下一层的两个值：</p>
+<p>而当 Verifier 展开这个随机点上的 <span data-tex="f_i(z_0,z_1,z_2)"></span> 时，除了 wiring MLE 之外，真正未知的只剩 Layer i+1 上的两个 MLE evaluations：</p>
 <div class="math-block gold"><div class="math-line" data-tex="\widetilde V_{i+1}(z_1),\qquad \widetilde V_{i+1}(z_2)"></div></div>
 <p>因此，一次 GKR reduction 实现了：</p>
 <div class="transcript"><span data-tex="\boxed{\text{Layer }i\text{ 的一个 MLE claim}}\longrightarrow\boxed{\text{Layer }i+1\text{ 的两个 MLE claims}}"></span></div>
@@ -1412,9 +1425,9 @@
 <text class="svg-text" text-anchor="middle" x="130" y="150">Ṽᵢ(zᵢ)=vᵢ</text>
 <text class="svg-small" text-anchor="middle" x="430" y="120">Rewrite + Sumcheck</text>
 <text class="svg-text" text-anchor="middle" x="430" y="149">Σ fᵢ → fᵢ(r)</text>
-<text class="svg-small" text-anchor="middle" x="730" y="82">Layer i+1</text>
+<text class="svg-small" text-anchor="middle" x="730" y="82">Layer i+1 · toward input</text>
 <text class="svg-text" text-anchor="middle" x="730" y="105">Ṽᵢ₊₁(z₁)</text>
-<text class="svg-small" text-anchor="middle" x="730" y="177">Layer i+1</text>
+<text class="svg-small" text-anchor="middle" x="730" y="177">Layer i+1 · toward input</text>
 <text class="svg-text" text-anchor="middle" x="730" y="200">Ṽᵢ₊₁(z₂)</text>
 <line class="svg-edge-accent" x1="225" x2="325" y1="133" y2="133"></line>
 <polygon fill="var(--sc-gold)" points="325,133 313,127 313,139"></polygon>
@@ -1422,28 +1435,27 @@
 <line class="svg-edge" x1="535" x2="640" y1="141" y2="183"></line>
 <polygon fill="var(--ink-mute)" points="640,88 628,86 632,98"></polygon>
 <polygon fill="var(--ink-mute)" points="640,183 628,174 626,186"></polygon>
-<text class="svg-small" text-anchor="middle" x="430" y="265">The expensive layer-wide consistency check becomes only a constant number of next-layer evaluations.</text>
+<text class="svg-small" text-anchor="middle" x="430" y="265">Layer-wide consistency becomes a constant number of Layer i+1 evaluations.</text>
 </svg>
 <figcaption>这一图只表达归约结构：先把第 <em>i</em> 层的 MLE claim 写成低度多项式求和，再调用 Sumcheck；最终需要继续处理的是第 <em>i+1</em> 层少量随机点上的 MLE evaluations。</figcaption>
 </figure>
 <div class="sc-callout">
-<strong>这里是整篇讲义最核心的一步</strong>
+<strong>这是 GKR 的核心一步</strong>
 <p>GKR 并不是“Sumcheck 整个电路”。它先用 MLE 与 wiring predicates 把“第 i 层是否由第 i+1 层正确计算得到”写成一个低度多项式恒等式，再对这个恒等式中的大求和调用 Sumcheck。</p>
 </div>
 <h3>两个 claims 会不会指数增长？</h3>
 <p>如果每层都简单执行：</p>
 <div class="math-block"><div class="math-line" data-tex="1\rightarrow2\rightarrow4\rightarrow8\rightarrow\cdots"></div></div>
-<p>那么当然会爆炸。讲义最后指出，GKR 对两个 claims 运行两个使用相同 Verifier randomness 的 Sumcheck，从而能够继续把两点检查维持在常数数量，而不是每层翻倍。</p>
-<p>这份 Lecture 21 到这里就结束，因此没有继续展开该 two-claim reduction 的完整代数细节。整理这份笔记时也不额外补写讲义没有给出的后续协议步骤。</p>
+<p>如果每层都简单把两个 claims 各自再分成两个，数量确实会指数增长。GKR 在后续归约中让两个 claims 共享 Verifier randomness，从而把需要继续维护的检查数量控制在常数规模，而不是随层数翻倍。</p>
+<p>这里不展开 two-claim reduction 的进一步代数细节。理解本节主线只需要把握一点：<strong>Layer i 的 consistency claim 经 Sumcheck 后会留下 Layer i+1 上少量随机点 evaluations，而协议会继续控制这些 claims 的数量，不让它按 2^D 增长。</strong></p>
 <h3>为什么 Verifier 能高效处理 wiring？</h3>
 <p>在 Sumcheck 最后的随机点上，Verifier 需要自己计算：</p>
 <div class="math-block"><div class="math-line" data-tex="\widetilde{\operatorname{ADD}}_i(z_0,z_1,z_2),\qquad \widetilde{\operatorname{MULT}}_i(z_0,z_1,z_2)"></div></div>
-<p>如果这一步仍然需要扫描整张 wiring table，Verifier 就没有获得效率优势。讲义指出，这正是对底层 circuit 要求 <strong>log-space uniformity</strong> 的地方：Verifier 能根据 succinct circuit description 高效得到所需 wiring information。</p>
+<p>如果这一步仍然需要扫描整张 wiring table，Verifier 就没有获得效率优势。这正是底层 circuit 要求 <strong>log-space uniformity</strong> 的原因：Verifier 可以根据 succinct circuit description 高效得到随机点处所需的 wiring information。</p>
 <div class="sc-callout">
 <strong>到这里，逻辑链已经闭合</strong>
-<p>分层让我们得到 <span data-tex="V_i"></span>；MLE 让 <span data-tex="V_i"></span> 具有低度结构；wiring MLE 让连接关系也具有低度结构；二者合起来构造 layer-consistency polynomial；Sumcheck 再把这一层的 claim 压缩成下一层少量 MLE evaluations。</p>
+<p>分层让我们得到 <span data-tex="V_i"></span>；MLE 让 <span data-tex="V_i"></span> 具有低度结构；wiring MLE 让连接关系也具有低度结构；二者合起来构造 layer-consistency polynomial；Sumcheck 再把 Layer i 的 claim 压缩成 Layer i+1 上少量 MLE evaluations。</p>
 </div>
-
 <h2 id="full-flow">七、把所有步骤串成完整 GKR 主线</h2>
 <div class="protocol-stages">
 <section class="protocol-stage">
@@ -1467,7 +1479,7 @@
 <span class="stage-index">03</span>
 <div><span class="stage-role">LAYER REDUCTION</span><h3>从输出层一路归约到输入层</h3></div>
 </header>
-<p>每一层都把一个关于 <span data-tex="\widetilde V_i"></span> 的随机点 claim 改写为低度多项式求和，调用 Sumcheck 后转化为下一层的 claim。</p>
+<p>每一层都把一个关于 <span data-tex="\widetilde V_i"></span> 的随机点 claim 改写为低度多项式求和，调用 Sumcheck 后转化为 Layer i+1 的 claim。</p>
 <div class="math-block green"><div class="math-line" data-tex="\widetilde V_0(z_0)\Downarrow\widetilde V_1(z_1)\Downarrow\cdots\Downarrow\widetilde V_D(z_D)"></div></div>
 <p>最终到达 input layer。由于输入由 Verifier 已知，最后的 MLE evaluation 可以由 Verifier 自己计算，因此整个证明链闭合。</p>
 </section>
@@ -1483,7 +1495,7 @@
 <tr><td>χ(p,z)</td><td>MLE 的 multilinear basis / equality polynomial，用于选择 Boolean label p 对应的数据。</td></tr>
 <tr><td>ADD<sub>i</sub></td><td>第 i 层 ADD wiring 的 Boolean indicator。</td></tr>
 <tr><td>MULT<sub>i</sub></td><td>第 i 层 MULT wiring 的 Boolean indicator。</td></tr>
-<tr><td>f<sub>i</sub></td><td>把 layer consistency、wiring 和下一层 MLE values 合并后的低度多项式。</td></tr>
+<tr><td>f<sub>i</sub></td><td>把 layer consistency、wiring 和 Layer i+1 的 MLE values 合并后的低度多项式。</td></tr>
 <tr><td>z<sub>i</sub></td><td>Verifier 在有限域中使用的随机 evaluation point。</td></tr>
 </tbody>
 </table>
@@ -1510,8 +1522,8 @@
 <li>为什么 Ṽ<sub>i</sub>(2,3) 一般不能解释成某个真实 gate 的值？</li>
 <li>χ(b,x) 为什么在 Boolean Hypercube 上能够“选中”唯一一个 table entry？</li>
 <li>ADD<sub>i</sub> 与 MULT<sub>i</sub> 为什么也要做 MLE？</li>
-<li>GKR 的核心求和公式如何同时表达 gate type、wiring 和下一层 gate values？</li>
-<li>一次 Sumcheck 结束后，为什么会留下下一层的两个 MLE evaluations？</li>
+<li>GKR 的核心求和公式如何同时表达 gate type、wiring 和 Layer i+1 的 gate values？</li>
+<li>一次 Sumcheck 结束后，为什么会留下 Layer i+1 的两个 MLE evaluations？</li>
 <li>为什么协议最终到 input layer 后 Verifier 可以自己完成检查？</li>
 </ol>
 </div>

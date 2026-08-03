@@ -84,6 +84,19 @@ window.posts = [
     learningOrder: 5,
     learningLabel: "Sumcheck 协议"
   },
+  {
+  id: 19,
+  file: "posts/multilinear-extension.html",
+  title: "Multilinear Extension：从 Boolean Table 到低度多项式",
+  tag: "证明系统与零知识证明",
+  date: "2026-08-03",
+  excerpt: "从一维 Boolean Lagrange basis 出发，解释固定 basis、唯一多线性扩展、同一 basis 如何表示不同 table，以及随机有限域点求值在 Sumcheck 和 GKR 中的意义。",
+  readTime: "约 16 分钟",
+  cover: "",
+  emoji: "MLE",
+  learningOrder: 6,
+  learningLabel: "Multilinear Extension"
+},
 {
   id: 18,
   file: "posts/gkr-protocol-notes.html",
@@ -94,7 +107,7 @@ window.posts = [
   readTime: "约 20 分钟",
   cover: "",
   emoji: "GKR",
-  learningOrder: 6,
+  learningOrder: 7,
   learningLabel: "GKR 协议"
 },
   {
