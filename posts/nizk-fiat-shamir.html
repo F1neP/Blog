@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="NIZK 与 Fiat–Shamir 学习笔记：从交互式零知识的随机挑战出发，形式化 NIZK 的 CRS 接口，理解 Fiat–Shamir 如何在 Random Oracle Model 中用哈希生成挑战，并区分 completeness、soundness、zero knowledge 与显式哈希实例化的安全边界。" name="description"/>
+<title>NIZK 与 Fiat–Shamir：从随机挑战到非交互证明 · Frieren</title>
+<link href="../HK.ico" rel="icon" type="image/x-icon"/>
+<link href="https://blog.fp1022.dpdns.org/posts/nizk-fiat-shamir.html" rel="canonical"/>
+<link href="../static/css/style.css" rel="stylesheet"/>
+<link href="../static/css/post.css" rel="stylesheet"/>
+<link href="../static/vendor/katex/katex.min.css" rel="stylesheet"/>
+<script>
+  (function () {
+    let theme;
+    try { theme = localStorage.getItem('frieren-theme'); } catch (_) {}
+    if (theme !== 'light' && theme !== 'dark') {
+      theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.dataset.theme = theme;
+  })();
+</script>
+<style>
+  :root {
+    --sc-blue: #315b70;
+    --sc-blue-soft: #dce8eb;
+    --sc-green: #557568;
+    --sc-green-soft: #e2ebe5;
+    --sc-gold: #a7782f;
+    --sc-gold-soft: #f2e9d8;
+    --sc-red: #9e4d3f;
+    --sc-red-soft: #f1dfda;
+    --sc-math: "KaTeX_Main", "Latin Modern Math", "STIX Two Math", "Cambria Math", serif;
+  }
+
+  html[data-theme="dark"] {
+    --sc-blue: #84b9cf;
+    --sc-blue-soft: #1b3039;
+    --sc-green: #8ebaa7;
+    --sc-green-soft: #20352c;
+    --sc-gold: #d5ab64;
+    --sc-gold-soft: #392f20;
+    --sc-red: #d88c7e;
+    --sc-red-soft: #3a2724;
+  }
+
+  .post-hero {
+    height: 48vh;
+    min-height: 390px;
+    background:
+      radial-gradient(circle at 18% 22%, rgba(196,98,45,.18), transparent 24%),
+      radial-gradient(circle at 82% 70%, rgba(49,91,112,.17), transparent 28%),
+      linear-gradient(145deg, #eee8de, #f7f4ef 55%, #e8e2d8);
+  }
+
+  .sumcheck-hero {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 4rem 1.5rem 6rem;
+  }
+
+  .hero-proof {
+    width: min(920px, 92vw);
+    display: grid;
+    grid-template-columns: repeat(7, auto);
+    align-items: center;
+    justify-content: center;
+    gap: clamp(.45rem, 1.7vw, 1.3rem);
+    color: var(--ink);
+  }
+
+  .hero-node {
+    min-width: 82px;
+    padding: .8rem 1rem;
+    border: 1px solid rgba(26,24,20,.13);
+    border-radius: 7px;
+    background: rgba(250,248,244,.78);
+    box-shadow: 0 12px 30px rgba(26,24,20,.06);
+    backdrop-filter: blur(7px);
+    text-align: center;
+  }
+
+  .hero-node strong {
+    display: block;
+    font-family: var(--serif);
+    font-size: 1.25rem;
+    font-weight: 400;
+  }
+
+  .hero-node strong sub {
+    position: relative;
+    bottom: -.22em;
+    vertical-align: baseline;
+    font-size: .64em;
+    line-height: 0;
+  }
+
+  .hero-node span {
+    display: block;
+    margin-top: .18rem;
+    font-family: var(--mono);
+    font-size: .64rem;
+    color: var(--ink-mute);
+  }
+
+  .hero-arrow {
+    font-family: var(--mono);
+    color: var(--accent);
+    font-size: 1.15rem;
+  }
+
+  .hero-proof .hero-node:last-child {
+    border-color: rgba(196,98,45,.35);
+    background: rgba(232,213,200,.72);
+  }
+
+  .article-wrap { max-width: 900px; }
+  .article-content { color: var(--ink-soft); }
+  .article-content > p { max-width: 760px; }
+
+  .sc-lead {
+    font-family: var(--serif);
+    font-size: 1.18rem;
+    line-height: 1.9;
+    color: var(--ink);
+  }
+
+  .sc-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .3rem .75rem;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: .7rem;
+    letter-spacing: .06em;
+    margin-bottom: 1rem;
+  }
+
+  .sc-toc {
+    margin: 2.2rem 0 3rem;
+    padding: 1.3rem 1.5rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(250,248,244,.68);
+  }
+
+  .sc-toc-title {
+    font-family: var(--mono);
+    font-size: .72rem;
+    color: var(--ink-mute);
+    letter-spacing: .11em;
+    text-transform: uppercase;
+    margin-bottom: .85rem;
+  }
+
+  .sc-toc ol {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .45rem 2rem;
+    padding-left: 1.2rem;
+  }
+
+  .sc-toc a {
+    color: var(--ink-soft);
+    text-decoration: none;
+    font-size: .88rem;
+  }
+
+  .sc-toc a:hover { color: var(--accent); }
+
+  .math-block {
+    overflow-x: auto;
+    margin: 1.35rem 0 1.8rem;
+    padding: 1.2rem 1.45rem 1.1rem;
+    border: 1px solid rgba(49,91,112,.18);
+    border-left: 4px solid var(--sc-blue);
+    border-radius: 6px;
+    background: rgba(244,248,249,.92);
+    box-shadow: 0 8px 22px rgba(31,48,55,.045);
+    color: #173947;
+    font-family: var(--sc-math);
+    font-size: 1.14rem;
+    line-height: 1.75;
+    text-align: center;
+    letter-spacing: 0;
+    scrollbar-width: thin;
+  }
+
+  .math-block.gold {
+    border-left-color: var(--sc-gold);
+    border-top-color: rgba(167,120,47,.16);
+    border-right-color: rgba(167,120,47,.16);
+    border-bottom-color: rgba(167,120,47,.16);
+    background: rgba(250,247,239,.94);
+    color: #5c421a;
+  }
+
+  .math-block.green {
+    border-left-color: var(--sc-green);
+    border-top-color: rgba(85,117,104,.16);
+    border-right-color: rgba(85,117,104,.16);
+    border-bottom-color: rgba(85,117,104,.16);
+    background: rgba(244,248,245,.94);
+    color: #27473b;
+  }
+
+  .math-line {
+    min-width: max-content;
+    white-space: nowrap;
+    font-family: var(--sc-math);
+    font-variant-numeric: lining-nums;
+    font-feature-settings: "kern" 1, "liga" 1;
+  }
+
+  .math-line .katex-display { margin: 0; }
+  .math-line .katex { font-size: 1.08em; }
+  .math-line .katex .mord.mathnormal { font-family: "KaTeX_Math", var(--sc-math); }
+
+  .math-line sub,
+  .math-line sup,
+  .math-inline sub,
+  .math-inline sup,
+  .message .payload sub,
+  .message .payload sup,
+  .transcript sub,
+  .transcript sup,
+  .symbol-table td:first-child sub,
+  .symbol-table td:first-child sup {
+    position: relative;
+    vertical-align: baseline;
+    font-size: .68em;
+    line-height: 0;
+  }
+
+  .math-line sub,
+  .math-inline sub,
+  .message .payload sub,
+  .transcript sub,
+  .symbol-table td:first-child sub { bottom: -.28em; }
+
+  .math-line sup,
+  .math-inline sup,
+  .message .payload sup,
+  .transcript sup,
+  .symbol-table td:first-child sup { top: -.52em; }
+
+  .math-inline {
+    white-space: nowrap;
+    font-family: var(--sc-math);
+    font-size: 1.04em;
+    color: var(--ink-soft);
+  }
+
+  .article-content sub,
+  .article-content sup {
+    font-family: var(--sc-math);
+    font-size: .72em;
+    line-height: 0;
+  }
+
+  .sum-op {
+    display: inline-grid;
+    grid-template-rows: 1.02em .82em;
+    place-items: center;
+    min-width: 2.4em;
+    margin: 0 .08em;
+    vertical-align: -.42em;
+    line-height: 1;
+  }
+
+  .sum-op.wide { min-width: 5.9em; }
+
+  .sum-symbol {
+    font-size: 1.5em;
+    line-height: .82;
+    font-weight: 400;
+  }
+
+  .sum-index {
+    font-family: var(--sc-math);
+    font-size: .56em;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .sum-index sub { bottom: -.18em; }
+
+  .frac {
+    display: inline-grid;
+    grid-template-rows: auto auto;
+    min-width: 1.7em;
+    margin: 0 .12em;
+    vertical-align: -.46em;
+    line-height: 1.08;
+    text-align: center;
+  }
+
+  .frac > span:first-child {
+    padding: 0 .18em .08em;
+    border-bottom: 1px solid currentColor;
+  }
+
+  .frac > span:last-child { padding: .08em .18em 0; }
+
+  .prob-index {
+    display: inline-block;
+    margin: 0 .22em 0 .08em;
+    vertical-align: -.55em;
+    font-size: .58em;
+    line-height: 1;
+  }
+
+  .prob-index sub { bottom: -.16em; }
+
+  .math-label {
+    font-family: var(--mono);
+    font-size: .64rem;
+    letter-spacing: .08em;
+    color: currentColor;
+    opacity: .64;
+  }
+
+  .math-note {
+    display: block;
+    margin-top: .65rem;
+    padding-top: .55rem;
+    border-top: 1px solid rgba(49,91,112,.12);
+    font-family: var(--body);
+    font-size: .78rem;
+    line-height: 1.65;
+    color: var(--ink-mute);
+    text-align: center;
+  }
+
+  .symbol-table,
+  .truth-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0 2rem;
+    font-size: .88rem;
+    background: rgba(250,248,244,.7);
+  }
+
+  .symbol-table th,
+  .symbol-table td,
+  .truth-table th,
+  .truth-table td {
+    padding: .72rem .85rem;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .symbol-table th,
+  .truth-table th {
+    font-family: var(--mono);
+    font-weight: 300;
+    color: var(--ink-mute);
+    font-size: .72rem;
+    letter-spacing: .06em;
+    background: var(--paper-warm);
+  }
+
+  .symbol-table td:first-child {
+    width: 22%;
+    font-family: var(--sc-math);
+    color: var(--sc-blue);
+    font-size: 1.08rem;
+    white-space: nowrap;
+  }
+
+  .truth-table th,
+  .truth-table td { text-align: center; }
+
+  .sc-callout {
+    margin: 1.7rem 0;
+    padding: 1.15rem 1.3rem;
+    border: 1px solid rgba(167,120,47,.25);
+    border-radius: 8px;
+    background: var(--sc-gold-soft);
+  }
+
+  .sc-callout strong {
+    display: block;
+    margin-bottom: .35rem;
+    color: #6c4c1e;
+    font-family: var(--mono);
+    font-size: .76rem;
+    letter-spacing: .06em;
+  }
+
+  .sc-callout p { margin: 0; font-size: .9rem; line-height: 1.75; }
+
+  .protocol-loop {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: .8rem;
+    margin: 1.6rem 0 2.3rem;
+  }
+
+  .loop-step {
+    position: relative;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper-card);
+    min-height: 126px;
+  }
+
+  .loop-step::after {
+    content: '→';
+    position: absolute;
+    top: 50%;
+    right: -.68rem;
+    transform: translateY(-50%);
+    color: var(--accent);
+    font-family: var(--mono);
+  }
+
+  .loop-step:last-child::after { display: none; }
+
+  .loop-no {
+    font-family: var(--mono);
+    font-size: .65rem;
+    color: var(--accent);
+    letter-spacing: .08em;
+  }
+
+  .loop-step h3 {
+    margin: .25rem 0 .45rem;
+    font-size: 1rem;
+  }
+
+  .loop-step p { margin: 0; font-size: .78rem; line-height: 1.65; }
+
+  .protocol-stages {
+    display: grid;
+    gap: 1.15rem;
+    margin: 2rem 0 2.3rem;
+  }
+
+  .protocol-stage {
+    position: relative;
+    overflow: hidden;
+    padding: 1.25rem 1.35rem .15rem;
+    border: 1px solid rgba(49,91,112,.16);
+    border-radius: 10px;
+    background: rgba(250,248,244,.72);
+    box-shadow: 0 10px 28px rgba(26,24,20,.035);
+  }
+
+  .protocol-stage::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: var(--sc-blue);
+    opacity: .8;
+  }
+
+  .protocol-stage:nth-child(2)::before { background: var(--sc-gold); }
+  .protocol-stage:nth-child(3)::before { background: var(--sc-green); }
+
+  .stage-heading {
+    display: flex;
+    align-items: center;
+    gap: .85rem;
+    margin-bottom: 1.05rem;
+    padding-bottom: .85rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .stage-index {
+    display: grid;
+    place-items: center;
+    width: 35px;
+    height: 35px;
+    flex: 0 0 35px;
+    border: 1px solid rgba(49,91,112,.2);
+    border-radius: 50%;
+    background: rgba(220,232,235,.62);
+    color: var(--sc-blue);
+    font-family: var(--mono);
+    font-size: .68rem;
+  }
+
+  .protocol-stage:nth-child(2) .stage-index {
+    border-color: rgba(167,120,47,.2);
+    background: rgba(242,233,216,.66);
+    color: var(--sc-gold);
+  }
+
+  .protocol-stage:nth-child(3) .stage-index {
+    border-color: rgba(85,117,104,.2);
+    background: rgba(226,235,229,.72);
+    color: var(--sc-green);
+  }
+
+  .stage-role {
+    display: block;
+    margin-bottom: .1rem;
+    color: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: .58rem;
+    letter-spacing: .1em;
+  }
+
+  .article-content .protocol-stage h3 {
+    margin: 0;
+    font-size: 1.12rem;
+  }
+
+  .protocol-stage > p { margin-bottom: 1.15rem; }
+  .protocol-stage .math-block { margin: 1rem 0 1.25rem; }
+
+  .round-card {
+    margin: 1.5rem 0 2.2rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    background: rgba(250,248,244,.78);
+  }
+
+  .round-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: .85rem 1.1rem;
+    background: var(--paper-warm);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .round-head strong {
+    font-family: var(--serif);
+    font-weight: 400;
+    color: var(--ink);
+  }
+
+  .round-head span {
+    font-family: var(--mono);
+    font-size: .68rem;
+    color: var(--accent);
+  }
+
+  .round-body { padding: 1rem 1.2rem 1.25rem; }
+  .round-body p { margin: 0 0 .75rem; font-size: .9rem; }
+  .round-body p:last-child { margin-bottom: 0; }
+
+  .message {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: .8rem;
+    padding: .62rem 0;
+    border-bottom: 1px dashed var(--line);
+    align-items: baseline;
+  }
+
+  .message:last-child { border-bottom: 0; }
+  .message .who {
+    font-family: var(--mono);
+    font-size: .69rem;
+    color: var(--sc-blue);
+  }
+
+  .message.verifier .who { color: var(--accent); }
+  .message .payload {
+    overflow-x: auto;
+    font-family: var(--sc-math);
+    font-size: 1.01rem;
+    line-height: 1.75;
+    font-variant-numeric: lining-nums;
+    color: var(--ink-soft);
+  }
+
+  .transcript {
+    margin: 1.5rem 0 2.3rem;
+    padding: 1.2rem 1.4rem;
+    border: 1px solid rgba(85,117,104,.25);
+    border-radius: 8px;
+    background: var(--sc-green-soft);
+    overflow-x: auto;
+    font-family: var(--sc-math);
+    font-size: 1.03rem;
+    line-height: 1.75;
+    font-variant-numeric: lining-nums;
+    color: #294a3e;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .fact-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: .9rem;
+    margin: 1.5rem 0 2.2rem;
+  }
+
+  .fact-card {
+    padding: 1.1rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper-card);
+  }
+
+  .fact-card strong {
+    display: block;
+    font-family: var(--serif);
+    font-weight: 400;
+    color: var(--ink);
+    margin-bottom: .35rem;
+  }
+
+  .fact-card span {
+    display: block;
+    font-family: var(--mono);
+    font-size: .78rem;
+    color: var(--accent);
+    margin-bottom: .35rem;
+  }
+
+  .fact-card p { margin: 0; font-size: .78rem; line-height: 1.65; }
+
+  .sc-checklist {
+    list-style: none;
+    margin: 1.2rem 0 2rem;
+  }
+
+  .sc-checklist li {
+    position: relative;
+    padding: .65rem 0 .65rem 1.8rem;
+    border-bottom: 1px solid var(--line);
+    font-size: .9rem;
+  }
+
+  .sc-checklist li::before {
+    content: '✓';
+    position: absolute;
+    left: .15rem;
+    color: var(--sc-green);
+    font-family: var(--mono);
+  }
+
+  details {
+    margin: 1.2rem 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(250,248,244,.65);
+  }
+
+  summary {
+    padding: .9rem 1.1rem;
+    cursor: pointer;
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: .78rem;
+  }
+
+  details > div { padding: 0 1.1rem 1.1rem; }
+
+  .references {
+    margin-top: 3.4rem;
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .references h2 {
+    margin-top: 0;
+    margin-bottom: 1.25rem;
+  }
+
+  .reference-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: references;
+  }
+
+  .reference-list li {
+    position: relative;
+    counter-increment: references;
+    margin: 0 0 .9rem;
+    padding: 0 0 .9rem 2.65rem;
+    border-bottom: 1px solid rgba(26,24,20,.08);
+    color: var(--ink-soft);
+    font-family: var(--serif);
+    font-size: .84rem;
+    line-height: 1.72;
+  }
+
+  .reference-list li::before {
+    content: '[' counter(references) ']';
+    position: absolute;
+    left: 0;
+    top: .02rem;
+    width: 2rem;
+    color: var(--sc-blue);
+    font-family: var(--mono);
+    font-size: .72rem;
+  }
+
+  .reference-list cite { color: var(--ink); }
+
+  .reference-list a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(196,98,45,.25);
+    overflow-wrap: anywhere;
+  }
+
+  .reference-list a:hover { border-bottom-color: var(--accent); }
+
+  .reference-kind {
+    display: inline-block;
+    margin-left: .45rem;
+    padding: .08rem .4rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: .58rem;
+    letter-spacing: .04em;
+    vertical-align: .08rem;
+  }
+
+  .article-actions {
+    position: fixed;
+    top: 1.6rem;
+    right: 1.8rem;
+    z-index: 100;
+    display: flex;
+    gap: .5rem;
+  }
+
+  .article-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .42rem;
+    min-height: 38px;
+    padding: .45rem .78rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(247,244,239,.88);
+    backdrop-filter: blur(10px);
+    color: var(--ink-soft);
+    font-family: var(--mono);
+    font-size: .72rem;
+    font-weight: 300;
+    cursor: pointer;
+    transition: background .2s ease, color .2s ease, border-color .2s ease, transform .2s ease;
+  }
+
+  .article-action:hover {
+    transform: translateY(-1px);
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  .article-action:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .article-action[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  .article-action svg {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+  }
+
+  .action-toast {
+    position: fixed;
+    top: 4.75rem;
+    right: 1.8rem;
+    z-index: 110;
+    max-width: min(310px, calc(100vw - 2rem));
+    padding: .55rem .8rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: rgba(26,24,20,.92);
+    color: var(--paper);
+    box-shadow: 0 10px 28px rgba(26,24,20,.15);
+    font-family: var(--mono);
+    font-size: .68rem;
+    line-height: 1.55;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-5px);
+    transition: opacity .2s ease, transform .2s ease;
+  }
+
+  .action-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  html[data-theme="dark"] .post-hero {
+    background:
+      radial-gradient(circle at 18% 22%, rgba(225,138,87,.12), transparent 25%),
+      radial-gradient(circle at 82% 70%, rgba(132,185,207,.12), transparent 30%),
+      linear-gradient(145deg, #181919, #202120 55%, #171818);
+  }
+
+  html[data-theme="dark"] .hero-overlay {
+    background: linear-gradient(to bottom, rgba(19,20,20,0) 35%, rgba(19,20,20,.98) 100%);
+  }
+
+  html[data-theme="dark"] .hero-node {
+    border-color: rgba(255,255,255,.12);
+    background: rgba(31,32,31,.82);
+    box-shadow: 0 12px 32px rgba(0,0,0,.22);
+  }
+
+  html[data-theme="dark"] .hero-proof .hero-node:last-child {
+    border-color: rgba(225,138,87,.32);
+    background: rgba(57,39,30,.82);
+  }
+
+  html[data-theme="dark"] .sc-toc,
+  html[data-theme="dark"] .symbol-table,
+  html[data-theme="dark"] .truth-table,
+  html[data-theme="dark"] details {
+    background: rgba(32,33,32,.68);
+  }
+
+  html[data-theme="dark"] .math-block {
+    border-color: rgba(132,185,207,.24);
+    border-left-color: var(--sc-blue);
+    background: #19292f;
+    color: #d9eef6;
+    box-shadow: 0 8px 24px rgba(0,0,0,.16);
+  }
+
+  html[data-theme="dark"] .math-block.gold {
+    border-color: rgba(213,171,100,.23);
+    border-left-color: var(--sc-gold);
+    background: #31291d;
+    color: #f2dfba;
+  }
+
+  html[data-theme="dark"] .math-block.green {
+    border-color: rgba(142,186,167,.22);
+    border-left-color: var(--sc-green);
+    background: #1d3028;
+    color: #d9eee5;
+  }
+
+  html[data-theme="dark"] .math-note { border-top-color: rgba(255,255,255,.1); }
+
+  html[data-theme="dark"] .sc-callout {
+    border-color: rgba(213,171,100,.24);
+    background: var(--sc-gold-soft);
+  }
+
+  html[data-theme="dark"] .sc-callout strong { color: var(--sc-gold); }
+
+  html[data-theme="dark"] .protocol-stage {
+    border-color: rgba(255,255,255,.11);
+    background: rgba(31,32,31,.82);
+    box-shadow: 0 10px 30px rgba(0,0,0,.18);
+  }
+
+  html[data-theme="dark"] .stage-index {
+    border-color: rgba(132,185,207,.25);
+    background: var(--sc-blue-soft);
+  }
+
+  html[data-theme="dark"] .protocol-stage:nth-child(2) .stage-index {
+    border-color: rgba(213,171,100,.25);
+    background: var(--sc-gold-soft);
+  }
+
+  html[data-theme="dark"] .protocol-stage:nth-child(3) .stage-index {
+    border-color: rgba(142,186,167,.25);
+    background: var(--sc-green-soft);
+  }
+
+  html[data-theme="dark"] .round-card {
+    background: rgba(31,32,31,.82);
+  }
+
+  html[data-theme="dark"] .transcript {
+    border-color: rgba(142,186,167,.25);
+    background: var(--sc-green-soft);
+    color: #d9eee5;
+  }
+
+  html[data-theme="dark"] .reference-list li {
+    border-bottom-color: rgba(255,255,255,.08);
+  }
+
+  html[data-theme="dark"] .reference-list a {
+    border-bottom-color: rgba(225,138,87,.35);
+  }
+
+  html[data-theme="dark"] .article-action {
+    background: rgba(27,28,28,.9);
+    border-color: rgba(255,255,255,.14);
+    color: var(--ink-soft);
+  }
+
+  html[data-theme="dark"] .article-action:hover {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--paper);
+  }
+
+  html[data-theme="dark"] .action-toast {
+    border-color: rgba(255,255,255,.16);
+    background: rgba(238,234,226,.96);
+    color: #171817;
+    box-shadow: 0 10px 30px rgba(0,0,0,.3);
+  }
+
+  @media (max-width: 760px) {
+    .post-hero { min-height: 460px; }
+    .hero-proof {
+      grid-template-columns: 1fr 28px 1fr;
+      width: min(480px, 94vw);
+    }
+    .hero-proof .hero-node:nth-of-type(3) { grid-column: 1; }
+    .hero-proof .hero-arrow:nth-of-type(4) { grid-column: 2; }
+    .hero-proof .hero-node:nth-of-type(5) { grid-column: 3; }
+    .protocol-loop { grid-template-columns: 1fr 1fr; }
+    .loop-step:nth-child(2)::after { display: none; }
+    .fact-grid { grid-template-columns: 1fr; }
+    .sc-toc ol { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 520px) {
+    .back-fixed {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+    }
+    .article-wrap { padding-left: 1.15rem; padding-right: 1.15rem; }
+    .protocol-loop { grid-template-columns: 1fr; }
+    .loop-step::after { display: none; }
+    .message { grid-template-columns: 82px 1fr; gap: .5rem; }
+    .math-block {
+      margin-left: -.15rem;
+      margin-right: -.15rem;
+      padding: 1rem .85rem .92rem;
+      font-size: 1rem;
+    }
+    .sum-op { min-width: 2.15em; }
+    .sum-op.wide { min-width: 5.35em; }
+    .message .payload { font-size: .94rem; }
+    .symbol-table { font-size: .8rem; }
+    .article-actions { position: absolute; top: 1rem; right: 1rem; }
+    .article-action {
+      width: 38px;
+      min-width: 38px;
+      padding: 0;
+    }
+    .article-action span { display: none; }
+    .action-toast { top: 4rem; right: 1rem; }
+  }
+
+  .gkr-figure {
+    margin: 1.8rem 0 2.35rem;
+    padding: 1rem 1rem .85rem;
+    border: 1px solid rgba(49,91,112,.16);
+    border-radius: 10px;
+    background: rgba(250,248,244,.76);
+    box-shadow: 0 10px 28px rgba(26,24,20,.035);
+    overflow-x: auto;
+  }
+
+  .gkr-figure svg {
+    display: block;
+    width: min(100%, 860px);
+    height: auto;
+    margin: 0 auto;
+  }
+
+  .gkr-figure figcaption {
+    margin-top: .8rem;
+    padding-top: .7rem;
+    border-top: 1px solid var(--line);
+    color: var(--ink-mute);
+    font-family: var(--body);
+    font-size: .8rem;
+    line-height: 1.65;
+    text-align: center;
+  }
+
+  .gkr-figure .svg-node {
+    fill: rgba(250,248,244,.96);
+    stroke: var(--sc-blue);
+    stroke-width: 1.5;
+  }
+
+  .gkr-figure .svg-node-accent {
+    fill: var(--sc-gold-soft);
+    stroke: var(--sc-gold);
+    stroke-width: 1.8;
+  }
+
+  .gkr-figure .svg-node-green {
+    fill: var(--sc-green-soft);
+    stroke: var(--sc-green);
+    stroke-width: 1.6;
+  }
+
+  .gkr-figure .svg-edge {
+    stroke: var(--ink-mute);
+    stroke-width: 1.4;
+    fill: none;
+  }
+
+  .gkr-figure .svg-edge-accent {
+    stroke: var(--sc-gold);
+    stroke-width: 2.1;
+    fill: none;
+  }
+
+  .gkr-figure .svg-text {
+    fill: var(--ink);
+    font-family: var(--mono);
+    font-size: 15px;
+  }
+
+  .gkr-figure .svg-small {
+    fill: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .gkr-figure .svg-title {
+    fill: var(--ink);
+    font-family: var(--serif);
+    font-size: 20px;
+  }
+
+  html[data-theme="dark"] .gkr-figure {
+    border-color: rgba(255,255,255,.11);
+    background: rgba(31,32,31,.82);
+    box-shadow: 0 10px 30px rgba(0,0,0,.18);
+  }
+
+  html[data-theme="dark"] .gkr-figure .svg-node {
+    fill: #202625;
+  }
+
+</style>
+</head>
+<body>
+<div class="back-fixed">
+<a aria-label="返回文章列表" class="back-btn" href="../index.html">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="M19 12H5M12 5l-7 7 7 7"></path>
+</svg>
+    返回
+  </a>
+</div>
+<div aria-label="文章操作" class="article-actions">
+<button aria-label="分享这篇笔记" class="article-action" id="share-button" title="分享这篇笔记" type="button">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" viewbox="0 0 24 24">
+<circle cx="18" cy="5" r="2.5"></circle>
+<circle cx="6" cy="12" r="2.5"></circle>
+<circle cx="18" cy="19" r="2.5"></circle>
+<path d="M8.2 10.8l7.6-4.5M8.2 13.2l7.6 4.5"></path>
+</svg>
+<span>分享</span>
+</button>
+<button aria-label="切换为深色模式" aria-pressed="false" class="article-action" data-theme-toggle="" id="theme-button" title="切换为深色模式" type="button">
+<svg aria-hidden="true" class="theme-icon-moon" fill="none" stroke="currentColor" stroke-width="1.6" viewbox="0 0 24 24">
+<path d="M20 15.1A8.5 8.5 0 0 1 8.9 4a8.5 8.5 0 1 0 11.1 11.1z"></path>
+</svg>
+<svg aria-hidden="true" class="theme-icon-sun" fill="none" stroke="currentColor" stroke-width="1.6" viewbox="0 0 24 24">
+<circle cx="12" cy="12" r="3.7"></circle><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"></path>
+</svg>
+<span data-theme-label="">深色</span>
+</button>
+</div>
+<div aria-live="polite" class="action-toast" id="action-toast" role="status"></div>
+<div aria-hidden="true" class="post-hero">
+<div class="sumcheck-hero"><div class="hero-proof">
+<div class="hero-node"><strong>a</strong><span>Prover First Message</span></div><div class="hero-arrow">→</div>
+<div class="hero-node"><strong>e ← V</strong><span>随机 Challenge</span></div><div class="hero-arrow">→</div>
+<div class="hero-node"><strong>e = H(a)</strong><span>Fiat–Shamir</span></div><div class="hero-arrow">→</div>
+<div class="hero-node"><strong>π=(a,e,z)</strong><span>Non-interactive Proof</span></div>
+</div></div><div class="hero-overlay"></div>
+</div>
+<main class="article-wrap">
+<div class="article-meta anim anim-1"><span class="meta-tag">证明系统 · NIZK · Fiat–Shamir</span><span class="meta-date">2026-08-04</span><span class="meta-readtime">约 20 分钟</span></div>
+<h1 class="article-title anim anim-2">NIZK 与 Fiat–Shamir：从随机挑战到非交互证明</h1>
+<hr class="article-divider anim anim-3"/>
+<nav aria-label="密码学学习顺序" class="lesson-nav anim anim-3" data-learning-nav="" data-post-id="22" hidden=""></nav>
+<article class="article-content anim anim-4">
+<div class="sc-kicker">LEARNING NOTE · NIZK · FIAT–SHAMIR</div>
+<p class="sc-lead">Non-Interactive Zero-Knowledge（NIZK，非交互零知识）希望把原本需要 Prover 与 Verifier 往返交互的零知识证明，变成一份可以独立发送和验证的 proof。Fiat–Shamir paradigm 解决的是其中一个关键步骤：对于 public-coin protocol，用哈希函数从已有 transcript 生成原本由 Verifier 随机选择的 challenge，从而消除在线交互。</p>
+<blockquote>NIZK 是一种<strong>证明系统目标</strong>；Fiat–Shamir 是一种<strong>去交互范式</strong>；Random Oracle Model 则是分析这一范式时常用的<strong>理想化模型</strong>。三者不能混为一谈。</blockquote>
+<nav aria-label="文章目录" class="sc-toc"><div class="sc-toc-title">Contents</div><ol>
+<li><a href="#why">为什么要从 Interactive ZK 走向 NIZK</a></li>
+<li><a href="#definition">NIZK 的形式化接口</a></li>
+<li><a href="#three-message">三消息 Public-Coin 结构</a></li>
+<li><a href="#fiat-shamir">Fiat–Shamir 到底替换了什么</a></li>
+<li><a href="#rom-construction">讲义中的 ROM 构造</a></li>
+<li><a href="#completeness">为什么 Completeness 保持</a></li>
+<li><a href="#soundness">为什么 Soundness 依赖随机挑战</a></li>
+<li><a href="#zk">为什么还能保持 Zero-Knowledge</a></li>
+<li><a href="#explicit-hash">换成现实 Hash 后发生什么</a></li>
+<li><a href="#distinctions">几个最容易混淆的概念</a></li>
+<li><a href="#proof-systems">在后续证明系统中的位置</a></li>
+<li><a href="#memory">最终记忆框架</a></li>
+</ol></nav>
+<div class="sc-callout"><strong>前置知识</strong><p>本文默认已经理解 Interactive Proof 的 Completeness 与 Soundness、Zero-Knowledge 中的 Simulator，以及 Commitment 的 Hiding 与 Binding。可先阅读 <a href="p-np-sat-interactive-proof.html">P、NP、SAT 与 Interactive Proof</a>、<a href="commitment-schemes.html">Commitment Scheme</a> 和 <a href="interactive-zk.html">Interactive Zero-Knowledge Proofs</a>。</p></div>
+<h2 id="why">一、为什么要从 Interactive ZK 走向 NIZK？</h2>
+<p>交互式零知识证明中，Verifier 的随机 challenge 是 soundness 的重要来源。一个典型流程是：</p>
+<div class="transcript"><span data-tex="P\xrightarrow{\ a\ }V\xrightarrow{\ e\leftarrow_R\mathcal E\ }P\xrightarrow{\ z\ }V"></span></div>
+<p>Prover 先发送第一条消息 <span data-tex="a"></span>，Verifier 再随机选择 challenge <span data-tex="e"></span>，Prover 根据 witness、随机性和 challenge 生成 response <span data-tex="z"></span>。Verifier 最后检查：</p>
+<div class="math-block green"><div class="math-line" data-tex="V(x,a,e,z)=1"></div></div>
+<p>这种结构的问题不是证明能力不足，而是<strong>Verifier 必须在线参与 challenge 生成</strong>。如果 proof 需要被存储、转发、公开验证，或者由很多独立 Verifiers 在不同时间验证，持续交互就不方便。</p>
+<div class="fact-grid">
+<div class="fact-card"><span>INTERACTIVE</span><strong>Verifier 在线出题</strong><p>Challenge 在 Prover 固定第一条消息之后由 Verifier 随机生成。</p></div>
+<div class="fact-card"><span>NIZK</span><strong>一次生成 Proof</strong><p>Prover 输出一份 proof，Verifier 之后只需读取公开输入和 proof 即可验证。</p></div>
+<div class="fact-card"><span>CORE QUESTION</span><strong>随机性从哪里来</strong><p>去掉在线 Verifier 后，仍然必须保留原协议依赖的不可预测 challenge。</p></div>
+</div>
+<h2 id="definition">二、NIZK 的形式化接口</h2>
+<p>讲义把 NIZK 定义为三个算法。对关系 <span data-tex="R_L"></span>，若 <span data-tex="(x,w)\in R_L"></span>，则 <span data-tex="x"></span> 是 statement，<span data-tex="w"></span> 是 witness。</p>
+<table class="symbol-table"><thead><tr><th>算法</th><th>接口</th><th>作用</th></tr></thead><tbody>
+<tr><td>Gen</td><td><span data-tex="\mathsf{Gen}(1^\lambda)\to\mathsf{crs}"></span></td><td>生成 Common Reference String（CRS）。</td></tr>
+<tr><td>Prover</td><td><span data-tex="P(\mathsf{crs},x,w)\to\pi"></span></td><td>利用 witness 生成非交互 proof。</td></tr>
+<tr><td>Verifier</td><td><span data-tex="V(\mathsf{crs},x,\pi)\to\{0,1\}"></span></td><td>只根据公开信息和 proof 接受或拒绝。</td></tr>
+</tbody></table>
+<p>相应地，讲义要求三类安全性质：</p>
+<div class="protocol-stages">
+<section class="protocol-stage"><header class="stage-heading"><span class="stage-index">01</span><div><span class="stage-role">COMPLETENESS</span><h3>真实 Statement 能通过</h3></div></header><p>若 <span data-tex="(x,w)\in R_L"></span>，诚实 Prover 生成的 proof 应以压倒性概率被接受。</p></section>
+<section class="protocol-stage"><header class="stage-heading"><span class="stage-index">02</span><div><span class="stage-role">SOUNDNESS</span><h3>错误 Statement 难以伪造</h3></div></header><p>多项式时间 cheating Prover 不应为 <span data-tex="x\notin L"></span> 构造出可接受 proof，成功概率至多为 negligible。</p></section>
+<section class="protocol-stage"><header class="stage-heading"><span class="stage-index">03</span><div><span class="stage-role">ZERO-KNOWLEDGE</span><h3>Proof 不泄露 Witness</h3></div></header><p>存在 PPT Simulator，可以只根据允许的公开信息生成与真实 proof 分布不可区分的模拟结果。</p></section>
+</div>
+<p>讲义此处给出的基础定义是 <strong>adaptive soundness</strong> 与 <strong>non-adaptive zero-knowledge</strong>，随后指出还可以进一步要求 multi-theorem ZK 和 adaptive ZK。也就是说，“NIZK”并不只有一个强度等级，必须看具体定义允许 adversary 在什么时候选择 statement、能看到多少份 proofs。</p>
+<div class="sc-callout"><strong>CRS 不是 Witness，也不是 Challenge</strong><p><span data-tex="\mathsf{crs}"></span> 是 Setup 阶段产生的公共参考信息。它在 proof 生成前已经存在，并作为 Prover 与 Verifier 的共同公开输入。Challenge 是否由 CRS、Verifier 随机性或 Random Oracle 产生，是后续具体构造的问题。</p></div>
+<h2 id="three-message">三、先看三消息 Public-Coin 结构</h2>
+<p>Fiat–Shamir 最容易从一个三消息 public-coin protocol 理解。所谓 public-coin，是指 Verifier 的消息本质上只是公开随机数，而不是依赖隐藏状态计算出的秘密信息。</p>
+<div class="math-block"><div class="math-line" data-tex="a\leftarrow P(x,w;r_P)"></div><div class="math-line" data-tex="e\leftarrow_R\mathcal E"></div><div class="math-line" data-tex="z\leftarrow P(x,w;r_P,e)"></div></div>
+<p>在线协议实际运行时：</p>
+<table class="truth-table"><thead><tr><th>阶段</th><th>谁执行</th><th>公开内容</th></tr></thead><tbody>
+<tr><td>First message</td><td>Prover</td><td><span data-tex="a"></span></td></tr>
+<tr><td>Challenge</td><td>Verifier</td><td><span data-tex="e\leftarrow_R\mathcal E"></span></td></tr>
+<tr><td>Response</td><td>Prover</td><td><span data-tex="z"></span></td></tr>
+<tr><td>Check</td><td>Verifier</td><td><span data-tex="V(x,a,e,z)"></span></td></tr>
+</tbody></table>
+<p>最关键的时间顺序是：</p>
+<div class="math-block gold"><div class="math-line" data-tex="a\ \text{fixed first}\qquad\Longrightarrow\qquad e\ \text{sampled afterwards}"></div></div>
+<p>如果 cheating Prover 可以在看到 <span data-tex="e"></span> 之后再决定 <span data-tex="a"></span>，原协议依赖的随机挑战结构就被破坏了。</p>
+<h2 id="fiat-shamir">四、Fiat–Shamir 到底替换了什么？</h2>
+<p>去交互的核心难点是：没有在线 Verifier 后，谁来生成 <span data-tex="e"></span>？Fiat–Shamir paradigm 的思路是把 challenge 改为 transcript 的确定性哈希值。</p>
+<div class="math-block green"><div class="math-line" data-tex="e=H(a)"></div><span class="math-note">本文严格沿用 Lecture 19 的简化写法。</span></div>
+<p>于是 Prover 可以独立完成：</p>
+<div class="transcript"><span data-tex="a\ \longrightarrow\ e=H(a)\ \longrightarrow\ z\ \longrightarrow\ \pi=(a,e,z)"></span></div>
+<p>Verifier 不再发送 challenge，而是收到 proof 后自己重新计算：</p>
+<div class="math-block"><div class="math-line" data-tex="e\stackrel{?}{=}H(a)"></div><div class="math-line" data-tex="V(x,a,e,z)\stackrel{?}{=}1"></div></div>
+<figure class="gkr-figure"><svg aria-labelledby="fs-title fs-desc" role="img" viewbox="0 0 860 330"><title id="fs-title">Fiat-Shamir removes the online challenge</title><desc id="fs-desc">The interactive verifier challenge is replaced by a hash-derived challenge computed from the prover first message.</desc><text class="svg-title" text-anchor="middle" x="430" y="32">Interactive challenge → Fiat–Shamir challenge</text><rect class="svg-node" height="72" rx="12" width="180" x="60" y="90"></rect><rect class="svg-node-accent" height="72" rx="12" width="180" x="340" y="90"></rect><rect class="svg-node-green" height="72" rx="12" width="180" x="620" y="90"></rect><text class="svg-small" text-anchor="middle" x="150" y="116">Prover</text><text class="svg-text" text-anchor="middle" x="150" y="142">a</text><text class="svg-small" text-anchor="middle" x="430" y="116">Interactive</text><text class="svg-text" text-anchor="middle" x="430" y="142">e ←R 𝔈</text><text class="svg-small" text-anchor="middle" x="710" y="116">Response</text><text class="svg-text" text-anchor="middle" x="710" y="142">z</text><path class="svg-edge" d="M240 126 L340 126"></path><path class="svg-edge" d="M520 126 L620 126"></path><rect class="svg-node" height="72" rx="12" width="180" x="60" y="220"></rect><rect class="svg-node-accent" height="72" rx="12" width="180" x="340" y="220"></rect><rect class="svg-node-green" height="72" rx="12" width="180" x="620" y="220"></rect><text class="svg-small" text-anchor="middle" x="150" y="246">Prover</text><text class="svg-text" text-anchor="middle" x="150" y="272">a</text><text class="svg-small" text-anchor="middle" x="430" y="246">Fiat–Shamir</text><text class="svg-text" text-anchor="middle" x="430" y="272">e = H(a)</text><text class="svg-small" text-anchor="middle" x="710" y="246">Proof</text><text class="svg-text" text-anchor="middle" x="710" y="272">π=(a,e,z)</text><path class="svg-edge-accent" d="M240 256 L340 256"></path><path class="svg-edge-accent" d="M520 256 L620 256"></path></svg><figcaption>Fiat–Shamir 并没有删除 challenge；它删除的是<strong>在线发送 challenge 的 Verifier 交互步骤</strong>。challenge 仍然存在，只是改由哈希函数确定。</figcaption></figure>
+<div class="sc-callout"><strong>Fiat–Shamir 不是“把整个协议 Hash 一下”</strong><p>真正被替换的是 public-coin Verifier 的随机消息。原协议的 first message、response 和 verification predicate 仍然保留，新的 challenge 必须与已经固定的 transcript 绑定。</p></div>
+<h2 id="rom-construction">五、Lecture 19 中的 NIZK 构造</h2>
+<p>讲义不是直接声称“任何交互式 ZK 都可以安全地 Fiat–Shamir 化”，而是从前一讲的 3-Coloring ZK 出发，在 Random Oracle Model 中给出一个具体构造。</p>
+<p>先把基础 ZK protocol 并行重复 <span data-tex="k"></span> 次，以降低 soundness error。设：</p>
+<div class="math-block"><div class="math-line" data-tex="a=(a_1,\ldots,a_k)"></div><div class="math-line" data-tex="e=(e_1,\ldots,e_k)\in\{0,1\}^k"></div><div class="math-line" data-tex="z=(z_1,\ldots,z_k)"></div></div>
+<p>然后在 ROM 中令：</p>
+<div class="math-block green"><div class="math-line" data-tex="e=H(a)"></div></div>
+<p>于是 NIZK Prover 按以下顺序执行：</p>
+<div class="protocol-stages">
+<section class="protocol-stage"><header class="stage-heading"><span class="stage-index">01</span><div><span class="stage-role">FIRST MESSAGES</span><h3>生成并行实例的 a</h3></div></header><p>独立运行基础 Prover 的 first-message algorithm，得到 <span data-tex="a_1,\ldots,a_k"></span>。</p></section>
+<section class="protocol-stage"><header class="stage-heading"><span class="stage-index">02</span><div><span class="stage-role">HASH CHALLENGE</span><h3>调用 Random Oracle</h3></div></header><p>计算 <span data-tex="e=H(a)"></span>，把输出解释成 <span data-tex="k"></span> 个 challenge bits。</p></section>
+<section class="protocol-stage"><header class="stage-heading"><span class="stage-index">03</span><div><span class="stage-role">RESPONSES</span><h3>生成 z</h3></div></header><p>对每个并行实例，根据对应 <span data-tex="e_i"></span> 生成 response <span data-tex="z_i"></span>。</p></section>
+<section class="protocol-stage"><header class="stage-heading"><span class="stage-index">04</span><div><span class="stage-role">OUTPUT</span><h3>形成非交互 Proof</h3></div></header><p>输出 <span data-tex="\pi=(a,e,z)"></span>。</p></section>
+</div>
+<p>Verifier 解析 <span data-tex="\pi=(a,e,z)"></span> 后先检查：</p>
+<div class="math-block gold"><div class="math-line" data-tex="e=H(a)"></div></div>
+<p>然后对所有 <span data-tex="i\in[k]"></span> 检查基础 protocol：</p>
+<div class="math-block green"><div class="math-line" data-tex="V(x,a_i,e_i,z_i)=1"></div></div>
+<p>全部通过才接受。</p>
+<h2 id="completeness">六、为什么 Completeness 保持？</h2>
+<p>Completeness 最直接。若 <span data-tex="x\in L"></span> 且诚实 Prover 持有有效 witness，那么每个并行实例都按照基础 ZK protocol 的诚实算法生成。</p>
+<div class="math-block"><div class="math-line" data-tex="a_i\ \xrightarrow{\ e_i\ }\ z_i"></div></div>
+<p>Fiat–Shamir 只改变 challenge 的来源，不改变基础 verification predicate。因此，只要基础 protocol 对任意合法 challenge 都满足 completeness，诚实生成的每个 transcript 仍会通过验证。</p>
+<div class="transcript"><span data-tex="\text{Base completeness}\quad\Longrightarrow\quad\text{NIZK completeness}"></span></div>
+<h2 id="soundness">七、为什么 Soundness 依赖随机 Challenge？</h2>
+<p>交互式 protocol 的 soundness 依赖一个关键事实：Prover 在发送 <span data-tex="a"></span> 时不知道 Verifier 之后会选择哪个 <span data-tex="e"></span>。因此 cheating strategy 很难只为某个预先选定的 challenge 准备 transcript。</p>
+<p>讲义中的 ROM 构造通过两步恢复这一效果：</p>
+<ul class="sc-checklist"><li><strong>Parallel repetition：</strong>把基础 protocol 的 soundness error 降到 negligible。</li><li><strong>Random Oracle：</strong><span data-tex="H(a)"></span> 被建模为对新输入给出独立随机输出，因此在 <span data-tex="a"></span> 固定之后产生不可预测 challenge。</li></ul>
+<p>讲义因此把 soundness 的直觉概括为：在 ROM 中，与 <span data-tex="H"></span> 交互可以模拟“由随机 Verifier 给 challenge”的效果。</p>
+<div class="sc-callout"><strong>这里不能反过来理解</strong><p>Fiat–Shamir 的安全性不是来自“Hash 很难逆”。关键不是 preimage resistance，而是原 protocol 的 challenge 结构，以及在所采用安全模型中哈希输出能否承担原本 verifier randomness 的角色。</p></div>
+<h2 id="zk">八、为什么还能保持 Zero-Knowledge？</h2>
+<p>这是最容易被误解的一步。基础交互协议存在 honest-verifier simulator，可以直接生成一个看起来合法的 transcript：</p>
+<div class="math-block green"><div class="math-line" data-tex="(a,e,z)\leftarrow S_{\mathrm{HV}}(x)"></div></div>
+<p>但是在 Fiat–Shamir 版本中，Verifier 还会检查 <span data-tex="e=H(a)"></span>。普通模拟出来的随机 <span data-tex="e"></span> 未必刚好等于真实 Random Oracle 对 <span data-tex="a"></span> 的输出。</p>
+<p>ROM 的关键能力是：安全证明中的 Simulator 可以<strong>program Random Oracle</strong>。因此模拟顺序是：</p>
+<div class="protocol-stages">
+<section class="protocol-stage"><header class="stage-heading"><span class="stage-index">01</span><div><span class="stage-role">SIMULATE</span><h3>先模拟基础 Transcript</h3></div></header><p>利用 HVZK Simulator 得到 <span data-tex="(a,e,z)"></span>，不需要真实 witness。</p></section>
+<section class="protocol-stage"><header class="stage-heading"><span class="stage-index">02</span><div><span class="stage-role">PROGRAM RO</span><h3>令 H(a)=e</h3></div></header><p>在模拟实验的 Random Oracle 中，把输入 <span data-tex="a"></span> 的输出设为刚才模拟得到的 <span data-tex="e"></span>。</p></section>
+<section class="protocol-stage"><header class="stage-heading"><span class="stage-index">03</span><div><span class="stage-role">OUTPUT</span><h3>输出 π=(a,e,z)</h3></div></header><p>Verifier 重新查询 <span data-tex="H(a)"></span> 时得到同一个 <span data-tex="e"></span>，因此 transcript 与 Fiat–Shamir 检查一致。</p></section>
+</div>
+<div class="math-block gold"><div class="math-line" data-tex="(a,e,z)\leftarrow S_{\mathrm{HV}}(x),\qquad H(a):=e"></div></div>
+<div class="sc-callout"><strong>“Program Random Oracle”属于安全证明，不属于真实协议</strong><p>诚实 Prover 不能指定 <span data-tex="H(a)"></span> 的输出，也不能“先选 challenge 再倒推 Hash”。可编程 Random Oracle 是 Simulator 在理想化安全实验中使用的证明能力，用于解释为什么真实 proof 不泄露 witness。</p></div>
+<p>讲义还指出，如果 Simulator 可以对多个未查询的新输入进行这种 programming，就能够进一步处理 many-instance simulation。随后再讨论 multi-theorem 与 adaptive ZK 的更强定义。</p>
+<h2 id="explicit-hash">九、换成现实 Hash 后发生什么？</h2>
+<p>这一节是整篇最重要的安全边界。Lecture 19 明确指出：</p>
+<div class="math-block gold"><div class="math-line" data-tex="\text{ROM proof}\ \not\Rightarrow\ \text{arbitrary explicit hash is automatically secure}"></div></div>
+<p>在 Random Oracle Model 中，<span data-tex="H"></span> 被理想化为真正随机且可由 Simulator 编程的 oracle。现实中我们会部署某个固定、显式的哈希函数，但这并不自动继承 ROM 中的全部证明性质。</p>
+<p>讲义分别强调了两个风险：</p>
+<table class="truth-table"><thead><tr><th>性质</th><th>ROM 中的证明工具</th><th>换成显式 Hash 后的问题</th></tr></thead><tbody>
+<tr><td>Zero-Knowledge</td><td>Simulator 可以 program RO，使 <span data-tex="H(a)=e"></span></td><td>固定 Hash 一般不能按模拟需要自由编程。</td></tr>
+<tr><td>Soundness</td><td>新输入上的随机 oracle 输出承担随机 challenge</td><td>并不存在“任何 public-coin protocol + 任意 Hash 都安全”的一般结论。</td></tr>
+</tbody></table>
+<p>Lecture 19 进一步提醒：某些多消息 protocol 即使使用 Random Oracle 也可能失去 soundness；对于只具有 computational soundness 的协议，也存在 Fiat–Shamir 不安全的反例。因此，Fiat–Shamir 应被理解为一个需要<strong>针对具体 protocol 与安全模型证明</strong>的范式，而不是无条件安全的机械步骤。</p>
+<div class="sc-callout"><strong>这也是本文不写“Fiat–Shamir 保证非交互安全”的原因</strong><p>准确说法应当是：对于满足相应结构条件的 public-coin protocol，可以研究用 Fiat–Shamir 消除交互；其安全性取决于底层 protocol、采用的模型以及具体实例化证明。</p></div>
+<h2 id="distinctions">十、几个最容易混淆的概念</h2>
+<table class="symbol-table"><thead><tr><th>概念</th><th>它解决什么</th><th>不要误解成什么</th></tr></thead><tbody>
+<tr><td>NIZK</td><td>一类非交互、满足 ZK 与 soundness 等定义的 proof system。</td><td>不是某一个固定 transform。</td></tr>
+<tr><td>Fiat–Shamir</td><td>把 public-coin Verifier 的随机 challenge 改为 transcript-derived hash challenge。</td><td>不是 NIZK 的定义。</td></tr>
+<tr><td>Random Oracle Model</td><td>把 Hash 理想化为真正随机 oracle，并允许安全证明中的 Simulator 编程。</td><td>不是现实哈希函数本身。</td></tr>
+<tr><td>CRS</td><td>NIZK Setup 输出的公共参考信息。</td><td>不是 witness，也不是每次 proof 的随机 challenge。</td></tr>
+<tr><td>HVZK Simulator</td><td>模拟面对诚实随机 Verifier 时的基础 transcript。</td><td>不能单独解释 Fiat–Shamir transcript 的哈希一致性。</td></tr>
+<tr><td>Programmable RO</td><td>让 NIZK Simulator 把模拟 challenge 与 <span data-tex="H(a)"></span> 对齐。</td><td>不是现实 Prover 可以操纵 Hash。</td></tr>
+</tbody></table>
+<h2 id="proof-systems">十一、它在后续证明系统中的位置</h2>
+<p>Fiat–Shamir 的价值不仅出现在经典 ZK。Lecture 20 特别强调 Sumcheck 是 public-coin protocol，因为 Verifier 每轮只发送均匀随机 field elements。因此，后续很多 succinct proof systems 都会再次遇到同一个结构问题：</p>
+<div class="transcript"><span data-tex="\text{Public-coin Interactive Proof}\ \longrightarrow\ \text{Fiat--Shamir}\ \longrightarrow\ \text{Non-interactive Argument}"></span></div>
+<p>这解释了为什么学习路线中，NIZK 与 Fiat–Shamir 应放在 Interactive ZK 之后、Sumcheck 与 GKR 之前：它先建立“怎样把随机挑战非交互化”的一般认识，后面再看到 Sumcheck、GKR、Polynomial Commitment 组合成 succinct argument 时，就不会把 Fiat–Shamir 当成一个突然出现的黑箱步骤。</p>
+<div class="sc-callout"><strong>与后续文章的关系</strong><p>Sumcheck 负责逐轮压缩低度多项式求和声明，GKR 把整个分层电路逐层归约，Polynomial Commitment 负责绑定并打开多项式随机点评估。后续《从 GKR 到 SNARG》将再把这些组件与 Fiat–Shamir 放到同一条完整构造链中。</p></div>
+<h2 id="memory">十二、最终记忆框架</h2>
+<table class="symbol-table"><thead><tr><th>对象</th><th>记忆方式</th></tr></thead><tbody>
+<tr><td><span data-tex="a"></span></td><td>Prover 在看到 challenge 前固定的 first message。</td></tr>
+<tr><td><span data-tex="e"></span></td><td>原交互协议中由 Verifier 随机产生的 public challenge。</td></tr>
+<tr><td><span data-tex="z"></span></td><td>Prover 对 challenge 的 response。</td></tr>
+<tr><td><span data-tex="e=H(a)"></span></td><td>Lecture 19 中 Fiat–Shamir 去交互的核心替换。</td></tr>
+<tr><td><span data-tex="\pi=(a,e,z)"></span></td><td>讲义中构造得到的非交互 proof transcript。</td></tr>
+<tr><td>Programmable RO</td><td>ROM 安全证明中 Simulator 对齐模拟 transcript 与 hash challenge 的工具。</td></tr>
+</tbody></table>
+<div class="fact-grid">
+<div class="fact-card"><span>NIZK</span><strong>目标</strong><p>Proof 可以独立发送和验证，同时满足相应的 soundness 与 zero-knowledge 定义。</p></div>
+<div class="fact-card"><span>FIAT–SHAMIR</span><strong>变换</strong><p>用哈希生成 public-coin challenge，从而去掉在线 Verifier 消息。</p></div>
+<div class="fact-card"><span>ROM</span><strong>证明模型</strong><p>把 Hash 看成随机且可编程的 oracle，用于建立 soundness 与 simulation 论证。</p></div>
+</div>
+<ul class="sc-checklist">
+<li><strong>NIZK 不等于 Fiat–Shamir：</strong>前者是 proof-system 概念，后者是去交互范式。</li>
+<li><strong>Challenge 没有消失：</strong>只是从 <span data-tex="e\leftarrow V"></span> 变成 <span data-tex="e=H(a)"></span>。</li>
+<li><strong>时间顺序仍然重要：</strong><span data-tex="a"></span> 必须先固定，challenge 才能由其确定。</li>
+<li><strong>ROM simulation 的核心是 programming：</strong>先模拟 <span data-tex="(a,e,z)"></span>，再设置 <span data-tex="H(a)=e"></span>。</li>
+<li><strong>Programming 不是现实攻击能力：</strong>它只存在于安全证明的 idealized oracle experiment。</li>
+<li><strong>显式 Hash 不是自动安全：</strong>具体 Fiat–Shamir 实例化必须结合底层 protocol 与模型单独分析。</li>
+</ul>
+<blockquote><strong>一句话总结：</strong>NIZK 要求 Prover 一次生成可独立验证且不泄露 witness 的 proof；Fiat–Shamir 通过把 public-coin Verifier 的随机 challenge 改写为 transcript 的哈希值来消除在线交互，而其安全性分析依赖底层 protocol 与所采用的 Random Oracle 或其他具体模型。</blockquote>
+<details><summary>复习自测：我是否真正理解了 NIZK 与 Fiat–Shamir？</summary><div><ol>
+<li>NIZK 的 <span data-tex="\mathsf{Gen},P,V"></span> 三个算法分别输入和输出什么？</li>
+<li>Fiat–Shamir 删除的是 challenge，还是删除“Verifier 在线发送 challenge”这一步？</li>
+<li>为什么 first message <span data-tex="a"></span> 必须在 challenge 产生之前固定？</li>
+<li>Lecture 19 的构造中，为什么先进行 parallel repetition？</li>
+<li>为什么 Verifier 必须检查 <span data-tex="e=H(a)"></span>？</li>
+<li>ROM 中的 Simulator 为什么先生成 <span data-tex="(a,e,z)"></span>，再 program <span data-tex="H(a)=e"></span>？</li>
+<li>为什么“Simulator 可以 program RO”不意味着现实 Prover 可以控制 Hash 输出？</li>
+<li>为什么 ROM 中安全不能直接推出任意显式哈希实例化都安全？</li>
+<li>NIZK、Fiat–Shamir、CRS 和 Random Oracle 分别属于哪一层概念？</li>
+<li>为什么 Sumcheck 的 public-coin 性质使 Fiat–Shamir 在后续 succinct proof systems 中再次重要？</li>
+</ol></div></details>
+<section aria-labelledby="references-title" class="references"><h2 id="references-title">参考文献</h2><ol class="reference-list">
+<li>Y. Kalai, “<cite>Lecture 19: Commitment Schemes and Non-Interactive Zero-Knowledge (NIZK)</cite>,” MIT 6.5620, <em>Foundations of Cryptography</em>, Nov. 17, 2025. <span class="reference-kind">主要课程讲义</span></li>
+<li>A. Fiat and A. Shamir, “<cite>How to Prove Yourself: Practical Solutions to Identification and Signature Problems</cite>,” in <em>CRYPTO ’86</em>, LNCS 263, 1986, pp. 186–194. <span class="reference-kind">Fiat–Shamir 原始工作</span></li>
+<li>U. Feige, D. Lapidot, and A. Shamir, “<cite>Multiple Non-Interactive Zero Knowledge Proofs Based on a Single Random String</cite>,” in <em>FOCS</em>, 1990, pp. 308–317. <span class="reference-kind">NIZK 扩展阅读</span></li>
+<li>S. Goldwasser and Y. T. Kalai, “<cite>On the (In)security of the Fiat-Shamir Paradigm</cite>,” in <em>FOCS</em>, 2003, pp. 102–113. <span class="reference-kind">Fiat–Shamir 安全边界</span></li>
+<li>“<cite>Interactive Zero-Knowledge Proofs</cite>,” Frieren · Cryptography Notes. <a href="interactive-zk.html">前置笔记</a> <span class="reference-kind">Zero-Knowledge</span></li>
+<li>“<cite>Sumcheck Protocol：逐轮压缩求和</cite>,” Frieren · Cryptography Notes. <a href="sumcheck-protocol-notes.html">后续笔记</a> <span class="reference-kind">Public-Coin Proof</span></li>
+</ol></section>
+</article>
+<footer class="article-footer">
+<a class="footer-back" href="../index.html">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="M19 12H5M12 5l-7 7 7 7"></path>
+</svg>
+      返回所有文章
+    </a>
+<span class="footer-brand">Frieren · Cryptography Notes</span>
+</footer>
+</main>
+<script defer="" src="../static/vendor/katex/katex.min.js"></script>
+<script defer="" src="../static/js/theme.js"></script>
+<script defer="" src="../static/js/posts-data.js"></script>
+<script defer="" src="../static/js/learning-path.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-tex]').forEach(function (element) {
+      katex.render(element.dataset.tex, element, {
+        displayMode: element.classList.contains('math-line'),
+        throwOnError: false,
+        strict: false
+      });
+    });
+
+    const shareButton = document.getElementById('share-button');
+    const toast = document.getElementById('action-toast');
+    let toastTimer;
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () {
+        toast.classList.remove('show');
+      }, 2200);
+    }
+
+    document.addEventListener('frieren-theme-change', function (event) {
+      showToast(event.detail.theme === 'dark' ? '已切换为深色模式' : '已切换为常规模式');
+    });
+
+    async function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+      const field = document.createElement('textarea');
+      field.value = text;
+      field.setAttribute('readonly', '');
+      field.style.position = 'fixed';
+      field.style.opacity = '0';
+      document.body.appendChild(field);
+      field.select();
+      const copied = document.execCommand('copy');
+      field.remove();
+      if (!copied) throw new Error('copy failed');
+    }
+
+    shareButton.addEventListener('click', async function () {
+      const canonical = document.querySelector('link[rel="canonical"]');
+      const url = canonical ? canonical.href : window.location.href;
+      const shareData = {
+        title: document.title,
+        text: 'NIZK 与 Fiat–Shamir：从随机挑战到非交互证明',
+        url: url
+      };
+
+      if (navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
+        try {
+          await navigator.share(shareData);
+          return;
+        } catch (error) {
+          if (error && error.name === 'AbortError') return;
+        }
+      }
+
+      try {
+        await copyText(url);
+        showToast('公开链接已复制');
+      } catch (_) {
+        window.prompt('复制下面的公开链接：', url);
+      }
+    });
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,1635 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="From GKR to SNARG 学习笔记：从 GKR 的深度限制出发，理解 circuit flattening、Multilinear Extension、Polynomial Commitment 与 Fiat–Shamir 如何组合，把 NP witness 转换为简洁的非交互论证。" name="description"/>
+<title>From GKR to SNARG：从交互式电路验证到简洁非交互论证 · Frieren</title>
+<link href="../HK.ico" rel="icon" type="image/x-icon"/>
+<link href="https://blog.fp1022.dpdns.org/posts/from-gkr-to-snarg.html" rel="canonical"/>
+<link href="../static/css/style.css" rel="stylesheet"/>
+<link href="../static/css/post.css" rel="stylesheet"/>
+<link href="../static/vendor/katex/katex.min.css" rel="stylesheet"/>
+<script>
+  (function () {
+    let theme;
+    try { theme = localStorage.getItem('frieren-theme'); } catch (_) {}
+    if (theme !== 'light' && theme !== 'dark') {
+      theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.dataset.theme = theme;
+  })();
+</script>
+<style>
+  :root {
+    --sc-blue: #315b70;
+    --sc-blue-soft: #dce8eb;
+    --sc-green: #557568;
+    --sc-green-soft: #e2ebe5;
+    --sc-gold: #a7782f;
+    --sc-gold-soft: #f2e9d8;
+    --sc-red: #9e4d3f;
+    --sc-red-soft: #f1dfda;
+    --sc-math: "KaTeX_Main", "Latin Modern Math", "STIX Two Math", "Cambria Math", serif;
+  }
+
+  html[data-theme="dark"] {
+    --sc-blue: #84b9cf;
+    --sc-blue-soft: #1b3039;
+    --sc-green: #8ebaa7;
+    --sc-green-soft: #20352c;
+    --sc-gold: #d5ab64;
+    --sc-gold-soft: #392f20;
+    --sc-red: #d88c7e;
+    --sc-red-soft: #3a2724;
+  }
+
+  .post-hero {
+    height: 48vh;
+    min-height: 390px;
+    background:
+      radial-gradient(circle at 18% 22%, rgba(196,98,45,.18), transparent 24%),
+      radial-gradient(circle at 82% 70%, rgba(49,91,112,.17), transparent 28%),
+      linear-gradient(145deg, #eee8de, #f7f4ef 55%, #e8e2d8);
+  }
+
+  .sumcheck-hero {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 4rem 1.5rem 6rem;
+  }
+
+  .hero-proof {
+    width: min(920px, 92vw);
+    display: grid;
+    grid-template-columns: repeat(7, auto);
+    align-items: center;
+    justify-content: center;
+    gap: clamp(.45rem, 1.7vw, 1.3rem);
+    color: var(--ink);
+  }
+
+  .hero-node {
+    min-width: 82px;
+    padding: .8rem 1rem;
+    border: 1px solid rgba(26,24,20,.13);
+    border-radius: 7px;
+    background: rgba(250,248,244,.78);
+    box-shadow: 0 12px 30px rgba(26,24,20,.06);
+    backdrop-filter: blur(7px);
+    text-align: center;
+  }
+
+  .hero-node strong {
+    display: block;
+    font-family: var(--serif);
+    font-size: 1.25rem;
+    font-weight: 400;
+  }
+
+  .hero-node strong sub {
+    position: relative;
+    bottom: -.22em;
+    vertical-align: baseline;
+    font-size: .64em;
+    line-height: 0;
+  }
+
+  .hero-node span {
+    display: block;
+    margin-top: .18rem;
+    font-family: var(--mono);
+    font-size: .64rem;
+    color: var(--ink-mute);
+  }
+
+  .hero-arrow {
+    font-family: var(--mono);
+    color: var(--accent);
+    font-size: 1.15rem;
+  }
+
+  .hero-proof .hero-node:last-child {
+    border-color: rgba(196,98,45,.35);
+    background: rgba(232,213,200,.72);
+  }
+
+  .article-wrap { max-width: 900px; }
+  .article-content { color: var(--ink-soft); }
+  .article-content > p { max-width: 760px; }
+
+  .sc-lead {
+    font-family: var(--serif);
+    font-size: 1.18rem;
+    line-height: 1.9;
+    color: var(--ink);
+  }
+
+  .sc-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .3rem .75rem;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: .7rem;
+    letter-spacing: .06em;
+    margin-bottom: 1rem;
+  }
+
+  .sc-toc {
+    margin: 2.2rem 0 3rem;
+    padding: 1.3rem 1.5rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(250,248,244,.68);
+  }
+
+  .sc-toc-title {
+    font-family: var(--mono);
+    font-size: .72rem;
+    color: var(--ink-mute);
+    letter-spacing: .11em;
+    text-transform: uppercase;
+    margin-bottom: .85rem;
+  }
+
+  .sc-toc ol {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .45rem 2rem;
+    padding-left: 1.2rem;
+  }
+
+  .sc-toc a {
+    color: var(--ink-soft);
+    text-decoration: none;
+    font-size: .88rem;
+  }
+
+  .sc-toc a:hover { color: var(--accent); }
+
+  .math-block {
+    overflow-x: auto;
+    margin: 1.35rem 0 1.8rem;
+    padding: 1.2rem 1.45rem 1.1rem;
+    border: 1px solid rgba(49,91,112,.18);
+    border-left: 4px solid var(--sc-blue);
+    border-radius: 6px;
+    background: rgba(244,248,249,.92);
+    box-shadow: 0 8px 22px rgba(31,48,55,.045);
+    color: #173947;
+    font-family: var(--sc-math);
+    font-size: 1.14rem;
+    line-height: 1.75;
+    text-align: center;
+    letter-spacing: 0;
+    scrollbar-width: thin;
+  }
+
+  .math-block.gold {
+    border-left-color: var(--sc-gold);
+    border-top-color: rgba(167,120,47,.16);
+    border-right-color: rgba(167,120,47,.16);
+    border-bottom-color: rgba(167,120,47,.16);
+    background: rgba(250,247,239,.94);
+    color: #5c421a;
+  }
+
+  .math-block.green {
+    border-left-color: var(--sc-green);
+    border-top-color: rgba(85,117,104,.16);
+    border-right-color: rgba(85,117,104,.16);
+    border-bottom-color: rgba(85,117,104,.16);
+    background: rgba(244,248,245,.94);
+    color: #27473b;
+  }
+
+  .math-line {
+    min-width: max-content;
+    white-space: nowrap;
+    font-family: var(--sc-math);
+    font-variant-numeric: lining-nums;
+    font-feature-settings: "kern" 1, "liga" 1;
+  }
+
+  .math-line .katex-display { margin: 0; }
+  .math-line .katex { font-size: 1.08em; }
+  .math-line .katex .mord.mathnormal { font-family: "KaTeX_Math", var(--sc-math); }
+
+  .math-line sub,
+  .math-line sup,
+  .math-inline sub,
+  .math-inline sup,
+  .message .payload sub,
+  .message .payload sup,
+  .transcript sub,
+  .transcript sup,
+  .symbol-table td:first-child sub,
+  .symbol-table td:first-child sup {
+    position: relative;
+    vertical-align: baseline;
+    font-size: .68em;
+    line-height: 0;
+  }
+
+  .math-line sub,
+  .math-inline sub,
+  .message .payload sub,
+  .transcript sub,
+  .symbol-table td:first-child sub { bottom: -.28em; }
+
+  .math-line sup,
+  .math-inline sup,
+  .message .payload sup,
+  .transcript sup,
+  .symbol-table td:first-child sup { top: -.52em; }
+
+  .math-inline {
+    white-space: nowrap;
+    font-family: var(--sc-math);
+    font-size: 1.04em;
+    color: var(--ink-soft);
+  }
+
+  .article-content sub,
+  .article-content sup {
+    font-family: var(--sc-math);
+    font-size: .72em;
+    line-height: 0;
+  }
+
+  .sum-op {
+    display: inline-grid;
+    grid-template-rows: 1.02em .82em;
+    place-items: center;
+    min-width: 2.4em;
+    margin: 0 .08em;
+    vertical-align: -.42em;
+    line-height: 1;
+  }
+
+  .sum-op.wide { min-width: 5.9em; }
+
+  .sum-symbol {
+    font-size: 1.5em;
+    line-height: .82;
+    font-weight: 400;
+  }
+
+  .sum-index {
+    font-family: var(--sc-math);
+    font-size: .56em;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .sum-index sub { bottom: -.18em; }
+
+  .frac {
+    display: inline-grid;
+    grid-template-rows: auto auto;
+    min-width: 1.7em;
+    margin: 0 .12em;
+    vertical-align: -.46em;
+    line-height: 1.08;
+    text-align: center;
+  }
+
+  .frac > span:first-child {
+    padding: 0 .18em .08em;
+    border-bottom: 1px solid currentColor;
+  }
+
+  .frac > span:last-child { padding: .08em .18em 0; }
+
+  .prob-index {
+    display: inline-block;
+    margin: 0 .22em 0 .08em;
+    vertical-align: -.55em;
+    font-size: .58em;
+    line-height: 1;
+  }
+
+  .prob-index sub { bottom: -.16em; }
+
+  .math-label {
+    font-family: var(--mono);
+    font-size: .64rem;
+    letter-spacing: .08em;
+    color: currentColor;
+    opacity: .64;
+  }
+
+  .math-note {
+    display: block;
+    margin-top: .65rem;
+    padding-top: .55rem;
+    border-top: 1px solid rgba(49,91,112,.12);
+    font-family: var(--body);
+    font-size: .78rem;
+    line-height: 1.65;
+    color: var(--ink-mute);
+    text-align: center;
+  }
+
+  .symbol-table,
+  .truth-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0 2rem;
+    font-size: .88rem;
+    background: rgba(250,248,244,.7);
+  }
+
+  .symbol-table th,
+  .symbol-table td,
+  .truth-table th,
+  .truth-table td {
+    padding: .72rem .85rem;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .symbol-table th,
+  .truth-table th {
+    font-family: var(--mono);
+    font-weight: 300;
+    color: var(--ink-mute);
+    font-size: .72rem;
+    letter-spacing: .06em;
+    background: var(--paper-warm);
+  }
+
+  .symbol-table td:first-child {
+    width: 22%;
+    font-family: var(--sc-math);
+    color: var(--sc-blue);
+    font-size: 1.08rem;
+    white-space: nowrap;
+  }
+
+  .truth-table th,
+  .truth-table td { text-align: center; }
+
+  .sc-callout {
+    margin: 1.7rem 0;
+    padding: 1.15rem 1.3rem;
+    border: 1px solid rgba(167,120,47,.25);
+    border-radius: 8px;
+    background: var(--sc-gold-soft);
+  }
+
+  .sc-callout > strong {
+    display: block;
+    margin-bottom: .35rem;
+    color: #6c4c1e;
+    font-family: var(--mono);
+    font-size: .76rem;
+    letter-spacing: .06em;
+  }
+
+  .sc-callout p { margin: 0; font-size: .9rem; line-height: 1.75; }
+
+  /* Inline emphasis inside prose must stay inline.
+     Only the direct child <strong> above acts as the callout heading. */
+  .sc-callout p strong,
+  .fact-card p strong,
+  .article-content li strong,
+  .article-content figcaption strong {
+    display: inline;
+    margin: 0;
+    font-family: inherit;
+    font-size: inherit;
+    letter-spacing: inherit;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .protocol-loop {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: .8rem;
+    margin: 1.6rem 0 2.3rem;
+  }
+
+  .loop-step {
+    position: relative;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper-card);
+    min-height: 126px;
+  }
+
+  .loop-step::after {
+    content: '→';
+    position: absolute;
+    top: 50%;
+    right: -.68rem;
+    transform: translateY(-50%);
+    color: var(--accent);
+    font-family: var(--mono);
+  }
+
+  .loop-step:last-child::after { display: none; }
+
+  .loop-no {
+    font-family: var(--mono);
+    font-size: .65rem;
+    color: var(--accent);
+    letter-spacing: .08em;
+  }
+
+  .loop-step h3 {
+    margin: .25rem 0 .45rem;
+    font-size: 1rem;
+  }
+
+  .loop-step p { margin: 0; font-size: .78rem; line-height: 1.65; }
+
+  .protocol-stages {
+    display: grid;
+    gap: 1.15rem;
+    margin: 2rem 0 2.3rem;
+  }
+
+  .protocol-stage {
+    position: relative;
+    overflow: hidden;
+    padding: 1.25rem 1.35rem .15rem;
+    border: 1px solid rgba(49,91,112,.16);
+    border-radius: 10px;
+    background: rgba(250,248,244,.72);
+    box-shadow: 0 10px 28px rgba(26,24,20,.035);
+  }
+
+  .protocol-stage::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: var(--sc-blue);
+    opacity: .8;
+  }
+
+  .protocol-stage:nth-child(2)::before { background: var(--sc-gold); }
+  .protocol-stage:nth-child(3)::before { background: var(--sc-green); }
+
+  .stage-heading {
+    display: flex;
+    align-items: center;
+    gap: .85rem;
+    margin-bottom: 1.05rem;
+    padding-bottom: .85rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .stage-index {
+    display: grid;
+    place-items: center;
+    width: 35px;
+    height: 35px;
+    flex: 0 0 35px;
+    border: 1px solid rgba(49,91,112,.2);
+    border-radius: 50%;
+    background: rgba(220,232,235,.62);
+    color: var(--sc-blue);
+    font-family: var(--mono);
+    font-size: .68rem;
+  }
+
+  .protocol-stage:nth-child(2) .stage-index {
+    border-color: rgba(167,120,47,.2);
+    background: rgba(242,233,216,.66);
+    color: var(--sc-gold);
+  }
+
+  .protocol-stage:nth-child(3) .stage-index {
+    border-color: rgba(85,117,104,.2);
+    background: rgba(226,235,229,.72);
+    color: var(--sc-green);
+  }
+
+  .stage-role {
+    display: block;
+    margin-bottom: .1rem;
+    color: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: .58rem;
+    letter-spacing: .1em;
+  }
+
+  .article-content .protocol-stage h3 {
+    margin: 0;
+    font-size: 1.12rem;
+  }
+
+  .protocol-stage > p { margin-bottom: 1.15rem; }
+  .protocol-stage .math-block { margin: 1rem 0 1.25rem; }
+
+  .round-card {
+    margin: 1.5rem 0 2.2rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    background: rgba(250,248,244,.78);
+  }
+
+  .round-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: .85rem 1.1rem;
+    background: var(--paper-warm);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .round-head strong {
+    font-family: var(--serif);
+    font-weight: 400;
+    color: var(--ink);
+  }
+
+  .round-head span {
+    font-family: var(--mono);
+    font-size: .68rem;
+    color: var(--accent);
+  }
+
+  .round-body { padding: 1rem 1.2rem 1.25rem; }
+  .round-body p { margin: 0 0 .75rem; font-size: .9rem; }
+  .round-body p:last-child { margin-bottom: 0; }
+
+  .message {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: .8rem;
+    padding: .62rem 0;
+    border-bottom: 1px dashed var(--line);
+    align-items: baseline;
+  }
+
+  .message:last-child { border-bottom: 0; }
+  .message .who {
+    font-family: var(--mono);
+    font-size: .69rem;
+    color: var(--sc-blue);
+  }
+
+  .message.verifier .who { color: var(--accent); }
+  .message .payload {
+    overflow-x: auto;
+    font-family: var(--sc-math);
+    font-size: 1.01rem;
+    line-height: 1.75;
+    font-variant-numeric: lining-nums;
+    color: var(--ink-soft);
+  }
+
+  .transcript {
+    margin: 1.5rem 0 2.3rem;
+    padding: 1.2rem 1.4rem;
+    border: 1px solid rgba(85,117,104,.25);
+    border-radius: 8px;
+    background: var(--sc-green-soft);
+    overflow-x: auto;
+    font-family: var(--sc-math);
+    font-size: 1.03rem;
+    line-height: 1.75;
+    font-variant-numeric: lining-nums;
+    color: #294a3e;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .fact-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: .9rem;
+    margin: 1.5rem 0 2.2rem;
+  }
+
+  .fact-card {
+    padding: 1.1rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper-card);
+  }
+
+  .fact-card > strong {
+    display: block;
+    font-family: var(--serif);
+    font-weight: 400;
+    color: var(--ink);
+    margin-bottom: .35rem;
+  }
+
+  .fact-card span {
+    display: block;
+    font-family: var(--mono);
+    font-size: .78rem;
+    color: var(--accent);
+    margin-bottom: .35rem;
+  }
+
+  .fact-card p { margin: 0; font-size: .78rem; line-height: 1.65; }
+
+  .sc-checklist {
+    list-style: none;
+    margin: 1.2rem 0 2rem;
+  }
+
+  .sc-checklist li {
+    position: relative;
+    padding: .65rem 0 .65rem 1.8rem;
+    border-bottom: 1px solid var(--line);
+    font-size: .9rem;
+  }
+
+  .sc-checklist li::before {
+    content: '✓';
+    position: absolute;
+    left: .15rem;
+    color: var(--sc-green);
+    font-family: var(--mono);
+  }
+
+  details {
+    margin: 1.2rem 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(250,248,244,.65);
+  }
+
+  summary {
+    padding: .9rem 1.1rem;
+    cursor: pointer;
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: .78rem;
+  }
+
+  details > div { padding: 0 1.1rem 1.1rem; }
+
+  .references {
+    margin-top: 3.4rem;
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .references h2 {
+    margin-top: 0;
+    margin-bottom: 1.25rem;
+  }
+
+  .reference-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: references;
+  }
+
+  .reference-list li {
+    position: relative;
+    counter-increment: references;
+    margin: 0 0 .9rem;
+    padding: 0 0 .9rem 2.65rem;
+    border-bottom: 1px solid rgba(26,24,20,.08);
+    color: var(--ink-soft);
+    font-family: var(--serif);
+    font-size: .84rem;
+    line-height: 1.72;
+  }
+
+  .reference-list li::before {
+    content: '[' counter(references) ']';
+    position: absolute;
+    left: 0;
+    top: .02rem;
+    width: 2rem;
+    color: var(--sc-blue);
+    font-family: var(--mono);
+    font-size: .72rem;
+  }
+
+  .reference-list cite { color: var(--ink); }
+
+  .reference-list a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(196,98,45,.25);
+    overflow-wrap: anywhere;
+  }
+
+  .reference-list a:hover { border-bottom-color: var(--accent); }
+
+  .reference-kind {
+    display: inline-block;
+    margin-left: .45rem;
+    padding: .08rem .4rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: .58rem;
+    letter-spacing: .04em;
+    vertical-align: .08rem;
+  }
+
+  .article-actions {
+    position: fixed;
+    top: 1.6rem;
+    right: 1.8rem;
+    z-index: 100;
+    display: flex;
+    gap: .5rem;
+  }
+
+  .article-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .42rem;
+    min-height: 38px;
+    padding: .45rem .78rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(247,244,239,.88);
+    backdrop-filter: blur(10px);
+    color: var(--ink-soft);
+    font-family: var(--mono);
+    font-size: .72rem;
+    font-weight: 300;
+    cursor: pointer;
+    transition: background .2s ease, color .2s ease, border-color .2s ease, transform .2s ease;
+  }
+
+  .article-action:hover {
+    transform: translateY(-1px);
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  .article-action:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .article-action[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  .article-action svg {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+  }
+
+  .action-toast {
+    position: fixed;
+    top: 4.75rem;
+    right: 1.8rem;
+    z-index: 110;
+    max-width: min(310px, calc(100vw - 2rem));
+    padding: .55rem .8rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: rgba(26,24,20,.92);
+    color: var(--paper);
+    box-shadow: 0 10px 28px rgba(26,24,20,.15);
+    font-family: var(--mono);
+    font-size: .68rem;
+    line-height: 1.55;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-5px);
+    transition: opacity .2s ease, transform .2s ease;
+  }
+
+  .action-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  html[data-theme="dark"] .post-hero {
+    background:
+      radial-gradient(circle at 18% 22%, rgba(225,138,87,.12), transparent 25%),
+      radial-gradient(circle at 82% 70%, rgba(132,185,207,.12), transparent 30%),
+      linear-gradient(145deg, #181919, #202120 55%, #171818);
+  }
+
+  html[data-theme="dark"] .hero-overlay {
+    background: linear-gradient(to bottom, rgba(19,20,20,0) 35%, rgba(19,20,20,.98) 100%);
+  }
+
+  html[data-theme="dark"] .hero-node {
+    border-color: rgba(255,255,255,.12);
+    background: rgba(31,32,31,.82);
+    box-shadow: 0 12px 32px rgba(0,0,0,.22);
+  }
+
+  html[data-theme="dark"] .hero-proof .hero-node:last-child {
+    border-color: rgba(225,138,87,.32);
+    background: rgba(57,39,30,.82);
+  }
+
+  html[data-theme="dark"] .sc-toc,
+  html[data-theme="dark"] .symbol-table,
+  html[data-theme="dark"] .truth-table,
+  html[data-theme="dark"] details {
+    background: rgba(32,33,32,.68);
+  }
+
+  html[data-theme="dark"] .math-block {
+    border-color: rgba(132,185,207,.24);
+    border-left-color: var(--sc-blue);
+    background: #19292f;
+    color: #d9eef6;
+    box-shadow: 0 8px 24px rgba(0,0,0,.16);
+  }
+
+  html[data-theme="dark"] .math-block.gold {
+    border-color: rgba(213,171,100,.23);
+    border-left-color: var(--sc-gold);
+    background: #31291d;
+    color: #f2dfba;
+  }
+
+  html[data-theme="dark"] .math-block.green {
+    border-color: rgba(142,186,167,.22);
+    border-left-color: var(--sc-green);
+    background: #1d3028;
+    color: #d9eee5;
+  }
+
+  html[data-theme="dark"] .math-note { border-top-color: rgba(255,255,255,.1); }
+
+  html[data-theme="dark"] .sc-callout {
+    border-color: rgba(213,171,100,.24);
+    background: var(--sc-gold-soft);
+  }
+
+  html[data-theme="dark"] .sc-callout > strong { color: var(--sc-gold); }
+
+  html[data-theme="dark"] .protocol-stage {
+    border-color: rgba(255,255,255,.11);
+    background: rgba(31,32,31,.82);
+    box-shadow: 0 10px 30px rgba(0,0,0,.18);
+  }
+
+  html[data-theme="dark"] .stage-index {
+    border-color: rgba(132,185,207,.25);
+    background: var(--sc-blue-soft);
+  }
+
+  html[data-theme="dark"] .protocol-stage:nth-child(2) .stage-index {
+    border-color: rgba(213,171,100,.25);
+    background: var(--sc-gold-soft);
+  }
+
+  html[data-theme="dark"] .protocol-stage:nth-child(3) .stage-index {
+    border-color: rgba(142,186,167,.25);
+    background: var(--sc-green-soft);
+  }
+
+  html[data-theme="dark"] .round-card {
+    background: rgba(31,32,31,.82);
+  }
+
+  html[data-theme="dark"] .transcript {
+    border-color: rgba(142,186,167,.25);
+    background: var(--sc-green-soft);
+    color: #d9eee5;
+  }
+
+  html[data-theme="dark"] .reference-list li {
+    border-bottom-color: rgba(255,255,255,.08);
+  }
+
+  html[data-theme="dark"] .reference-list a {
+    border-bottom-color: rgba(225,138,87,.35);
+  }
+
+  html[data-theme="dark"] .article-action {
+    background: rgba(27,28,28,.9);
+    border-color: rgba(255,255,255,.14);
+    color: var(--ink-soft);
+  }
+
+  html[data-theme="dark"] .article-action:hover {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--paper);
+  }
+
+  html[data-theme="dark"] .action-toast {
+    border-color: rgba(255,255,255,.16);
+    background: rgba(238,234,226,.96);
+    color: #171817;
+    box-shadow: 0 10px 30px rgba(0,0,0,.3);
+  }
+
+  @media (max-width: 760px) {
+    .post-hero { min-height: 460px; }
+    .hero-proof {
+      grid-template-columns: 1fr 28px 1fr;
+      width: min(480px, 94vw);
+    }
+    .hero-proof .hero-node:nth-of-type(3) { grid-column: 1; }
+    .hero-proof .hero-arrow:nth-of-type(4) { grid-column: 2; }
+    .hero-proof .hero-node:nth-of-type(5) { grid-column: 3; }
+    .protocol-loop { grid-template-columns: 1fr 1fr; }
+    .loop-step:nth-child(2)::after { display: none; }
+    .fact-grid { grid-template-columns: 1fr; }
+    .sc-toc ol { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 520px) {
+    .back-fixed {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+    }
+    .article-wrap { padding-left: 1.15rem; padding-right: 1.15rem; }
+    .protocol-loop { grid-template-columns: 1fr; }
+    .loop-step::after { display: none; }
+    .message { grid-template-columns: 82px 1fr; gap: .5rem; }
+    .math-block {
+      margin-left: -.15rem;
+      margin-right: -.15rem;
+      padding: 1rem .85rem .92rem;
+      font-size: 1rem;
+    }
+    .sum-op { min-width: 2.15em; }
+    .sum-op.wide { min-width: 5.35em; }
+    .message .payload { font-size: .94rem; }
+    .symbol-table { font-size: .8rem; }
+    .article-actions { position: absolute; top: 1rem; right: 1rem; }
+    .article-action {
+      width: 38px;
+      min-width: 38px;
+      padding: 0;
+    }
+    .article-action span { display: none; }
+    .action-toast { top: 4rem; right: 1rem; }
+  }
+
+  .gkr-figure {
+    margin: 1.8rem 0 2.35rem;
+    padding: 1rem 1rem .85rem;
+    border: 1px solid rgba(49,91,112,.16);
+    border-radius: 10px;
+    background: rgba(250,248,244,.76);
+    box-shadow: 0 10px 28px rgba(26,24,20,.035);
+    overflow-x: auto;
+  }
+
+  .gkr-figure svg {
+    display: block;
+    width: min(100%, 860px);
+    height: auto;
+    margin: 0 auto;
+  }
+
+  .gkr-figure figcaption {
+    margin-top: .8rem;
+    padding-top: .7rem;
+    border-top: 1px solid var(--line);
+    color: var(--ink-mute);
+    font-family: var(--body);
+    font-size: .8rem;
+    line-height: 1.65;
+    text-align: center;
+  }
+
+  .gkr-figure .svg-node {
+    fill: rgba(250,248,244,.96);
+    stroke: var(--sc-blue);
+    stroke-width: 1.5;
+  }
+
+  .gkr-figure .svg-node-accent {
+    fill: var(--sc-gold-soft);
+    stroke: var(--sc-gold);
+    stroke-width: 1.8;
+  }
+
+  .gkr-figure .svg-node-green {
+    fill: var(--sc-green-soft);
+    stroke: var(--sc-green);
+    stroke-width: 1.6;
+  }
+
+  .gkr-figure .svg-edge {
+    stroke: var(--ink-mute);
+    stroke-width: 1.4;
+    fill: none;
+  }
+
+  .gkr-figure .svg-edge-accent {
+    stroke: var(--sc-gold);
+    stroke-width: 2.1;
+    fill: none;
+  }
+
+  .gkr-figure .svg-text {
+    fill: var(--ink);
+    font-family: var(--mono);
+    font-size: 15px;
+  }
+
+  .gkr-figure .svg-small {
+    fill: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .gkr-figure .svg-title {
+    fill: var(--ink);
+    font-family: var(--serif);
+    font-size: 20px;
+  }
+
+  html[data-theme="dark"] .gkr-figure {
+    border-color: rgba(255,255,255,.11);
+    background: rgba(31,32,31,.82);
+    box-shadow: 0 10px 30px rgba(0,0,0,.18);
+  }
+
+  html[data-theme="dark"] .gkr-figure .svg-node {
+    fill: #202625;
+  }
+
+</style>
+</head>
+<body data-share-title="From GKR to SNARG：从交互式电路验证到简洁非交互论证">
+<div class="back-fixed">
+<a aria-label="返回文章列表" class="back-btn" href="../index.html">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="M19 12H5M12 5l-7 7 7 7"></path>
+</svg>
+    返回
+  </a>
+</div>
+<div aria-label="文章操作" class="article-actions">
+<button aria-label="分享这篇笔记" class="article-action" id="share-button" title="分享这篇笔记" type="button">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" viewbox="0 0 24 24">
+<circle cx="18" cy="5" r="2.5"></circle>
+<circle cx="6" cy="12" r="2.5"></circle>
+<circle cx="18" cy="19" r="2.5"></circle>
+<path d="M8.2 10.8l7.6-4.5M8.2 13.2l7.6 4.5"></path>
+</svg>
+<span>分享</span>
+</button>
+<button aria-label="切换为深色模式" aria-pressed="false" class="article-action" data-theme-toggle="" id="theme-button" title="切换为深色模式" type="button">
+<svg aria-hidden="true" class="theme-icon-moon" fill="none" stroke="currentColor" stroke-width="1.6" viewbox="0 0 24 24">
+<path d="M20 15.1A8.5 8.5 0 0 1 8.9 4a8.5 8.5 0 1 0 11.1 11.1z"></path>
+</svg>
+<svg aria-hidden="true" class="theme-icon-sun" fill="none" stroke="currentColor" stroke-width="1.6" viewbox="0 0 24 24">
+<circle cx="12" cy="12" r="3.7"></circle><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"></path>
+</svg>
+<span data-theme-label="">深色</span>
+</button>
+</div>
+<div aria-live="polite" class="action-toast" id="action-toast" role="status"></div>
+<div aria-hidden="true" class="post-hero">
+<div class="sumcheck-hero">
+<div class="hero-proof">
+<div class="hero-node"><strong>C(x)=y</strong><span>Computation</span></div>
+<div class="hero-arrow">→</div>
+<div class="hero-node"><strong>C′</strong><span>Flatten</span></div>
+<div class="hero-arrow">→</div>
+<div class="hero-node"><strong>GKR + PCS</strong><span>Succinct Interactive</span></div>
+<div class="hero-arrow">→</div>
+<div class="hero-node"><strong>π</strong><span>SNARG</span></div>
+</div>
+</div><div class="hero-overlay"></div>
+</div>
+<main class="article-wrap">
+<div class="article-meta anim anim-1"><span class="meta-tag">证明系统 · GKR · SNARG</span><span class="meta-date">2026-08-04</span><span class="meta-readtime">约 18 分钟</span></div>
+<h1 class="article-title anim anim-2">From GKR to SNARG：从交互式电路验证到简洁非交互论证</h1>
+<hr class="article-divider anim anim-3"/>
+<nav aria-label="密码学学习顺序" class="lesson-nav anim anim-3" data-learning-nav="" data-post-id="23" hidden=""></nav>
+<article class="article-content anim anim-4">
+<div class="sc-kicker">LEARNING NOTE · FROM GKR TO SNARG</div>
+<p class="sc-lead">GKR 已经能够让一个高效 Verifier 验证大型算术电路的执行，但它仍然是交互式协议，而且其轮数会随电路深度增长。要进一步得到面向一般 NP 关系的 Succinct Non-Interactive Argument（SNARG，简洁非交互论证），还需要解决三个问题：如何摆脱原电路深度、如何让 Verifier 检查自己并不知道的大型 witness 或计算轨迹，以及如何消除 Verifier 的随机交互。对应的三个关键组件分别是 circuit flattening、Polynomial Commitment 和 Fiat–Shamir。</p>
+<blockquote>这篇文章不再拆解单个组件，而是把已经学过的工具拼起来：<strong>Flattening 把深计算变成浅验证电路，Polynomial Commitment 让未知的大型输入可以被绑定并在随机点打开，GKR 把整张电路正确性压缩到一个 evaluation claim，Fiat–Shamir 再把随机交互变成 transcript-derived challenges。</strong></blockquote>
+<nav aria-label="文章目录" class="sc-toc">
+<div class="sc-toc-title">Contents</div>
+<ol>
+<li><a href="#problem">GKR 还缺什么</a></li>
+<li><a href="#flatten">第一步：Flatten the Circuit</a></li>
+<li><a href="#commit">第二步：Commit to the Hidden Input</a></li>
+<li><a href="#gkr-open">第三步：GKR 归约到一个随机点 Opening</a></li>
+<li><a href="#np">从一般计算到 NP Witness</a></li>
+<li><a href="#fiat-shamir">第四步：Fiat–Shamir 消除交互</a></li>
+<li><a href="#snarg">最终得到的 SNARG 是什么</a></li>
+<li><a href="#distinctions">SNARG、SNARK 与 NIZK 的区别</a></li>
+<li><a href="#memory">最终记忆框架</a></li>
+</ol>
+</nav>
+<div class="sc-callout">
+<strong>前置知识</strong>
+<p>本文默认已经理解 <a href="sumcheck-protocol-notes.html">Sumcheck</a>、<a href="multilinear-extension.html">Multilinear Extension</a>、<a href="gkr-protocol-notes.html">GKR</a>、<a href="kzg-polynomial-commitment.html">Polynomial Commitment</a> 以及 <a href="nizk-fiat-shamir.html">Fiat–Shamir</a> 的基本接口。这里关注的是它们为什么能够组成一套完整的 succinct argument。</p>
+</div>
+<h2 id="problem">一、GKR 已经很强了，为什么还不够？</h2>
+<p>设 Prover 想证明一个大型电路计算：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="C(x)=y"></div>
+</div>
+<p>对于深度为 <span data-tex="D"></span>、规模为 <span data-tex="S"></span> 的电路，GKR 可以逐层把 output claim 归约到 input layer。Verifier 的工作远小于重新执行整个电路，但 GKR 的轮数与电路深度有关。</p>
+<div class="math-block">
+<div class="math-line" data-tex="\text{GKR rounds}\approx D\cdot\operatorname{polylog}(S)"></div>
+</div>
+<p>如果原计算很深，直接在原电路上执行 GKR 仍然会让交互轮数受到 <span data-tex="D"></span> 影响。另一方面，GKR 最终还会要求 Verifier 检查 input layer 的某个随机点 evaluation；当这个 input 本身是一个巨大 witness 或完整计算轨迹时，Verifier 并不知道它，也就无法自己完成最后一步。</p>
+<div class="fact-grid">
+<div class="fact-card">
+<span>问题一</span>
+<strong>Depth</strong>
+<p>原电路可能很深，GKR 的交互轮数会随深度增长。</p>
+</div>
+<div class="fact-card">
+<span>问题二</span>
+<strong>Unknown Input</strong>
+<p>Verifier 不知道大型 witness 或完整 wire assignment，无法直接计算其随机点 MLE evaluation。</p>
+</div>
+<div class="fact-card">
+<span>问题三</span>
+<strong>Interaction</strong>
+<p>即使前两项解决，GKR 仍然需要 Verifier 多轮发送随机 challenge。</p>
+</div>
+</div>
+<p>从 GKR 走向 SNARG，就是依次解决这三个问题。</p>
+<h2 id="flatten">二、第一步：把深计算变成浅验证电路</h2>
+<p>首先处理电路深度。假设原电路 <span data-tex="C"></span> 一共有 <span data-tex="S"></span> 条 wires。Prover 先真正执行一次 <span data-tex="C(x)"></span>，把所有 wire values 按固定顺序排列成：</p>
+<div class="math-block gold">
+<div class="math-line" data-tex="V_0=(v_1,v_2,\ldots,v_S)"></div>
+</div>
+<p>其中每个 <span data-tex="v_j"></span> 都是原电路某条 wire 的值。现在不再让新的电路重新执行原计算，而是构造一个<strong>一致性检查电路</strong> <span data-tex="C'"></span>：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="C'(V_0)=1\quad\Longleftrightarrow\quad V_0\text{ 中所有 wire values 都满足 }C\text{ 的 gate relations}"></div>
+</div>
+<p>例如原电路中某个加法 gate 满足：</p>
+<div class="math-block">
+<div class="math-line" data-tex="v_k=v_i+v_j"></div>
+</div>
+<p>那么 <span data-tex="C'"></span> 只需要检查这条局部约束是否成立；乘法 gate 同理。所有 gate consistency checks 可以大规模并行，最后再把各检查结果汇总，因此 <span data-tex="C'"></span> 可以做得很浅，深度只需：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="O(\log S)"></div>
+</div>
+<figure class="gkr-figure">
+<svg aria-labelledby="flatten-title flatten-desc" role="img" viewbox="0 0 900 390">
+<title id="flatten-title">Flattening a deep circuit into a shallow consistency checker</title>
+<desc id="flatten-desc">The prover computes all wire values of a deep circuit, then a shallow circuit checks all local gate relations in parallel.</desc>
+<text class="svg-title" text-anchor="middle" x="450" y="28">Circuit Flattening：不再重新计算，而是检查整张计算轨迹</text>
+<rect class="svg-node" height="160" rx="12" width="185" x="40" y="105"></rect>
+<text class="svg-small" text-anchor="middle" x="132" y="132">原始深电路 C</text>
+<circle class="svg-node-green" cx="95" cy="178" r="22"></circle>
+<circle class="svg-node-accent" cx="165" cy="178" r="22"></circle>
+<circle class="svg-node-green" cx="130" cy="232" r="22"></circle>
+<line class="svg-edge" x1="95" x2="120" y1="200" y2="211"></line>
+<line class="svg-edge" x1="165" x2="140" y1="200" y2="211"></line>
+<text class="svg-small" text-anchor="middle" x="132" y="287">深度可能很大</text>
+<rect class="svg-node-accent" height="145" rx="12" width="210" x="300" y="112"></rect>
+<text class="svg-small" text-anchor="middle" x="405" y="140">完整 Wire Assignment</text>
+<text class="svg-text" text-anchor="middle" x="405" y="181">V₀=(v₁,…,vS)</text>
+<text class="svg-small" text-anchor="middle" x="405" y="216">Prover 已经计算出的轨迹</text>
+<rect class="svg-node-green" height="190" rx="12" width="265" x="590" y="90"></rect>
+<text class="svg-small" text-anchor="middle" x="722" y="120">浅一致性检查电路 C′</text>
+<rect class="svg-node" height="44" rx="8" width="82" x="620" y="150"></rect>
+<rect class="svg-node" height="44" rx="8" width="82" x="712" y="150"></rect>
+<rect class="svg-node" height="44" rx="8" width="82" x="666" y="214"></rect>
+<text class="svg-small" text-anchor="middle" x="661" y="177">gate 1</text>
+<text class="svg-small" text-anchor="middle" x="753" y="177">gate 2</text>
+<text class="svg-small" text-anchor="middle" x="707" y="241">…</text>
+<text class="svg-small" text-anchor="middle" x="722" y="305">depth = O(log S)</text>
+<line class="svg-edge-accent" x1="225" x2="300" y1="185" y2="185"></line>
+<line class="svg-edge-accent" x1="510" x2="590" y1="185" y2="185"></line>
+</svg>
+<figcaption>Flattening 的关键不是压缩原计算，而是把“重新执行 <span data-tex="C"></span>”改成“验证 Prover 提供的完整计算轨迹是否局部一致”。</figcaption>
+</figure>
+<div class="sc-callout">
+<strong>这里的“Flatten”到底改变了什么？</strong>
+<p>原来要验证的是一个可能很深的计算过程；现在要验证的是一个大型静态 assignment 是否满足所有 gate constraints。原计算的深度被转换成了 witness/trace 的长度，而验证电路本身可以很浅。</p>
+</div>
+<h2 id="commit">三、第二步：Verifier 不知道 V₀，怎么办？</h2>
+<p>到这里出现一个新的矛盾：<span data-tex="C'"></span> 的输入正是完整 wire assignment <span data-tex="V_0"></span>，但 Verifier 如果自己知道 <span data-tex="V_0"></span>，就几乎等于已经拿到了原计算的所有中间结果。更重要的是，Verifier 本来就没有能力自己计算这些 wires。</p>
+<p>因此 Prover 先把 <span data-tex="V_0"></span> 看成 Boolean Hypercube 上的一张 table，并构造它的 Multilinear Extension：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="\widetilde V_0:\mathbb F^m\rightarrow\mathbb F"></div>
+</div>
+<p>其中 <span data-tex="2^m"></span> 至少能够容纳全部 <span data-tex="S"></span> 个 wire values。然后 Prover 不把整个 <span data-tex="V_0"></span> 发给 Verifier，而是发送一个 succinct polynomial commitment：</p>
+<div class="math-block gold">
+<div class="math-line" data-tex="\mathsf{cm}\leftarrow\mathsf{Commit}(\widetilde V_0)"></div>
+</div>
+<p>这个 commitment 需要提供两个关键能力：</p>
+<div class="fact-grid">
+<div class="fact-card">
+<span>Binding</span>
+<strong>先固定 Polynomial</strong>
+<p>Prover 一旦发送 commitment，后续不能根据随机 challenge 再偷偷换成另一张计算轨迹。</p>
+</div>
+<div class="fact-card">
+<span>Succinct Opening</span>
+<strong>只证明一个 Evaluation</strong>
+<p>当 Verifier 以后给出随机点 <span data-tex="z"></span> 时，Prover 可以简洁证明 <span data-tex="\widetilde V_0(z)=t"></span>。</p>
+</div>
+<div class="fact-card">
+<span>Compactness</span>
+<strong>不用发送整张 Table</strong>
+<p>Verifier 只保留 commitment，而不是完整 <span data-tex="V_0"></span>。</p>
+</div>
+</div>
+<p>这也是为什么这里需要的是 <strong>Polynomial Commitment</strong>，而不是普通 Commitment。普通 commitment 只能“锁住一个消息”，却没有直接提供对任意 polynomial evaluation 的 succinct opening 接口。</p>
+<div class="sc-callout">
+<strong>KZG 在这里扮演什么角色？</strong>
+<p>这里的构造只需要一个抽象 Polynomial Commitment Scheme（PCS）。KZG 是我们已经学习过的一种具体实现，但“GKR → SNARG”并不等同于“KZG → SNARG”，也不要求这一篇把 PCS 固定成 KZG。</p>
+</div>
+<h2 id="gkr-open">四、第三步：GKR 最终只留下一个 Evaluation Claim</h2>
+<p>现在双方在浅电路 <span data-tex="C'"></span> 上运行 GKR。由于：</p>
+<div class="math-block">
+<div class="math-line" data-tex="\operatorname{depth}(C')=O(\log S)"></div>
+</div>
+<p>GKR 的轮数与通信不再取决于原始计算的深度，而只以 <span data-tex="S"></span> 的多对数规模增长。</p>
+<p>更关键的是，GKR 会把“整张 consistency-check circuit 是否接受”逐层归约，最后变成 input layer 上的一个随机点声明：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="\widetilde V_0(z)=t,\qquad z\in\mathbb F^m"></div>
+</div>
+<p>如果 Verifier 真正拥有 <span data-tex="V_0"></span>，它可以自己算这个值；但现在它只有 commitment。于是最后一步正好调用 Polynomial Commitment 的 opening 接口：</p>
+<div class="math-block gold">
+<div class="math-line" data-tex="\pi_{\mathrm{open}}\leftarrow\mathsf{Open}(\widetilde V_0,z,t)"></div>
+<div class="math-line" data-tex="\mathsf{VerifyOpen}(\mathsf{cm},z,t,\pi_{\mathrm{open}})=1"></div>
+</div>
+<figure class="gkr-figure">
+<svg aria-labelledby="gkr-pcs-title gkr-pcs-desc" role="img" viewbox="0 0 900 360">
+<title id="gkr-pcs-title">GKR plus polynomial commitment</title>
+<desc id="gkr-pcs-desc">The prover commits to the multilinear extension, GKR reduces circuit correctness to one random point, and the polynomial commitment opens that point.</desc>
+<text class="svg-title" text-anchor="middle" x="450" y="28">GKR 与 Polynomial Commitment 的接口刚好闭合</text>
+<rect class="svg-node-accent" height="92" rx="12" width="190" x="45" y="112"></rect>
+<text class="svg-small" text-anchor="middle" x="140" y="140">Prover 先固定</text>
+<text class="svg-text" text-anchor="middle" x="140" y="172">cm = Com(Ṽ₀)</text>
+<rect class="svg-node-green" height="135" rx="12" width="245" x="300" y="90"></rect>
+<text class="svg-small" text-anchor="middle" x="422" y="120">GKR on C′</text>
+<text class="svg-text" text-anchor="middle" x="422" y="155">Circuit Claim</text>
+<text class="svg-small" text-anchor="middle" x="422" y="187">逐层压缩</text>
+<rect class="svg-node-accent" height="92" rx="12" width="245" x="610" y="112"></rect>
+<text class="svg-small" text-anchor="middle" x="732" y="140">最终随机点声明</text>
+<text class="svg-text" text-anchor="middle" x="732" y="174">Ṽ₀(z)=t</text>
+<rect class="svg-node-green" height="58" rx="12" width="245" x="610" y="252"></rect>
+<text class="svg-text" text-anchor="middle" x="732" y="287">PCS Opening</text>
+<line class="svg-edge-accent" x1="235" x2="300" y1="158" y2="158"></line>
+<line class="svg-edge-accent" x1="545" x2="610" y1="158" y2="158"></line>
+<line class="svg-edge" x1="732" x2="732" y1="204" y2="252"></line>
+</svg>
+<figcaption>GKR 不需要 Polynomial Commitment 去证明整个电路；它只需要 PCS 在最后负责一个随机 evaluation。两者通过 <span data-tex="\widetilde V_0(z)=t"></span> 这个接口衔接。</figcaption>
+</figure>
+<p>因此，这一阶段已经得到一个<strong>succinct interactive argument</strong>：</p>
+<div class="transcript">
+<span data-tex="\text{Commit to }\widetilde V_0\ \rightarrow\ \text{GKR on }C'\ \rightarrow\ \widetilde V_0(z)=t\ \rightarrow\ \text{PCS Opening}"></span>
+</div>
+<h2 id="np">五、从“验证一次计算”推广到“证明一个 NP Statement”</h2>
+<p>现在把问题换回 NP。设语言 <span data-tex="L"></span> 由关系 <span data-tex="R"></span> 定义：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="x\in L\quad\Longleftrightarrow\quad\exists w:\ R(x,w)=1"></div>
+</div>
+<p>其中 <span data-tex="x"></span> 是公开 instance，<span data-tex="w"></span> 是 NP witness。把 <span data-tex="x"></span> 直接 hardwire 到验证电路中，就得到一个只把 <span data-tex="w"></span> 当输入的 circuit：</p>
+<div class="math-block">
+<div class="math-line" data-tex="C_x(w)=R(x,w)"></div>
+</div>
+<p>诚实 Prover 持有 <span data-tex="w"></span>，希望让 Verifier 相信：</p>
+<div class="math-block gold">
+<div class="math-line" data-tex="C_x(w)=1"></div>
+</div>
+<p>于是前面的 blueprint 可以直接套上来：Prover 对 witness 的 multilinear extension 做 commitment，双方运行针对 verification circuit 的 GKR，最后 GKR 只要求检查 witness MLE 在某个随机点上的 evaluation，再通过 PCS opening 完成这一检查。</p>
+<div class="protocol-loop">
+<div class="loop-step">
+<span class="loop-no">01</span>
+<h3>Witness</h3>
+<p>Prover 持有 <span data-tex="w"></span>，Verifier 只知道公开 instance <span data-tex="x"></span>。</p>
+</div>
+<div class="loop-step">
+<span class="loop-no">02</span>
+<h3>Commit</h3>
+<p>Prover 对 <span data-tex="\widetilde W"></span> 做 succinct polynomial commitment。</p>
+</div>
+<div class="loop-step">
+<span class="loop-no">03</span>
+<h3>GKR</h3>
+<p>验证 hardwired <span data-tex="x"></span> 的 witness-checking circuit 是否接受。</p>
+</div>
+<div class="loop-step">
+<span class="loop-no">04</span>
+<h3>Open</h3>
+<p>最终只打开 <span data-tex="\widetilde W(z)"></span> 的一个随机点 evaluation。</p>
+</div>
+</div>
+<div class="sc-callout">
+<strong>这里为什么已经“面向 NP”了？</strong>
+<p>NP 的核心就是存在一个 polynomial-size witness <span data-tex="w"></span>，使 polynomial-time verification circuit 接受。只要这类验证计算能被 succinctly verified，就能够把任意 NP statement 统一转化成这种证明接口。</p>
+</div>
+<h2 id="fiat-shamir">六、第四步：Fiat–Shamir 把 Interactive Argument 变成 Non-Interactive</h2>
+<p>到目前为止，协议仍然是交互式的，因为 GKR 中 Verifier 会在多轮中不断发送随机 field challenges：</p>
+<div class="transcript">
+<span data-tex="a_1\ \leftarrow\ r_1\ \rightarrow\ a_2\ \leftarrow\ r_2\ \rightarrow\cdots"></span>
+</div>
+<p>但 GKR 是 public-coin protocol：Verifier 的消息本质上就是独立随机元素。于是可以使用 Fiat–Shamir，把每一轮应由 Verifier 采样的 challenge 改成当前 transcript 的 hash：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="r_i=H(x,\mathsf{cm},a_1,r_1,\ldots,a_i)"></div>
+</div>
+<p>于是 Prover 不再等待一个在线 Verifier，而是自己按照 transcript 顺序确定所有 challenges，并一次性生成完整证明：</p>
+<div class="math-block gold">
+<div class="math-line" data-tex="\pi=(\mathsf{cm},\text{GKR messages},\text{PCS opening proof})"></div>
+</div>
+<p>Verifier 收到 <span data-tex="(x,\pi)"></span> 后，只需按照完全相同的 hash 规则重新计算每轮 challenge，再执行原有的 GKR checks 和 PCS opening verification。</p>
+<figure class="gkr-figure">
+<svg aria-labelledby="fs-title fs-desc" role="img" viewbox="0 0 900 390">
+<title id="fs-title">Fiat-Shamir removes verifier interaction</title>
+<desc id="fs-desc">Verifier random challenges are replaced with transcript hashes, allowing the prover to produce one non-interactive proof.</desc>
+<text class="svg-title" text-anchor="middle" x="450" y="28">Fiat–Shamir：把“等 Verifier 发随机数”改成“从 Transcript 计算随机挑战”</text>
+<text class="svg-small" x="52" y="85">Interactive</text>
+<rect class="svg-node" height="52" rx="10" width="130" x="55" y="110"></rect>
+<rect class="svg-node-green" height="52" rx="10" width="130" x="255" y="110"></rect>
+<rect class="svg-node" height="52" rx="10" width="130" x="455" y="110"></rect>
+<rect class="svg-node-green" height="52" rx="10" width="130" x="655" y="110"></rect>
+<text class="svg-text" text-anchor="middle" x="120" y="142">a₁</text>
+<text class="svg-text" text-anchor="middle" x="320" y="142">r₁ ← V</text>
+<text class="svg-text" text-anchor="middle" x="520" y="142">a₂</text>
+<text class="svg-text" text-anchor="middle" x="720" y="142">r₂ ← V</text>
+<line class="svg-edge-accent" x1="185" x2="255" y1="136" y2="136"></line>
+<line class="svg-edge-accent" x1="385" x2="455" y1="136" y2="136"></line>
+<line class="svg-edge-accent" x1="585" x2="655" y1="136" y2="136"></line>
+<text class="svg-small" x="52" y="245">Fiat–Shamir</text>
+<rect class="svg-node-accent" height="58" rx="10" width="170" x="55" y="270"></rect>
+<rect class="svg-node-accent" height="58" rx="10" width="225" x="310" y="270"></rect>
+<rect class="svg-node-green" height="58" rx="10" width="190" x="620" y="270"></rect>
+<text class="svg-text" text-anchor="middle" x="140" y="305">a₁</text>
+<text class="svg-text" text-anchor="middle" x="422" y="305">r₁ = H(transcript₁)</text>
+<text class="svg-text" text-anchor="middle" x="715" y="305">π</text>
+<line class="svg-edge-accent" x1="225" x2="310" y1="299" y2="299"></line>
+<line class="svg-edge-accent" x1="535" x2="620" y1="299" y2="299"></line>
+</svg>
+<figcaption>Fiat–Shamir 不删除原协议的随机挑战逻辑，而是改变挑战的来源：从在线 Verifier 的随机采样，变成对已有 transcript 的确定性 hash。</figcaption>
+</figure>
+<div class="sc-callout">
+<strong>Fiat–Shamir 不是“免费去交互”</strong>
+<p>交互被消除后，soundness 不再只依赖原 GKR 的信息论随机挑战，还需要对 Fiat–Shamir hash 的安全性作密码学假设。本文只沿用这一范式，不把它表述成对任意 public-coin protocol 都自动成立的通用定理。</p>
+</div>
+<h2 id="snarg">七、最终得到的 SNARG 到底是什么？</h2>
+<p>SNARG 的全称是：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="\text{Succinct Non-Interactive Argument}"></div>
+</div>
+<p>把前面的组件合起来后，Prover 可以把一个原本很长的 NP witness 及其验证过程，转换成一个简洁的 cryptographic proof object <span data-tex="\pi"></span>：</p>
+<div class="transcript">
+<span data-tex="w\ \longrightarrow\ \text{Commitment}\ +\ \text{GKR transcript}\ +\ \text{PCS opening}\ \xrightarrow{\text{Fiat--Shamir}}\ \pi"></span>
+</div>
+<p>Verifier 不再需要访问完整 witness，也不需要和 Prover 在线交互，只需要：</p>
+<ul class="sc-checklist">
+<li>读取公开 instance <span data-tex="x"></span> 和 proof <span data-tex="\pi"></span>；</li>
+<li>根据 transcript 重新计算 Fiat–Shamir challenges；</li>
+<li>检查 GKR 的所有局部一致性条件；</li>
+<li>检查最终 polynomial evaluation opening；</li>
+<li>最终接受或拒绝。</li>
+</ul>
+<p>这里称为 <strong>Argument</strong> 而不是无条件的 Proof，是因为最终 soundness 已经依赖密码学假设：至少包括 polynomial commitment 的 binding，以及 Fiat–Shamir 实例化所需的安全假设。</p>
+<div class="fact-grid">
+<div class="fact-card">
+<span>S</span>
+<strong>Succinct</strong>
+<p>证明与 Verifier 工作显著小于直接发送或重新执行完整 witness computation。</p>
+</div>
+<div class="fact-card">
+<span>N</span>
+<strong>Non-Interactive</strong>
+<p>Prover 一次性给出 <span data-tex="\pi"></span>，Verifier 不再在线发送随机 challenge。</p>
+</div>
+<div class="fact-card">
+<span>ARG</span>
+<strong>Argument</strong>
+<p>对作弊 Prover 的安全性依赖计算假设，而不是对无限计算能力 adversary 的无条件 soundness。</p>
+</div>
+</div>
+<h2 id="distinctions">八、SNARG、SNARK 与 NIZK 不要混在一起</h2>
+<p>这几个缩写经常同时出现，但它们描述的是不同性质。</p>
+<table class="truth-table">
+<thead>
+<tr>
+<th>概念</th>
+<th>核心要求</th>
+<th>本文构造是否自动得到</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SNARG</td>
+<td>Succinct + Non-Interactive + Argument</td>
+<td>是，目标就是这一层</td>
+</tr>
+<tr>
+<td>SNARK</td>
+<td>SNARG + Knowledge Soundness / Extractability</td>
+<td>否，需要额外的知识可靠性论证</td>
+</tr>
+<tr>
+<td>NIZK</td>
+<td>Non-Interactive + Zero-Knowledge</td>
+<td>否，本文没有自动提供 witness privacy</td>
+</tr>
+<tr>
+<td>zk-SNARK</td>
+<td>SNARK + Zero-Knowledge</td>
+<td>更不是自动得到，需要额外 ZK 机制</td>
+</tr>
+</tbody>
+</table>
+<div class="sc-callout">
+<strong>最容易犯的错误</strong>
+<p>“Non-Interactive”只表示不需要在线交互；“Succinct”表示证明与验证开销小；“Zero-Knowledge”表示不泄露 witness；“Argument of Knowledge”表示接受一个证明意味着能够提取相应 witness。四者是不同维度，不能因为系统用了 Fiat–Shamir、GKR 或 Polynomial Commitment 就自动全部成立。</p>
+</div>
+<h2 id="memory">九、最终记忆框架</h2>
+<p>从 GKR 到 SNARG 的主线可以压缩成四次“接口转换”：</p>
+<div class="protocol-loop">
+<div class="loop-step">
+<span class="loop-no">01</span>
+<h3>Flatten</h3>
+<p>把深计算 <span data-tex="C(x)=y"></span> 转成浅电路对完整计算轨迹的 consistency check。</p>
+</div>
+<div class="loop-step">
+<span class="loop-no">02</span>
+<h3>Commit</h3>
+<p>把 Verifier 不知道的大型 witness/table 绑定成可随机点 opening 的 polynomial commitment。</p>
+</div>
+<div class="loop-step">
+<span class="loop-no">03</span>
+<h3>Reduce</h3>
+<p>GKR 把整个电路正确性逐层归约为一个随机 evaluation claim。</p>
+</div>
+<div class="loop-step">
+<span class="loop-no">04</span>
+<h3>De-interact</h3>
+<p>Fiat–Shamir 用 transcript hash 生成 challenges，把交互式 argument 转成非交互 proof object。</p>
+</div>
+</div>
+<figure class="gkr-figure">
+<svg aria-labelledby="whole-title whole-desc" role="img" viewbox="0 0 940 300">
+<title id="whole-title">Complete path from GKR to SNARG</title>
+<desc id="whole-desc">Computation is flattened, witness data is polynomial-committed, GKR reduces correctness to an evaluation opening, and Fiat-Shamir removes interaction.</desc>
+<text class="svg-title" text-anchor="middle" x="470" y="28">From GKR to SNARG：完整拼装图</text>
+<rect class="svg-node" height="72" rx="11" width="145" x="25" y="100"></rect>
+<text class="svg-small" text-anchor="middle" x="98" y="124">原计算</text>
+<text class="svg-text" text-anchor="middle" x="98" y="151">C(x)=y</text>
+<rect class="svg-node-accent" height="72" rx="11" width="145" x="210" y="100"></rect>
+<text class="svg-small" text-anchor="middle" x="282" y="124">Flatten</text>
+<text class="svg-text" text-anchor="middle" x="282" y="151">C′ + V₀</text>
+<rect class="svg-node-green" height="72" rx="11" width="155" x="395" y="100"></rect>
+<text class="svg-small" text-anchor="middle" x="472" y="124">Commit</text>
+<text class="svg-text" text-anchor="middle" x="472" y="151">Com(Ṽ₀)</text>
+<rect class="svg-node-accent" height="72" rx="11" width="155" x="590" y="100"></rect>
+<text class="svg-small" text-anchor="middle" x="667" y="124">GKR + Open</text>
+<text class="svg-text" text-anchor="middle" x="667" y="151">Ṽ₀(z)=t</text>
+<rect class="svg-node-green" height="72" rx="11" width="130" x="785" y="100"></rect>
+<text class="svg-small" text-anchor="middle" x="850" y="124">Fiat–Shamir</text>
+<text class="svg-text" text-anchor="middle" x="850" y="151">π</text>
+<line class="svg-edge-accent" x1="170" x2="210" y1="136" y2="136"></line>
+<line class="svg-edge-accent" x1="355" x2="395" y1="136" y2="136"></line>
+<line class="svg-edge-accent" x1="550" x2="590" y1="136" y2="136"></line>
+<line class="svg-edge-accent" x1="745" x2="785" y1="136" y2="136"></line>
+<text class="svg-small" text-anchor="middle" x="470" y="225">深计算 → 浅一致性验证 → 隐藏输入可绑定 → 随机点验证 → 非交互论证</text>
+</svg>
+<figcaption>四个组件解决四个不同问题。理解这种模块化接口，比记住某一个具体 SNARG 实例更重要。</figcaption>
+</figure>
+<ul class="sc-checklist">
+<li><strong>Flattening 解决 depth：</strong>原计算越深，不代表验证电路也必须同样深。</li>
+<li><strong>MLE 解决 algebraization：</strong>把 witness / wire table 变成可以在随机域点求值的低度 polynomial。</li>
+<li><strong>Polynomial Commitment 解决 hidden input：</strong>先绑定整个 polynomial，之后只在所需随机点 succinctly open。</li>
+<li><strong>GKR 解决 large computation：</strong>把整张 shallow circuit 的正确性压缩到一个随机 evaluation claim。</li>
+<li><strong>Fiat–Shamir 解决 interaction：</strong>把 public-coin challenges 改由 transcript hash 产生。</li>
+<li><strong>得到的是 SNARG：</strong>当前主线没有自动得到 Zero-Knowledge，也没有自动得到 Knowledge Soundness。</li>
+</ul>
+<blockquote><strong>一句话总结：</strong>从 GKR 到 SNARG 的关键不是再发明一个新的“大协议”，而是把接口对齐：flattening 把任意深计算转换成浅一致性验证，Polynomial Commitment 绑定 Verifier 不知道的大型输入，GKR 把整个验证压缩成一个随机点 evaluation，PCS 完成该点 opening，最后 Fiat–Shamir 用 transcript hash 消除 Verifier 的在线随机交互，于是得到简洁的非交互论证。</blockquote>
+<details>
+<summary>复习自测：我是否真正理解了 From GKR to SNARG？</summary>
+<div>
+<ol>
+<li>为什么直接在原始深电路上运行 GKR 仍然会受到 depth 的影响？</li>
+<li>flattened circuit <span data-tex="C'"></span> 的输入是什么？它到底检查什么？</li>
+<li>为什么 Verifier 不能直接知道完整的 <span data-tex="V_0"></span>？</li>
+<li>为什么普通 commitment 不足以替代 polynomial commitment？</li>
+<li>GKR 和 PCS 是在哪一个具体 claim 上衔接的？</li>
+<li>为什么 hardwire <span data-tex="x"></span> 后，NP witness verification 可以放进这一框架？</li>
+<li>Fiat–Shamir 替换的是 GKR 中的哪一类消息？</li>
+<li>为什么最后称为 Argument 而不是无条件的 Proof？</li>
+<li>SNARG、SNARK、NIZK 和 zk-SNARK 分别多了什么性质？</li>
+</ol>
+</div>
+</details>
+<section aria-labelledby="references-title" class="references">
+<h2 id="references-title">参考文献</h2>
+<ol class="reference-list">
+<li>S. Goldwasser, Y. T. Kalai, and G. N. Rothblum, “<cite>Delegating Computation: Interactive Proofs for Muggles</cite>,” STOC 2008. <span class="reference-kind">GKR</span></li>
+<li>A. Fiat and A. Shamir, “<cite>How to Prove Yourself: Practical Solutions to Identification and Signature Problems</cite>,” CRYPTO 1986. <span class="reference-kind">Fiat–Shamir</span></li>
+<li>“<cite>GKR Protocol：从电路执行到逐层多项式验证</cite>,” Frieren · Cryptography Notes. <a href="gkr-protocol-notes.html">前置笔记</a> <span class="reference-kind">GKR</span></li>
+<li>“<cite>Multilinear Extension：从 Boolean Table 到低度多项式</cite>,” Frieren · Cryptography Notes. <a href="multilinear-extension.html">前置笔记</a> <span class="reference-kind">MLE</span></li>
+<li>“<cite>KZG Polynomial Commitment：从指数编码到点值证明</cite>,” Frieren · Cryptography Notes. <a href="kzg-polynomial-commitment.html">相关笔记</a> <span class="reference-kind">PCS 实例</span></li>
+<li>“<cite>NIZK 与 Fiat–Shamir：从交互式证明到非交互证明</cite>,” Frieren · Cryptography Notes. <a href="nizk-fiat-shamir.html">前置笔记</a> <span class="reference-kind">Fiat–Shamir</span></li>
+</ol>
+</section>
+</article>
+<footer class="article-footer">
+<a class="footer-back" href="../index.html">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="M19 12H5M12 5l-7 7 7 7"></path>
+</svg>
+      返回所有文章
+    </a>
+<span class="footer-brand">Frieren · Cryptography Notes</span>
+</footer>
+</main>
+<script defer="" src="../static/vendor/katex/katex.min.js"></script>
+<script defer="" src="../static/js/theme.js"></script>
+<script defer="" src="../static/js/posts-data.js"></script>
+<script defer="" src="../static/js/learning-path.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-tex]').forEach(function (element) {
+      katex.render(element.dataset.tex, element, {
+        displayMode: element.classList.contains('math-line'),
+        throwOnError: false,
+        strict: false
+      });
+    });
+
+    const shareButton = document.getElementById('share-button');
+    const toast = document.getElementById('action-toast');
+    let toastTimer;
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () {
+        toast.classList.remove('show');
+      }, 2200);
+    }
+
+    document.addEventListener('frieren-theme-change', function (event) {
+      showToast(event.detail.theme === 'dark' ? '已切换为深色模式' : '已切换为常规模式');
+    });
+
+    async function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+      const field = document.createElement('textarea');
+      field.value = text;
+      field.setAttribute('readonly', '');
+      field.style.position = 'fixed';
+      field.style.opacity = '0';
+      document.body.appendChild(field);
+      field.select();
+      const copied = document.execCommand('copy');
+      field.remove();
+      if (!copied) throw new Error('copy failed');
+    }
+
+    shareButton.addEventListener('click', async function () {
+      const canonical = document.querySelector('link[rel="canonical"]');
+      const url = canonical ? canonical.href : window.location.href;
+      const shareData = {
+        title: document.title,
+        text: 'From GKR to SNARG：从交互式电路验证到简洁非交互论证',
+        url: url
+      };
+
+      if (navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
+        try {
+          await navigator.share(shareData);
+          return;
+        } catch (error) {
+          if (error && error.name === 'AbortError') return;
+        }
+      }
+
+      try {
+        await copyText(url);
+        showToast('公开链接已复制');
+      } catch (_) {
+        window.prompt('复制下面的公开链接：', url);
+      }
+    });
+  });
+</script>
+</body>
+</html>

@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   document.addEventListener('frieren-theme-change', function (event) {
-    showToast(event.detail.theme === 'dark' ? '已切换为深色模式' : '已切换为常规模式');
+    showToast(event.detail.theme === 'dark' ? '已切换为深色模式' : '已切换为浅色模式');
   });
 
   async function copyText(value) {

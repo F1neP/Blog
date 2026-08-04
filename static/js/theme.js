@@ -9,7 +9,7 @@
   function syncButtons() {
     const dark = currentTheme() === 'dark';
     document.querySelectorAll('[data-theme-toggle]').forEach(function (button) {
-      const nextTheme = dark ? '常规' : '深色';
+      const nextTheme = dark ? '浅色' : '深色';
       button.setAttribute('aria-pressed', String(dark));
       button.setAttribute('aria-label', '切换为' + nextTheme + '模式');
       button.title = '切换为' + nextTheme + '模式';

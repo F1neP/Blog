@@ -1,0 +1,1706 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="BGW（Ben-Or–Goldwasser–Wigderson）协议学习笔记：从公开算术电路、Shamir 份额表示、加法与乘法、重新随机化、次数约简、Vandermonde 矩阵到输出重构，完整理解经典基于秘密共享的安全多方计算。" name="description"/>
+<title>BGW 协议：基于 Shamir 秘密共享的安全多方计算 · Frieren</title>
+<link href="../HK.ico" rel="icon" type="image/x-icon"/>
+<link href="https://blog.fp1022.dpdns.org/posts/bgw-protocol.html" rel="canonical"/>
+<link href="../static/css/style.css" rel="stylesheet"/>
+<link href="../static/css/post.css" rel="stylesheet"/>
+<link href="../static/vendor/katex/katex.min.css" rel="stylesheet"/>
+<script>
+  (function () {
+    let theme;
+    try { theme = localStorage.getItem('frieren-theme'); } catch (_) {}
+    if (theme !== 'light' && theme !== 'dark') {
+      theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.dataset.theme = theme;
+  })();
+</script>
+<style>
+  :root {
+    --sc-blue: #315b70;
+    --sc-blue-soft: #dce8eb;
+    --sc-green: #557568;
+    --sc-green-soft: #e2ebe5;
+    --sc-gold: #a7782f;
+    --sc-gold-soft: #f2e9d8;
+    --sc-red: #9e4d3f;
+    --sc-red-soft: #f1dfda;
+    --sc-math: "KaTeX_Main", "Latin Modern Math", "STIX Two Math", "Cambria Math", serif;
+  }
+
+  html[data-theme="dark"] {
+    --sc-blue: #84b9cf;
+    --sc-blue-soft: #1b3039;
+    --sc-green: #8ebaa7;
+    --sc-green-soft: #20352c;
+    --sc-gold: #d5ab64;
+    --sc-gold-soft: #392f20;
+    --sc-red: #d88c7e;
+    --sc-red-soft: #3a2724;
+  }
+
+  .post-hero {
+    height: 48vh;
+    min-height: 390px;
+    background:
+      radial-gradient(circle at 18% 22%, rgba(196,98,45,.18), transparent 24%),
+      radial-gradient(circle at 82% 70%, rgba(49,91,112,.17), transparent 28%),
+      linear-gradient(145deg, #eee8de, #f7f4ef 55%, #e8e2d8);
+  }
+
+  .sumcheck-hero {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 4rem 1.5rem 6rem;
+  }
+
+  .hero-proof {
+    width: min(920px, 92vw);
+    display: grid;
+    grid-template-columns: repeat(7, auto);
+    align-items: center;
+    justify-content: center;
+    gap: clamp(.45rem, 1.7vw, 1.3rem);
+    color: var(--ink);
+  }
+
+  .hero-node {
+    min-width: 82px;
+    padding: .8rem 1rem;
+    border: 1px solid rgba(26,24,20,.13);
+    border-radius: 7px;
+    background: rgba(250,248,244,.78);
+    box-shadow: 0 12px 30px rgba(26,24,20,.06);
+    backdrop-filter: blur(7px);
+    text-align: center;
+  }
+
+  .hero-node strong {
+    display: block;
+    font-family: var(--serif);
+    font-size: 1.25rem;
+    font-weight: 400;
+  }
+
+  .hero-node strong sub {
+    position: relative;
+    bottom: -.22em;
+    vertical-align: baseline;
+    font-size: .64em;
+    line-height: 0;
+  }
+
+  .hero-node span {
+    display: block;
+    margin-top: .18rem;
+    font-family: var(--mono);
+    font-size: .64rem;
+    color: var(--ink-mute);
+  }
+
+  .hero-arrow {
+    font-family: var(--mono);
+    color: var(--accent);
+    font-size: 1.15rem;
+  }
+
+  .hero-proof .hero-node:last-child {
+    border-color: rgba(196,98,45,.35);
+    background: rgba(232,213,200,.72);
+  }
+
+  .article-wrap { max-width: 900px; }
+  .article-content { color: var(--ink-soft); }
+  .article-content > p { max-width: 760px; }
+
+  .sc-lead {
+    font-family: var(--serif);
+    font-size: 1.18rem;
+    line-height: 1.9;
+    color: var(--ink);
+  }
+
+  .sc-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .3rem .75rem;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: .7rem;
+    letter-spacing: .06em;
+    margin-bottom: 1rem;
+  }
+
+  .sc-toc {
+    margin: 2.2rem 0 3rem;
+    padding: 1.3rem 1.5rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(250,248,244,.68);
+  }
+
+  .sc-toc-title {
+    font-family: var(--mono);
+    font-size: .72rem;
+    color: var(--ink-mute);
+    letter-spacing: .11em;
+    text-transform: uppercase;
+    margin-bottom: .85rem;
+  }
+
+  .sc-toc ol {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .45rem 2rem;
+    padding-left: 1.2rem;
+  }
+
+  .sc-toc a {
+    color: var(--ink-soft);
+    text-decoration: none;
+    font-size: .88rem;
+  }
+
+  .sc-toc a:hover { color: var(--accent); }
+
+  .math-block {
+    overflow-x: auto;
+    margin: 1.35rem 0 1.8rem;
+    padding: 1.2rem 1.45rem 1.1rem;
+    border: 1px solid rgba(49,91,112,.18);
+    border-left: 4px solid var(--sc-blue);
+    border-radius: 6px;
+    background: rgba(244,248,249,.92);
+    box-shadow: 0 8px 22px rgba(31,48,55,.045);
+    color: #173947;
+    font-family: var(--sc-math);
+    font-size: 1.14rem;
+    line-height: 1.75;
+    text-align: center;
+    letter-spacing: 0;
+    scrollbar-width: thin;
+  }
+
+  .math-block.gold {
+    border-left-color: var(--sc-gold);
+    border-top-color: rgba(167,120,47,.16);
+    border-right-color: rgba(167,120,47,.16);
+    border-bottom-color: rgba(167,120,47,.16);
+    background: rgba(250,247,239,.94);
+    color: #5c421a;
+  }
+
+  .math-block.green {
+    border-left-color: var(--sc-green);
+    border-top-color: rgba(85,117,104,.16);
+    border-right-color: rgba(85,117,104,.16);
+    border-bottom-color: rgba(85,117,104,.16);
+    background: rgba(244,248,245,.94);
+    color: #27473b;
+  }
+
+  .math-line {
+    min-width: max-content;
+    white-space: nowrap;
+    font-family: var(--sc-math);
+    font-variant-numeric: lining-nums;
+    font-feature-settings: "kern" 1, "liga" 1;
+  }
+
+  .math-line .katex-display { margin: 0; }
+  .math-line .katex { font-size: 1.08em; }
+  .math-line .katex .mord.mathnormal { font-family: "KaTeX_Math", var(--sc-math); }
+
+  .math-line sub,
+  .math-line sup,
+  .math-inline sub,
+  .math-inline sup,
+  .message .payload sub,
+  .message .payload sup,
+  .transcript sub,
+  .transcript sup,
+  .symbol-table td:first-child sub,
+  .symbol-table td:first-child sup {
+    position: relative;
+    vertical-align: baseline;
+    font-size: .68em;
+    line-height: 0;
+  }
+
+  .math-line sub,
+  .math-inline sub,
+  .message .payload sub,
+  .transcript sub,
+  .symbol-table td:first-child sub { bottom: -.28em; }
+
+  .math-line sup,
+  .math-inline sup,
+  .message .payload sup,
+  .transcript sup,
+  .symbol-table td:first-child sup { top: -.52em; }
+
+  .math-inline {
+    white-space: nowrap;
+    font-family: var(--sc-math);
+    font-size: 1.04em;
+    color: var(--ink-soft);
+  }
+
+  .article-content sub,
+  .article-content sup {
+    font-family: var(--sc-math);
+    font-size: .72em;
+    line-height: 0;
+  }
+
+  .sum-op {
+    display: inline-grid;
+    grid-template-rows: 1.02em .82em;
+    place-items: center;
+    min-width: 2.4em;
+    margin: 0 .08em;
+    vertical-align: -.42em;
+    line-height: 1;
+  }
+
+  .sum-op.wide { min-width: 5.9em; }
+
+  .sum-symbol {
+    font-size: 1.5em;
+    line-height: .82;
+    font-weight: 400;
+  }
+
+  .sum-index {
+    font-family: var(--sc-math);
+    font-size: .56em;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .sum-index sub { bottom: -.18em; }
+
+  .frac {
+    display: inline-grid;
+    grid-template-rows: auto auto;
+    min-width: 1.7em;
+    margin: 0 .12em;
+    vertical-align: -.46em;
+    line-height: 1.08;
+    text-align: center;
+  }
+
+  .frac > span:first-child {
+    padding: 0 .18em .08em;
+    border-bottom: 1px solid currentColor;
+  }
+
+  .frac > span:last-child { padding: .08em .18em 0; }
+
+  .prob-index {
+    display: inline-block;
+    margin: 0 .22em 0 .08em;
+    vertical-align: -.55em;
+    font-size: .58em;
+    line-height: 1;
+  }
+
+  .prob-index sub { bottom: -.16em; }
+
+  .math-label {
+    font-family: var(--mono);
+    font-size: .64rem;
+    letter-spacing: .08em;
+    color: currentColor;
+    opacity: .64;
+  }
+
+  .math-note {
+    display: block;
+    margin-top: .65rem;
+    padding-top: .55rem;
+    border-top: 1px solid rgba(49,91,112,.12);
+    font-family: var(--body);
+    font-size: .78rem;
+    line-height: 1.65;
+    color: var(--ink-mute);
+    text-align: center;
+  }
+
+  .symbol-table,
+  .truth-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0 2rem;
+    font-size: .88rem;
+    background: rgba(250,248,244,.7);
+  }
+
+  .symbol-table th,
+  .symbol-table td,
+  .truth-table th,
+  .truth-table td {
+    padding: .72rem .85rem;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .symbol-table th,
+  .truth-table th {
+    font-family: var(--mono);
+    font-weight: 300;
+    color: var(--ink-mute);
+    font-size: .72rem;
+    letter-spacing: .06em;
+    background: var(--paper-warm);
+  }
+
+  .symbol-table td:first-child {
+    width: 22%;
+    font-family: var(--sc-math);
+    color: var(--sc-blue);
+    font-size: 1.08rem;
+    white-space: nowrap;
+  }
+
+  .truth-table th,
+  .truth-table td { text-align: center; }
+
+  .sc-callout {
+    margin: 1.7rem 0;
+    padding: 1.15rem 1.3rem;
+    border: 1px solid rgba(167,120,47,.25);
+    border-radius: 8px;
+    background: var(--sc-gold-soft);
+  }
+
+  .sc-callout strong {
+    display: block;
+    margin-bottom: .35rem;
+    color: #6c4c1e;
+    font-family: var(--mono);
+    font-size: .76rem;
+    letter-spacing: .06em;
+  }
+
+  .sc-callout p { margin: 0; font-size: .9rem; line-height: 1.75; }
+
+  .protocol-loop {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: .8rem;
+    margin: 1.6rem 0 2.3rem;
+  }
+
+  .loop-step {
+    position: relative;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper-card);
+    min-height: 126px;
+  }
+
+  .loop-step::after {
+    content: '→';
+    position: absolute;
+    top: 50%;
+    right: -.68rem;
+    transform: translateY(-50%);
+    color: var(--accent);
+    font-family: var(--mono);
+  }
+
+  .loop-step:last-child::after { display: none; }
+
+  .loop-no {
+    font-family: var(--mono);
+    font-size: .65rem;
+    color: var(--accent);
+    letter-spacing: .08em;
+  }
+
+  .loop-step h3 {
+    margin: .25rem 0 .45rem;
+    font-size: 1rem;
+  }
+
+  .loop-step p { margin: 0; font-size: .78rem; line-height: 1.65; }
+
+  .protocol-stages {
+    display: grid;
+    gap: 1.15rem;
+    margin: 2rem 0 2.3rem;
+  }
+
+  .protocol-stage {
+    position: relative;
+    overflow: hidden;
+    padding: 1.25rem 1.35rem .15rem;
+    border: 1px solid rgba(49,91,112,.16);
+    border-radius: 10px;
+    background: rgba(250,248,244,.72);
+    box-shadow: 0 10px 28px rgba(26,24,20,.035);
+  }
+
+  .protocol-stage::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: var(--sc-blue);
+    opacity: .8;
+  }
+
+  .protocol-stage:nth-child(2)::before { background: var(--sc-gold); }
+  .protocol-stage:nth-child(3)::before { background: var(--sc-green); }
+
+  .stage-heading {
+    display: flex;
+    align-items: center;
+    gap: .85rem;
+    margin-bottom: 1.05rem;
+    padding-bottom: .85rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .stage-index {
+    display: grid;
+    place-items: center;
+    width: 35px;
+    height: 35px;
+    flex: 0 0 35px;
+    border: 1px solid rgba(49,91,112,.2);
+    border-radius: 50%;
+    background: rgba(220,232,235,.62);
+    color: var(--sc-blue);
+    font-family: var(--mono);
+    font-size: .68rem;
+  }
+
+  .protocol-stage:nth-child(2) .stage-index {
+    border-color: rgba(167,120,47,.2);
+    background: rgba(242,233,216,.66);
+    color: var(--sc-gold);
+  }
+
+  .protocol-stage:nth-child(3) .stage-index {
+    border-color: rgba(85,117,104,.2);
+    background: rgba(226,235,229,.72);
+    color: var(--sc-green);
+  }
+
+  .stage-role {
+    display: block;
+    margin-bottom: .1rem;
+    color: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: .58rem;
+    letter-spacing: .1em;
+  }
+
+  .article-content .protocol-stage h3 {
+    margin: 0;
+    font-size: 1.12rem;
+  }
+
+  .protocol-stage > p { margin-bottom: 1.15rem; }
+  .protocol-stage .math-block { margin: 1rem 0 1.25rem; }
+
+  .round-card {
+    margin: 1.5rem 0 2.2rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    background: rgba(250,248,244,.78);
+  }
+
+  .round-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: .85rem 1.1rem;
+    background: var(--paper-warm);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .round-head strong {
+    font-family: var(--serif);
+    font-weight: 400;
+    color: var(--ink);
+  }
+
+  .round-head span {
+    font-family: var(--mono);
+    font-size: .68rem;
+    color: var(--accent);
+  }
+
+  .round-body { padding: 1rem 1.2rem 1.25rem; }
+  .round-body p { margin: 0 0 .75rem; font-size: .9rem; }
+  .round-body p:last-child { margin-bottom: 0; }
+
+  .message {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: .8rem;
+    padding: .62rem 0;
+    border-bottom: 1px dashed var(--line);
+    align-items: baseline;
+  }
+
+  .message:last-child { border-bottom: 0; }
+  .message .who {
+    font-family: var(--mono);
+    font-size: .69rem;
+    color: var(--sc-blue);
+  }
+
+  .message.verifier .who { color: var(--accent); }
+  .message .payload {
+    overflow-x: auto;
+    font-family: var(--sc-math);
+    font-size: 1.01rem;
+    line-height: 1.75;
+    font-variant-numeric: lining-nums;
+    color: var(--ink-soft);
+  }
+
+  .transcript {
+    margin: 1.5rem 0 2.3rem;
+    padding: 1.2rem 1.4rem;
+    border: 1px solid rgba(85,117,104,.25);
+    border-radius: 8px;
+    background: var(--sc-green-soft);
+    overflow-x: auto;
+    font-family: var(--sc-math);
+    font-size: 1.03rem;
+    line-height: 1.75;
+    font-variant-numeric: lining-nums;
+    color: #294a3e;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .fact-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: .9rem;
+    margin: 1.5rem 0 2.2rem;
+  }
+
+  .fact-card {
+    padding: 1.1rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper-card);
+  }
+
+  .fact-card strong {
+    display: block;
+    font-family: var(--serif);
+    font-weight: 400;
+    color: var(--ink);
+    margin-bottom: .35rem;
+  }
+
+  .fact-card > span {
+    display: block;
+    font-family: var(--mono);
+    font-size: .78rem;
+    color: var(--accent);
+    margin-bottom: .35rem;
+  }
+
+  .fact-card p { margin: 0; font-size: .78rem; line-height: 1.65; }
+
+  .sc-checklist {
+    list-style: none;
+    margin: 1.2rem 0 2rem;
+  }
+
+  .sc-checklist li {
+    position: relative;
+    padding: .65rem 0 .65rem 1.8rem;
+    border-bottom: 1px solid var(--line);
+    font-size: .9rem;
+  }
+
+  .sc-checklist li::before {
+    content: '✓';
+    position: absolute;
+    left: .15rem;
+    color: var(--sc-green);
+    font-family: var(--mono);
+  }
+
+  details {
+    margin: 1.2rem 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(250,248,244,.65);
+  }
+
+  summary {
+    padding: .9rem 1.1rem;
+    cursor: pointer;
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: .78rem;
+  }
+
+  details > div { padding: 0 1.1rem 1.1rem; }
+
+  .references {
+    margin-top: 3.4rem;
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .references h2 {
+    margin-top: 0;
+    margin-bottom: 1.25rem;
+  }
+
+  .reference-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: references;
+  }
+
+  .reference-list li {
+    position: relative;
+    counter-increment: references;
+    margin: 0 0 .9rem;
+    padding: 0 0 .9rem 2.65rem;
+    border-bottom: 1px solid rgba(26,24,20,.08);
+    color: var(--ink-soft);
+    font-family: var(--serif);
+    font-size: .84rem;
+    line-height: 1.72;
+  }
+
+  .reference-list li::before {
+    content: '[' counter(references) ']';
+    position: absolute;
+    left: 0;
+    top: .02rem;
+    width: 2rem;
+    color: var(--sc-blue);
+    font-family: var(--mono);
+    font-size: .72rem;
+  }
+
+  .reference-list cite { color: var(--ink); }
+
+  .reference-list a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(196,98,45,.25);
+    overflow-wrap: anywhere;
+  }
+
+  .reference-list a:hover { border-bottom-color: var(--accent); }
+
+  .reference-kind {
+    display: inline-block;
+    margin-left: .45rem;
+    padding: .08rem .4rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: .58rem;
+    letter-spacing: .04em;
+    vertical-align: .08rem;
+  }
+
+  .article-actions {
+    position: fixed;
+    top: 1.6rem;
+    right: 1.8rem;
+    z-index: 100;
+    display: flex;
+    gap: .5rem;
+  }
+
+  .article-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .42rem;
+    min-height: 38px;
+    padding: .45rem .78rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(247,244,239,.88);
+    backdrop-filter: blur(10px);
+    color: var(--ink-soft);
+    font-family: var(--mono);
+    font-size: .72rem;
+    font-weight: 300;
+    cursor: pointer;
+    transition: background .2s ease, color .2s ease, border-color .2s ease, transform .2s ease;
+  }
+
+  .article-action:hover {
+    transform: translateY(-1px);
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  .article-action:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .article-action[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  .article-action svg {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+  }
+
+  .action-toast {
+    position: fixed;
+    top: 4.75rem;
+    right: 1.8rem;
+    z-index: 110;
+    max-width: min(310px, calc(100vw - 2rem));
+    padding: .55rem .8rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: rgba(26,24,20,.92);
+    color: var(--paper);
+    box-shadow: 0 10px 28px rgba(26,24,20,.15);
+    font-family: var(--mono);
+    font-size: .68rem;
+    line-height: 1.55;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-5px);
+    transition: opacity .2s ease, transform .2s ease;
+  }
+
+  .action-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  html[data-theme="dark"] .post-hero {
+    background:
+      radial-gradient(circle at 18% 22%, rgba(225,138,87,.12), transparent 25%),
+      radial-gradient(circle at 82% 70%, rgba(132,185,207,.12), transparent 30%),
+      linear-gradient(145deg, #181919, #202120 55%, #171818);
+  }
+
+  html[data-theme="dark"] .hero-overlay {
+    background: linear-gradient(to bottom, rgba(19,20,20,0) 35%, rgba(19,20,20,.98) 100%);
+  }
+
+  html[data-theme="dark"] .hero-node {
+    border-color: rgba(255,255,255,.12);
+    background: rgba(31,32,31,.82);
+    box-shadow: 0 12px 32px rgba(0,0,0,.22);
+  }
+
+  html[data-theme="dark"] .hero-proof .hero-node:last-child {
+    border-color: rgba(225,138,87,.32);
+    background: rgba(57,39,30,.82);
+  }
+
+  html[data-theme="dark"] .sc-toc,
+  html[data-theme="dark"] .symbol-table,
+  html[data-theme="dark"] .truth-table,
+  html[data-theme="dark"] details {
+    background: rgba(32,33,32,.68);
+  }
+
+  html[data-theme="dark"] .math-block {
+    border-color: rgba(132,185,207,.24);
+    border-left-color: var(--sc-blue);
+    background: #19292f;
+    color: #d9eef6;
+    box-shadow: 0 8px 24px rgba(0,0,0,.16);
+  }
+
+  html[data-theme="dark"] .math-block.gold {
+    border-color: rgba(213,171,100,.23);
+    border-left-color: var(--sc-gold);
+    background: #31291d;
+    color: #f2dfba;
+  }
+
+  html[data-theme="dark"] .math-block.green {
+    border-color: rgba(142,186,167,.22);
+    border-left-color: var(--sc-green);
+    background: #1d3028;
+    color: #d9eee5;
+  }
+
+  html[data-theme="dark"] .math-note { border-top-color: rgba(255,255,255,.1); }
+
+  html[data-theme="dark"] .sc-callout {
+    border-color: rgba(213,171,100,.24);
+    background: var(--sc-gold-soft);
+  }
+
+  html[data-theme="dark"] .sc-callout strong { color: var(--sc-gold); }
+
+  html[data-theme="dark"] .protocol-stage {
+    border-color: rgba(255,255,255,.11);
+    background: rgba(31,32,31,.82);
+    box-shadow: 0 10px 30px rgba(0,0,0,.18);
+  }
+
+  html[data-theme="dark"] .stage-index {
+    border-color: rgba(132,185,207,.25);
+    background: var(--sc-blue-soft);
+  }
+
+  html[data-theme="dark"] .protocol-stage:nth-child(2) .stage-index {
+    border-color: rgba(213,171,100,.25);
+    background: var(--sc-gold-soft);
+  }
+
+  html[data-theme="dark"] .protocol-stage:nth-child(3) .stage-index {
+    border-color: rgba(142,186,167,.25);
+    background: var(--sc-green-soft);
+  }
+
+  html[data-theme="dark"] .round-card {
+    background: rgba(31,32,31,.82);
+  }
+
+  html[data-theme="dark"] .transcript {
+    border-color: rgba(142,186,167,.25);
+    background: var(--sc-green-soft);
+    color: #d9eee5;
+  }
+
+  html[data-theme="dark"] .reference-list li {
+    border-bottom-color: rgba(255,255,255,.08);
+  }
+
+  html[data-theme="dark"] .reference-list a {
+    border-bottom-color: rgba(225,138,87,.35);
+  }
+
+  html[data-theme="dark"] .article-action {
+    background: rgba(27,28,28,.9);
+    border-color: rgba(255,255,255,.14);
+    color: var(--ink-soft);
+  }
+
+  html[data-theme="dark"] .article-action:hover {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--paper);
+  }
+
+  html[data-theme="dark"] .action-toast {
+    border-color: rgba(255,255,255,.16);
+    background: rgba(238,234,226,.96);
+    color: #171817;
+    box-shadow: 0 10px 30px rgba(0,0,0,.3);
+  }
+
+  @media (max-width: 760px) {
+    .post-hero { min-height: 460px; }
+    .hero-proof {
+      grid-template-columns: 1fr 28px 1fr;
+      width: min(480px, 94vw);
+    }
+    .hero-proof .hero-node:nth-of-type(3) { grid-column: 1; }
+    .hero-proof .hero-arrow:nth-of-type(4) { grid-column: 2; }
+    .hero-proof .hero-node:nth-of-type(5) { grid-column: 3; }
+    .protocol-loop { grid-template-columns: 1fr 1fr; }
+    .loop-step:nth-child(2)::after { display: none; }
+    .fact-grid { grid-template-columns: 1fr; }
+    .sc-toc ol { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 520px) {
+    .back-fixed {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+    }
+    .article-wrap { padding-left: 1.15rem; padding-right: 1.15rem; }
+    .protocol-loop { grid-template-columns: 1fr; }
+    .loop-step::after { display: none; }
+    .message { grid-template-columns: 82px 1fr; gap: .5rem; }
+    .math-block {
+      margin-left: -.15rem;
+      margin-right: -.15rem;
+      padding: 1rem .85rem .92rem;
+      font-size: 1rem;
+    }
+    .sum-op { min-width: 2.15em; }
+    .sum-op.wide { min-width: 5.35em; }
+    .message .payload { font-size: .94rem; }
+    .symbol-table { font-size: .8rem; }
+    .article-actions { position: absolute; top: 1rem; right: 1rem; }
+    .article-action {
+      width: 38px;
+      min-width: 38px;
+      padding: 0;
+    }
+    .article-action span { display: none; }
+    .action-toast { top: 4rem; right: 1rem; }
+  }
+
+  .gkr-figure {
+    margin: 1.8rem 0 2.35rem;
+    padding: 1rem 1rem .85rem;
+    border: 1px solid rgba(49,91,112,.16);
+    border-radius: 10px;
+    background: rgba(250,248,244,.76);
+    box-shadow: 0 10px 28px rgba(26,24,20,.035);
+    overflow-x: auto;
+  }
+
+  .gkr-figure svg {
+    display: block;
+    width: min(100%, 860px);
+    height: auto;
+    margin: 0 auto;
+  }
+
+  .gkr-figure figcaption {
+    margin-top: .8rem;
+    padding-top: .7rem;
+    border-top: 1px solid var(--line);
+    color: var(--ink-mute);
+    font-family: var(--body);
+    font-size: .8rem;
+    line-height: 1.65;
+    text-align: center;
+  }
+
+  .gkr-figure .svg-node {
+    fill: rgba(250,248,244,.96);
+    stroke: var(--sc-blue);
+    stroke-width: 1.5;
+  }
+
+  .gkr-figure .svg-node-accent {
+    fill: var(--sc-gold-soft);
+    stroke: var(--sc-gold);
+    stroke-width: 1.8;
+  }
+
+  .gkr-figure .svg-node-green {
+    fill: var(--sc-green-soft);
+    stroke: var(--sc-green);
+    stroke-width: 1.6;
+  }
+
+  .gkr-figure .svg-edge {
+    stroke: var(--ink-mute);
+    stroke-width: 1.4;
+    fill: none;
+  }
+
+  .gkr-figure .svg-edge-accent {
+    stroke: var(--sc-gold);
+    stroke-width: 2.1;
+    fill: none;
+  }
+
+  .gkr-figure .svg-text {
+    fill: var(--ink);
+    font-family: var(--mono);
+    font-size: 15px;
+  }
+
+  .gkr-figure .svg-small {
+    fill: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .gkr-figure .svg-title {
+    fill: var(--ink);
+    font-family: var(--serif);
+    font-size: 20px;
+  }
+
+  html[data-theme="dark"] .gkr-figure {
+    border-color: rgba(255,255,255,.11);
+    background: rgba(31,32,31,.82);
+    box-shadow: 0 10px 30px rgba(0,0,0,.18);
+  }
+
+  html[data-theme="dark"] .gkr-figure .svg-node {
+    fill: #202625;
+  }
+
+</style>
+</head>
+<body data-share-title="BGW 协议：基于 Shamir 秘密共享的安全多方计算">
+<div class="back-fixed">
+<a aria-label="返回文章列表" class="back-btn" href="../index.html">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="M19 12H5M12 5l-7 7 7 7"></path>
+</svg>
+    返回
+  </a>
+</div>
+<div aria-label="文章操作" class="article-actions">
+<button aria-label="分享这篇笔记" class="article-action" id="share-button" title="分享这篇笔记" type="button">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" viewbox="0 0 24 24">
+<circle cx="18" cy="5" r="2.5"></circle>
+<circle cx="6" cy="12" r="2.5"></circle>
+<circle cx="18" cy="19" r="2.5"></circle>
+<path d="M8.2 10.8l7.6-4.5M8.2 13.2l7.6 4.5"></path>
+</svg>
+<span>分享</span>
+</button>
+<button aria-label="切换为深色模式" aria-pressed="false" class="article-action" data-theme-toggle="" id="theme-button" title="切换为深色模式" type="button">
+<svg aria-hidden="true" class="theme-icon-moon" fill="none" stroke="currentColor" stroke-width="1.6" viewbox="0 0 24 24">
+<path d="M20 15.1A8.5 8.5 0 0 1 8.9 4a8.5 8.5 0 1 0 11.1 11.1z"></path>
+</svg>
+<svg aria-hidden="true" class="theme-icon-sun" fill="none" stroke="currentColor" stroke-width="1.6" viewbox="0 0 24 24">
+<circle cx="12" cy="12" r="3.7"></circle><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"></path>
+</svg>
+<span data-theme-label="">深色</span>
+</button>
+</div>
+<div aria-live="polite" class="action-toast" id="action-toast" role="status"></div>
+<div aria-hidden="true" class="post-hero">
+<div class="sumcheck-hero"><div class="hero-proof">
+<div class="hero-node"><strong>x₁,…,xₙ</strong><span>各方私有输入</span></div>
+<div class="hero-arrow">→</div>
+<div class="hero-node"><strong>[x]</strong><span>Shamir 份额</span></div>
+<div class="hero-arrow">→</div>
+<div class="hero-node"><strong>[f(x)]</strong><span>在份额上求值</span></div>
+<div class="hero-arrow">→</div>
+<div class="hero-node"><strong>f(x)</strong><span>仅重构输出</span></div>
+</div></div><div class="hero-overlay"></div>
+</div>
+<main class="article-wrap">
+<div class="article-meta anim anim-1"><span class="meta-tag">密码学 · 安全多方计算</span><span class="meta-date">2026-08-04</span><span class="meta-readtime">约 20 分钟</span></div>
+<h1 class="article-title anim anim-2">BGW 协议：基于 Shamir 秘密共享的安全多方计算</h1>
+<hr class="article-divider anim anim-3"/>
+<nav aria-label="密码学学习顺序" class="lesson-nav anim anim-3" data-learning-nav="" data-post-id="19" hidden=""></nav>
+<article class="article-content anim anim-4">
+<div class="sc-kicker">LEARNING NOTE · BGW PROTOCOL</div>
+<p class="sc-lead">Ben-Or–Goldwasser–Wigderson（BGW）协议是一类经典的安全多方计算协议。多个参与方分别持有私有输入，希望共同计算一个公开函数，却不希望暴露各自输入或中间结果。所有参与方事先知道同一个公开算术电路，先把输入转换成 Shamir 秘密共享份额，随后在各自份额上按照相同的电路拓扑执行，最后只重构指定输出。</p>
+<blockquote>BGW 最核心的接口只有一句话：<strong>每个 gate 的输入是 Shamir 份额，输出仍然必须是 Shamir 份额。</strong>只要加法门和乘法门都能维持这个接口，整个算术电路就可以在不公开中间值的情况下被逐层执行。</blockquote>
+<nav aria-label="文章目录" class="sc-toc">
+<div class="sc-toc-title">Contents</div>
+<ol>
+<li><a href="#overview">BGW 在做什么</a></li>
+<li><a href="#sharing">份额表示与输入共享</a></li>
+<li><a href="#gates">加法门与乘法门</a></li>
+<li><a href="#repair">重新随机化与次数约简</a></li>
+<li><a href="#example">完整数值例子</a></li>
+<li><a href="#output">输出重构与安全边界</a></li>
+<li><a href="#formal">形式化接口与最终记忆</a></li>
+</ol>
+</nav>
+<h2 id="overview">一、BGW 在做什么？</h2>
+<p>设有 <span data-tex="n"></span> 个参与方 <span data-tex="P_1,\ldots,P_n"></span>，其中 <span data-tex="P_i"></span> 持有自己的私有输入 <span data-tex="x_i"></span>。大家希望共同计算：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="y=f(x_1,\ldots,x_n)"></div>
+</div>
+<p>函数 <span data-tex="f"></span> 会事先表示成有限域 <span data-tex="\mathbb F_p"></span> 上的公开算术电路。电路结构本身不是秘密，参与方都知道哪些 gate 是加法、哪些 gate 是乘法，以及 gate 之间如何连接；真正被隐藏的是每条 wire 上承载的数值。</p>
+<figure class="gkr-figure">
+<svg aria-labelledby="overall-title overall-desc" role="img" viewbox="0 0 860 320">
+<title id="overall-title">BGW overall execution pipeline</title>
+<desc id="overall-desc">Private inputs become Shamir shares, the same public arithmetic circuit is evaluated on shares, and only the final output is reconstructed.</desc>
+<text class="svg-title" text-anchor="middle" x="430" y="28">BGW 的整体执行链</text>
+<rect class="svg-node" height="72" rx="12" width="155" x="40" y="95"></rect>
+<text class="svg-small" text-anchor="middle" x="118" y="121">各方私有输入</text>
+<text class="svg-text" text-anchor="middle" x="118" y="150">x₁, x₂, …, xₙ</text>
+<rect class="svg-node-green" height="72" rx="12" width="170" x="240" y="95"></rect>
+<text class="svg-small" text-anchor="middle" x="325" y="121">Shamir 共享</text>
+<text class="svg-text" text-anchor="middle" x="325" y="150">[x₁], [x₂], …</text>
+<rect class="svg-node-accent" height="108" rx="12" width="190" x="455" y="78"></rect>
+<text class="svg-small" text-anchor="middle" x="550" y="106">同一个公开算术电路</text>
+<text class="svg-text" text-anchor="middle" x="550" y="138">加法门 + 乘法门</text>
+<text class="svg-small" text-anchor="middle" x="550" y="166">始终在份额上执行</text>
+<rect class="svg-node" height="72" rx="12" width="130" x="690" y="95"></rect>
+<text class="svg-small" text-anchor="middle" x="755" y="121">输出重构</text>
+<text class="svg-text" text-anchor="middle" x="755" y="150">f(x₁,…,xₙ)</text>
+<line class="svg-edge-accent" x1="195" x2="240" y1="131" y2="131"></line>
+<line class="svg-edge-accent" x1="410" x2="455" y1="131" y2="131"></line>
+<line class="svg-edge-accent" x1="645" x2="690" y1="131" y2="131"></line>
+<text class="svg-small" text-anchor="middle" x="325" y="228">输入明文从此不再使用</text>
+<text class="svg-small" text-anchor="middle" x="550" y="228">中间 wire 不被公开</text>
+<text class="svg-small" text-anchor="middle" x="755" y="228">只恢复指定输出</text>
+</svg>
+<figcaption>BGW 不是把明文交给某个中心节点，而是让整个公开算术电路始终运行在 Shamir 份额上。</figcaption>
+</figure>
+<p>所有参与方执行的是<strong>同一个电路</strong>，但每个人只处理自己持有的那一个 share coordinate。假设要计算：</p>
+<div class="math-block gold">
+<div class="math-line" data-tex="f(a,b,c)=(a+b)c"></div>
+</div>
+<figure class="gkr-figure">
+<svg aria-labelledby="lanes-title lanes-desc" role="img" viewbox="0 0 860 420">
+<title id="lanes-title">Parallel participant lanes for one public arithmetic circuit</title>
+<desc id="lanes-desc">Every participant evaluates the same arithmetic circuit, but only on the local Shamir shares it holds.</desc>
+<text class="svg-title" text-anchor="middle" x="430" y="28">同一个公开电路，不同参与方只处理自己的 Share</text>
+<text class="svg-small" x="40" y="85">P₁</text>
+<text class="svg-small" x="40" y="175">P₂</text>
+<text class="svg-small" x="40" y="265">P₃</text>
+<text class="svg-small" x="40" y="355">Pₙ</text>
+<!-- lane 1 -->
+<rect class="svg-node" height="46" rx="10" width="92" x="85" y="58"></rect>
+<rect class="svg-node" height="46" rx="10" width="92" x="85" y="108"></rect>
+<text class="svg-text" text-anchor="middle" x="131" y="87">[a]₁</text>
+<text class="svg-text" text-anchor="middle" x="131" y="137">[b]₁</text>
+<circle class="svg-node-green" cx="275" cy="106" r="29"></circle>
+<text class="svg-text" text-anchor="middle" x="275" y="112">+</text>
+<rect class="svg-node" height="48" rx="10" width="115" x="375" y="82"></rect>
+<text class="svg-text" text-anchor="middle" x="432" y="111">[a+b]₁</text>
+<rect class="svg-node" height="48" rx="10" width="115" x="375" y="137"></rect>
+<text class="svg-text" text-anchor="middle" x="432" y="166">[c]₁</text>
+<circle class="svg-node-accent" cx="585" cy="125" r="30"></circle>
+<text class="svg-text" text-anchor="middle" x="585" y="131">×</text>
+<rect class="svg-node-green" height="48" rx="10" width="120" x="690" y="101"></rect>
+<text class="svg-text" text-anchor="middle" x="750" y="130">[y]₁</text>
+<!-- lane 2 -->
+<rect class="svg-node" height="46" rx="10" width="92" x="85" y="158"></rect>
+<rect class="svg-node" height="46" rx="10" width="92" x="85" y="208"></rect>
+<text class="svg-text" text-anchor="middle" x="131" y="187">[a]₂</text>
+<text class="svg-text" text-anchor="middle" x="131" y="237">[b]₂</text>
+<circle class="svg-node-green" cx="275" cy="206" r="29"></circle>
+<text class="svg-text" text-anchor="middle" x="275" y="212">+</text>
+<rect class="svg-node" height="48" rx="10" width="115" x="375" y="182"></rect>
+<text class="svg-text" text-anchor="middle" x="432" y="211">[a+b]₂</text>
+<rect class="svg-node" height="48" rx="10" width="115" x="375" y="237"></rect>
+<text class="svg-text" text-anchor="middle" x="432" y="266">[c]₂</text>
+<circle class="svg-node-accent" cx="585" cy="225" r="30"></circle>
+<text class="svg-text" text-anchor="middle" x="585" y="231">×</text>
+<rect class="svg-node-green" height="48" rx="10" width="120" x="690" y="201"></rect>
+<text class="svg-text" text-anchor="middle" x="750" y="230">[y]₂</text>
+<!-- abbreviated lower lanes -->
+<text class="svg-small" text-anchor="middle" x="450" y="318">⋮　所有参与方按相同 gate 顺序同步推进　⋮</text>
+<line class="svg-edge" x1="177" x2="248" y1="81" y2="98"></line>
+<line class="svg-edge" x1="177" x2="248" y1="131" y2="114"></line>
+<line class="svg-edge-accent" x1="304" x2="375" y1="106" y2="106"></line>
+<line class="svg-edge" x1="490" x2="555" y1="106" y2="118"></line>
+<line class="svg-edge" x1="490" x2="555" y1="161" y2="132"></line>
+<line class="svg-edge-accent" x1="615" x2="690" y1="125" y2="125"></line>
+<line class="svg-edge" x1="177" x2="248" y1="181" y2="198"></line>
+<line class="svg-edge" x1="177" x2="248" y1="231" y2="214"></line>
+<line class="svg-edge-accent" x1="304" x2="375" y1="206" y2="206"></line>
+<line class="svg-edge" x1="490" x2="555" y1="206" y2="218"></line>
+<line class="svg-edge" x1="490" x2="555" y1="261" y2="232"></line>
+<line class="svg-edge-accent" x1="615" x2="690" y1="225" y2="225"></line>
+</svg>
+<figcaption><span data-tex="[w]"></span> 是全局上对一个共享状态的简写；参与方 <span data-tex="P_i"></span> 实际只持有自己的本地份额 <span data-tex="[w]_i"></span>。所有参与方遵循同一张公开算术电路，但分别在自己的 share coordinate 上计算。</figcaption>
+</figure>
+<div class="sc-callout">
+<strong>全局记号与本地视角必须区分</strong>
+<p><span data-tex="[w]"></span> 表示分布在所有参与方之间的完整 Shamir sharing；参与方 <span data-tex="P_i"></span> 实际只持有自己的本地份额 <span data-tex="[w]_i=g_w(i)"></span>。</p>
+</div>
+<h2 id="sharing">二、份额表示与输入共享</h2>
+<p>设算术电路中某条 wire 的真实值为 <span data-tex="w"></span>。BGW 不直接保存 <span data-tex="w"></span>，而是随机选择一个 degree-<span data-tex="t"></span> 多项式：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="g_w(X)=w+a_1X+\cdots+a_tX^t"></div>
+<div class="math-line" data-tex="g_w(0)=w"></div>
+</div>
+<p>参与方 <span data-tex="P_i"></span> 只持有：</p>
+<div class="math-block">
+<div class="math-line" data-tex="[w]_i:=g_w(i)"></div>
+</div>
+<p>而整组分布式 sharing 记作：</p>
+<div class="math-block gold">
+<div class="math-line" data-tex="[w]=(g_w(1),g_w(2),\ldots,g_w(n))"></div>
+</div>
+<p>输入共享就是第一次建立这种状态。若 <span data-tex="P_i"></span> 的私有输入是 <span data-tex="x_i"></span>，它随机选择：</p>
+<div class="math-block">
+<div class="math-line" data-tex="a_{i,1},\ldots,a_{i,t}\xleftarrow{\$}\mathbb F_p"></div>
+<div class="math-line" data-tex="g_i(X)=x_i+a_{i,1}X+\cdots+a_{i,t}X^t"></div>
+</div>
+<p>然后把 <span data-tex="g_i(j)"></span> 发送给 <span data-tex="P_j"></span>。因此，对于输入 <span data-tex="x_i"></span>：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="P_j\text{ receives }g_i(j),\qquad j=1,\ldots,n"></div>
+</div>
+<p>完成后，所有输入都已经从明文状态转换为分布式 Shamir sharing；此后的算术电路只处理这些份额。</p>
+<div class="fact-grid">
+<div class="fact-card">
+<span>值</span>
+<strong>常数项保存真实值</strong>
+<p>共享多项式在 0 处的取值就是当前 wire 的真实值。</p>
+</div>
+<div class="fact-card">
+<span>本地视角</span>
+<strong>每方只见一个 Evaluation</strong>
+<p>参与方 <span data-tex="P_i"></span> 只知道 <span data-tex="g_w(i)"></span>，并不知道完整多项式。</p>
+</div>
+<div class="fact-card">
+<span>阈值</span>
+<strong>至少 t+1 份才能重构</strong>
+<p>degree 为 <span data-tex="t"></span> 时，需要至少 <span data-tex="t+1"></span> 个正确份额才能唯一恢复该多项式。</p>
+</div>
+</div>
+<h2 id="gates">三、加法门与乘法门</h2>
+<p>BGW 的整个计算能力最终归结为两个基本 gate：加法和乘法。它们的区别在于 polynomial degree 是否保持不变。</p>
+<h3>加法门</h3>
+<p>若两个 wire 分别由：</p>
+<div class="math-block">
+<div class="math-line" data-tex="g_a(0)=a,\qquad g_b(0)=b,\qquad \deg g_a,\deg g_b\le t"></div>
+</div>
+<p>来共享，那么每个参与方只需本地计算：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="[a+b]_i=[a]_i+[b]_i=g_a(i)+g_b(i)"></div>
+</div>
+<p>这相当于使用：</p>
+<div class="math-block">
+<div class="math-line" data-tex="g_{a+b}(X)=g_a(X)+g_b(X)"></div>
+<div class="math-line" data-tex="g_{a+b}(0)=a+b,\qquad \deg g_{a+b}\le t"></div>
+</div>
+<p>因此加法门不需要交互，输出天然仍然是一个标准 degree-<span data-tex="t"></span> Shamir sharing。公开常数 <span data-tex="c"></span> 的乘法也一样：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="[ca]_i=c[a]_i"></div>
+</div>
+<h3>乘法门</h3>
+<p>若每个参与方直接把自己持有的两个 shares 相乘：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="d_i=[a]_i[b]_i=g_a(i)g_b(i)"></div>
+</div>
+<p>那么这些 <span data-tex="d_i"></span> 正好是乘积多项式：</p>
+<div class="math-block gold">
+<div class="math-line" data-tex="h(X)=g_a(X)g_b(X)"></div>
+<div class="math-line" data-tex="h(0)=ab,\qquad \deg h\le2t"></div>
+</div>
+<p>也就是说，<strong>乘积 secret 已经正确，但 sharing representation 坏了</strong>：次数从 <span data-tex="t"></span> 增长到了 <span data-tex="2t"></span>，而且这个乘积 polynomial 也不再是一个新的随机 Shamir sharing。</p>
+<figure class="gkr-figure">
+<svg aria-labelledby="gatecmp-title gatecmp-desc" role="img" viewbox="0 0 860 385">
+<title id="gatecmp-title">Addition and multiplication on Shamir shares</title>
+<desc id="gatecmp-desc">Addition preserves degree t directly, while multiplication first produces degree 2t and requires repair.</desc>
+<text class="svg-title" text-anchor="middle" x="430" y="28">为什么加法门简单，而乘法门需要额外处理？</text>
+<text class="svg-small" x="35" y="98">加法门</text>
+<rect class="svg-node" height="50" rx="10" width="100" x="80" y="68"></rect>
+<rect class="svg-node" height="50" rx="10" width="100" x="80" y="138"></rect>
+<text class="svg-text" text-anchor="middle" x="130" y="99">[a]ₜ</text>
+<text class="svg-text" text-anchor="middle" x="130" y="169">[b]ₜ</text>
+<circle class="svg-node-green" cx="285" cy="128" r="32"></circle>
+<text class="svg-text" text-anchor="middle" x="285" y="134">+</text>
+<rect class="svg-node-green" height="52" rx="10" width="140" x="400" y="103"></rect>
+<text class="svg-text" text-anchor="middle" x="470" y="135">[a+b]ₜ</text>
+<text class="svg-small" x="590" y="133">degree 不变，可直接继续</text>
+<line class="svg-edge" x1="180" x2="255" y1="93" y2="116"></line>
+<line class="svg-edge" x1="180" x2="255" y1="163" y2="140"></line>
+<line class="svg-edge-accent" x1="317" x2="400" y1="128" y2="128"></line>
+<text class="svg-small" x="35" y="285">乘法门</text>
+<rect class="svg-node" height="50" rx="10" width="100" x="80" y="255"></rect>
+<rect class="svg-node" height="50" rx="10" width="100" x="80" y="325"></rect>
+<text class="svg-text" text-anchor="middle" x="130" y="286">[a]ₜ</text>
+<text class="svg-text" text-anchor="middle" x="130" y="356">[b]ₜ</text>
+<circle class="svg-node-accent" cx="285" cy="315" r="32"></circle>
+<text class="svg-text" text-anchor="middle" x="285" y="321">×</text>
+<rect class="svg-node-accent" height="52" rx="10" width="130" x="390" y="290"></rect>
+<text class="svg-text" text-anchor="middle" x="455" y="322">[ab]₂ₜ</text>
+<rect class="svg-node-green" height="52" rx="10" width="125" x="665" y="290"></rect>
+<text class="svg-text" text-anchor="middle" x="727" y="322">[ab]ₜ</text>
+<text class="svg-small" text-anchor="middle" x="592" y="276">重新随机化 + 次数约简</text>
+<line class="svg-edge" x1="180" x2="255" y1="280" y2="303"></line>
+<line class="svg-edge" x1="180" x2="255" y1="350" y2="327"></line>
+<line class="svg-edge-accent" x1="317" x2="390" y1="315" y2="315"></line>
+<line class="svg-edge-accent" x1="520" x2="665" y1="315" y2="315"></line>
+</svg>
+<figcaption>加法保持 degree-<span data-tex="t"></span>；乘法先得到正确的 <span data-tex="ab"></span>，但临时形成 degree-<span data-tex="2t"></span> sharing，因此必须修复后才能继续。</figcaption>
+</figure>
+<h2 id="repair">四、重新随机化与次数约简</h2>
+<p>一次乘法的完整修复链可以写成：</p>
+<div class="transcript">
+<span data-tex="[a]_t,[b]_t\ \xrightarrow{\text{本地乘法}}\ [ab]_{2t}\ \xrightarrow{\text{重新随机化}}\ [ab]^{\mathrm{rand}}_{2t}\ \xrightarrow{\text{次数约简}}\ [ab]_t"></span>
+</div>
+<p>首先恢复随机性。每个参与方随机选择一个 degree-<span data-tex="2t"></span> 的“0 的共享”：</p>
+<div class="math-block">
+<div class="math-line" data-tex="z_i(0)=0,\qquad \deg z_i\le2t"></div>
+</div>
+<p>将这些 zero-sharings 加到乘积 polynomial 上：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="h'(X)=h(X)+\sum_{i=1}^{n}z_i(X)"></div>
+<div class="math-line" data-tex="h'(0)=h(0)=ab"></div>
+</div>
+<p>因此 secret 不变，但其它 coefficients 获得新的随机性。</p>
+<p>接下来处理次数。设：</p>
+<div class="math-block">
+<div class="math-line" data-tex="h'(X)=h_0+h_1X+\cdots+h_{2t}X^{2t},\qquad h_0=ab"></div>
+</div>
+<p>我们希望得到一个新的 degree-<span data-tex="t"></span> polynomial：</p>
+<div class="math-block gold">
+<div class="math-line" data-tex="\widehat h(X)=h_0+h_1X+\cdots+h_tX^t"></div>
+</div>
+<p>它保留常数项 <span data-tex="h_0=ab"></span>，并清零所有 degree 大于 <span data-tex="t"></span> 的高次项。问题在于：没有任何单个参与方持有 coefficients <span data-tex="h_0,h_1,\ldots"></span>；大家实际持有的是 polynomial 在各自编号处的 evaluations。</p>
+
+<div class="sc-callout">
+<strong>同一个多项式的两种表示</strong>
+<p>次数约简想做的是“保留低次系数、删除高次系数”，但各参与方实际持有的不是系数，而是多项式在公开求值点上的取值。因此需要在<strong>系数表示</strong>和<strong>求值表示</strong>之间建立线性对应。</p>
+</div>
+<p>对于多项式：</p>
+<div class="math-block">
+<div class="math-line" data-tex="h(X)=h_0+h_1X+\cdots+h_{n-1}X^{n-1}"></div>
+</div>
+<p>它的系数向量和求值向量分别写成：</p>
+<div class="math-block">
+<div class="math-line" data-tex="\mathbf c=\begin{pmatrix}h_0\\h_1\\\vdots\\h_{n-1}\end{pmatrix},\qquad \mathbf y=\begin{pmatrix}h(1)\\h(2)\\\vdots\\h(n)\end{pmatrix}"></div>
+</div>
+<p>其中 <span data-tex="\mathbf c"></span> 直接记录 polynomial coefficients，<span data-tex="\mathbf y"></span> 直接记录它在公开求值点 <span data-tex="1,\ldots,n"></span> 上的 evaluations。由于：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="h(i)=h_0+h_1i+h_2i^2+\cdots+h_{n-1}i^{n-1}"></div>
+</div>
+<p>把 <span data-tex="i=1,\ldots,n"></span> 的所有求值公式同时写成矩阵形式，就得到：</p>
+<div class="math-block">
+<div class="math-line" data-tex="\underbrace{\begin{pmatrix}h(1)\\h(2)\\\vdots\\h(n)\end{pmatrix}}_{\mathbf y}=\underbrace{\begin{pmatrix}1&amp;1&amp;1^2&amp;\cdots&amp;1^{n-1}\\1&amp;2&amp;2^2&amp;\cdots&amp;2^{n-1}\\\vdots&amp;\vdots&amp;\vdots&amp;&amp;\vdots\\1&amp;n&amp;n^2&amp;\cdots&amp;n^{n-1}\end{pmatrix}}_{V}\underbrace{\begin{pmatrix}h_0\\h_1\\\vdots\\h_{n-1}\end{pmatrix}}_{\mathbf c}"></div>
+</div>
+<p>因此 <span data-tex="V"></span> 的作用就是把 coefficients 转换为 evaluations；求值点互不相同时 <span data-tex="V"></span> 可逆，所以 <span data-tex="V^{-1}"></span> 完成反向转换。</p>
+<div class="transcript">
+<span data-tex="\mathbf c\ \xrightarrow{\ V\ }\ \mathbf y,\qquad \mathbf y\ \xrightarrow{\ V^{-1}\ }\ \mathbf c"></span>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+<p>再定义投影矩阵 <span data-tex="P"></span>，只保留 degree 不超过 <span data-tex="t"></span> 的 coefficients：</p>
+<div class="math-block gold">
+<div class="math-line" data-tex="P(h_0,\ldots,h_t,h_{t+1},\ldots)^T=(h_0,\ldots,h_t,0,\ldots)^T"></div>
+</div>
+<p>于是从旧 evaluations 到新 evaluations 的整个次数约简可以一次写成：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="\widehat{\mathbf y}=VPV^{-1}\mathbf y"></div>
+<div class="math-line" data-tex="A:=VPV^{-1}"></div>
+</div>
+<p>其中 <span data-tex="V"></span> 由公开求值点决定，<span data-tex="P"></span> 由目标次数 <span data-tex="t"></span> 决定，所以协议参数固定时，<span data-tex="A"></span> 也是公开且固定的。</p>
+<figure class="gkr-figure">
+<svg aria-labelledby="repair-title repair-desc" role="img" viewbox="0 0 860 360">
+<title id="repair-title">BGW multiplication repair as a wire transformation</title>
+<desc id="repair-desc">Two degree-t shares are multiplied locally, rerandomized with a degree-2t zero sharing, then mapped back to degree t by A equals V P V inverse.</desc>
+<text class="svg-title" text-anchor="middle" x="430" y="28">一次乘法门的完整 Wire 流程</text>
+<rect class="svg-node" height="52" rx="11" width="105" x="35" y="90"></rect>
+<rect class="svg-node" height="52" rx="11" width="105" x="35" y="200"></rect>
+<text class="svg-text" text-anchor="middle" x="87" y="122">[a]ₜ</text>
+<text class="svg-text" text-anchor="middle" x="87" y="232">[b]ₜ</text>
+<circle class="svg-node-accent" cx="230" cy="171" r="36"></circle>
+<text class="svg-text" text-anchor="middle" x="230" y="177">×</text>
+<rect class="svg-node-accent" height="56" rx="11" width="125" x="310" y="144"></rect>
+<text class="svg-text" text-anchor="middle" x="372" y="178">[ab]₂ₜ</text>
+<circle class="svg-node-green" cx="520" cy="171" r="36"></circle>
+<text class="svg-text" text-anchor="middle" x="520" y="177">+</text>
+<rect class="svg-node-green" height="52" rx="11" width="130" x="455" y="260"></rect>
+<text class="svg-small" text-anchor="middle" x="520" y="282">随机 0 共享</text>
+<text class="svg-text" text-anchor="middle" x="520" y="303">[0]₂ₜ</text>
+<circle class="svg-node-accent" cx="675" cy="171" r="38"></circle>
+<text class="svg-small" text-anchor="middle" x="675" y="164">次数约简</text>
+<text class="svg-text" text-anchor="middle" x="675" y="187">A</text>
+<rect class="svg-node-green" height="56" rx="11" width="80" x="760" y="144"></rect>
+<text class="svg-text" text-anchor="middle" x="800" y="178">[ab]ₜ</text>
+<line class="svg-edge" x1="140" x2="199" y1="116" y2="153"></line>
+<line class="svg-edge" x1="140" x2="199" y1="226" y2="189"></line>
+<line class="svg-edge-accent" x1="266" x2="310" y1="171" y2="171"></line>
+<line class="svg-edge-accent" x1="435" x2="484" y1="171" y2="171"></line>
+<line class="svg-edge" x1="520" x2="520" y1="260" y2="207"></line>
+<line class="svg-edge-accent" x1="556" x2="637" y1="171" y2="171"></line>
+<line class="svg-edge-accent" x1="713" x2="760" y1="171" y2="171"></line>
+<text class="svg-small" text-anchor="middle" x="372" y="123">乘积值已正确</text>
+<text class="svg-small" text-anchor="middle" x="590" y="123">常数项始终保持 ab</text>
+<text class="svg-small" text-anchor="middle" x="675" y="232">A = V P V⁻¹</text>
+</svg>
+<figcaption>乘法后的两个问题被分别处理：随机的 0 共享负责重新随机化，公开线性映射 <span data-tex="A=VPV^{-1}"></span> 负责把 degree 从 <span data-tex="2t"></span> 降回 <span data-tex="t"></span>。</figcaption>
+</figure>
+
+<details>
+<summary>常见疑问：次数约简到底有没有“公开插值”？</summary>
+<div><p><strong>次数约简会不会先公开恢复 polynomial？</strong><br/>
+不会。<span data-tex="V^{-1}\rightarrow P\rightarrow V"></span> 只是公开线性映射的数学解释。真实执行时，各参与方在重新共享的值上共同计算该映射，最终 <span data-tex="P_i"></span> 只得到新的本地 share <span data-tex="[ab]_i"></span>。</p></div>
+</details>
+<h2 id="example">五、完整数值例子</h2>
+<p>取：</p>
+<div class="math-block">
+<div class="math-line" data-tex="\mathbb F_7,\qquad n=3,\qquad t=1"></div>
+<div class="math-line" data-tex="a=2,\qquad b=3"></div>
+</div>
+<p>选择两个 degree-1 共享多项式：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="g_a(X)=2+X,\qquad g_b(X)=3+2X"></div>
+</div>
+<table class="truth-table">
+<thead>
+<tr><th>参与方</th><th><span data-tex="[a]_i"></span></th><th><span data-tex="[b]_i"></span></th><th>本地乘法</th></tr>
+</thead>
+<tbody>
+<tr><td>P₁</td><td>3</td><td>5</td><td><span data-tex="3\cdot5\equiv1"></span></td></tr>
+<tr><td>P₂</td><td>4</td><td>0</td><td>0</td></tr>
+<tr><td>P₃</td><td>5</td><td>2</td><td><span data-tex="5\cdot2\equiv3"></span></td></tr>
+</tbody>
+</table>
+<p>这些本地乘积对应：</p>
+<div class="math-block gold">
+<div class="math-line" data-tex="h(X)=g_a(X)g_b(X)=(2+X)(3+2X)\equiv6+2X^2\pmod7"></div>
+<div class="math-line" data-tex="(h(1),h(2),h(3))=(1,0,3)"></div>
+</div>
+<p>因此：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="h(0)=6=ab,\qquad \deg h=2"></div>
+</div>
+<p>为了展示重新随机化效果，取一个 degree-2 的随机 zero polynomial：</p>
+<div class="math-block">
+<div class="math-line" data-tex="z(X)=X+3X^2,\qquad z(0)=0"></div>
+</div>
+<p>得到：</p>
+<div class="math-block">
+<div class="math-line" data-tex="h'(X)=h(X)+z(X)=6+X+5X^2"></div>
+<div class="math-line" data-tex="(h'(1),h'(2),h'(3))=(5,0,5)"></div>
+</div>
+<p>在 <span data-tex="\mathbb F_7"></span> 中：</p>
+<div class="math-block">
+<div class="math-line" data-tex="V=\begin{pmatrix}1&amp;1&amp;1\\1&amp;2&amp;4\\1&amp;3&amp;2\end{pmatrix},\qquad P=\begin{pmatrix}1&amp;0&amp;0\\0&amp;1&amp;0\\0&amp;0&amp;0\end{pmatrix}"></div>
+</div>
+<p>从数学效果上看：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="\begin{pmatrix}5\\0\\5\end{pmatrix}\xrightarrow{V^{-1}}\begin{pmatrix}6\\1\\5\end{pmatrix}\xrightarrow{P}\begin{pmatrix}6\\1\\0\end{pmatrix}\xrightarrow{V}\begin{pmatrix}0\\1\\2\end{pmatrix}"></div>
+</div>
+<p>也就是：</p>
+<div class="math-block gold">
+<div class="math-line" data-tex="h'(X)=6+X+5X^2\quad\longrightarrow\quad\widehat h(X)=6+X"></div>
+<div class="math-line" data-tex="h'(0)=\widehat h(0)=6,\qquad \deg\widehat h=1"></div>
+</div>
+<p>最终三个参与方分别持有：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="[ab]_1=0,\qquad [ab]_2=1,\qquad [ab]_3=2"></div>
+</div>
+<p>这三个本地 shares 共同组成新的 degree-1 sharing <span data-tex="[ab]"></span>，因此可以继续作为下一层算术电路的输入。</p>
+<h2 id="output">六、输出重构与安全边界</h2>
+<p>整个算术电路执行结束后，假设最终 output wire 的真实值为：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="y=f(x_1,\ldots,x_n)"></div>
+</div>
+<p>此时仍没有任何单个参与方直接知道 <span data-tex="y"></span>。全局状态记作：</p>
+<div class="math-block">
+<div class="math-line" data-tex="[y]=(g_y(1),\ldots,g_y(n)),\qquad g_y(0)=y"></div>
+</div>
+<p>而参与方 <span data-tex="P_i"></span> 实际只持有 <span data-tex="[y]_i=g_y(i)"></span>。</p>
+<p>接下来谁获得 output，取决于协议规定的输出接收者：</p>
+<div class="protocol-stages">
+<section class="protocol-stage">
+<header class="stage-heading">
+<span class="stage-index">A</span>
+<div><span class="stage-role">输出给所有参与方</span><h3>每个人都执行 Shamir Reconstruction</h3></div>
+</header>
+<p>所有参与方把自己的 <span data-tex="[y]_i"></span> 发送给所有输出接收者。每个参与方收集到至少 <span data-tex="t+1"></span> 个正确 shares 后，本地插值恢复 <span data-tex="g_y(0)=y"></span>。</p>
+</section>
+<section class="protocol-stage">
+<header class="stage-heading">
+<span class="stage-index">B</span>
+<div><span class="stage-role">输出给指定参与方</span><h3>只向指定接收者发送 Output Shares</h3></div>
+</header>
+<p>若只有某个 <span data-tex="P_r"></span> 应获得结果，那么其他参与方向 <span data-tex="P_r"></span> 发送自己的 output shares，由 <span data-tex="P_r"></span> 收集足够 shares 后重构 <span data-tex="y"></span>。</p>
+</section>
+</div>
+<figure class="gkr-figure">
+<svg aria-labelledby="recon-title recon-desc" role="img" viewbox="0 0 860 320">
+<title id="recon-title">Output reconstruction in BGW</title>
+<desc id="recon-desc">Output shares are sent to the designated output receiver, which reconstructs the final value using Shamir interpolation.</desc>
+<text class="svg-title" text-anchor="middle" x="430" y="28">Output Reconstruction：Shares 最终发给谁？</text>
+<rect class="svg-node" height="48" rx="10" width="120" x="55" y="72"></rect>
+<rect class="svg-node" height="48" rx="10" width="120" x="55" y="132"></rect>
+<rect class="svg-node" height="48" rx="10" width="120" x="55" y="192"></rect>
+<rect class="svg-node" height="48" rx="10" width="120" x="55" y="252"></rect>
+<text class="svg-text" text-anchor="middle" x="115" y="101">P₁ : [y]₁</text>
+<text class="svg-text" text-anchor="middle" x="115" y="161">P₂ : [y]₂</text>
+<text class="svg-text" text-anchor="middle" x="115" y="221">P₃ : [y]₃</text>
+<text class="svg-text" text-anchor="middle" x="115" y="281">Pₙ : [y]ₙ</text>
+<rect class="svg-node-accent" height="92" rx="12" width="180" x="365" y="128"></rect>
+<text class="svg-small" text-anchor="middle" x="455" y="157">指定 Output Receiver</text>
+<text class="svg-text" text-anchor="middle" x="455" y="186">收集 ≥ t+1 份</text>
+<text class="svg-small" text-anchor="middle" x="455" y="208">Shamir 插值</text>
+<rect class="svg-node-green" height="56" rx="11" width="130" x="680" y="146"></rect>
+<text class="svg-small" text-anchor="middle" x="745" y="168">最终结果</text>
+<text class="svg-text" text-anchor="middle" x="745" y="191">y=f(x)</text>
+<line class="svg-edge" x1="175" x2="365" y1="96" y2="153"></line>
+<line class="svg-edge" x1="175" x2="365" y1="156" y2="166"></line>
+<line class="svg-edge" x1="175" x2="365" y1="216" y2="183"></line>
+<line class="svg-edge" x1="175" x2="365" y1="276" y2="197"></line>
+<line class="svg-edge-accent" x1="545" x2="680" y1="174" y2="174"></line>
+</svg>
+<figcaption>BGW 没有固定的“聚合服务器”。output shares 被发送给协议指定的输出接收者，由这些接收者执行 Shamir reconstruction。若所有参与方都应知道结果，则每个人都可以作为输出接收者。</figcaption>
+</figure>
+<div class="sc-callout">
+<strong>不要把输出重构和乘法中的次数约简混为一谈</strong>
+<p>输出重构会真正得到明文 <span data-tex="y"></span>；次数约简则只把 <span data-tex="[ab]_{2t}"></span> 转成新的 <span data-tex="[ab]_t"></span>，中间乘积 <span data-tex="ab"></span> 仍然不会被任何单个参与方恢复。</p>
+</div>
+<p>在被动攻击模型下，被腐化参与方仍按协议执行，只尝试从自己看到的 shares 推断秘密。由于每条 wire 始终使用 degree-<span data-tex="t"></span> Shamir sharing，而 adversary 最多控制 <span data-tex="t"></span> 个参与方，因此不能恢复 wire value。</p>
+<p>另一方面，乘法过程中临时出现 degree-<span data-tex="2t"></span> polynomial，所以系统需要：</p>
+<div class="math-block green">
+<div class="math-line" data-tex="2t+1\le n\qquad\Longleftrightarrow\qquad t&lt;\frac n2"></div>
+</div>
+<p>若进入恶意攻击模型，少数参与方可能提交错误 shares。利用 Shamir 与 Reed–Solomon 编码的关系，可以纠正一定数量的 reconstruction errors，并得到经典 malicious threshold：</p>
+<div class="math-block gold">
+<div class="math-line" data-tex="t&lt;\frac n3"></div>
+</div>
+<p>但如果 dealer 在共享阶段一开始就发送了不属于同一个低度 polynomial 的 values，那么仅靠错误纠正还不够，需要可验证秘密共享（VSS）来保证 sharing phase 的低度一致性。</p>
+<h2 id="formal">七、形式化接口与最终记忆</h2>
+<ul class="sc-checklist">
+<li><strong>输入共享：</strong><span data-tex="\mathsf{Share}(x)\rightarrow[x]"></span>。一个私有输入被转换成分布式 degree-<span data-tex="t"></span> Shamir sharing。</li>
+<li><strong>加法：</strong><span data-tex="\mathsf{Add}([a],[b])\rightarrow[a+b]"></span>。每个参与方只在本地把自己的两个 shares 相加。</li>
+<li><strong>公开常数乘法：</strong><span data-tex="\mathsf{Scale}(c,[a])\rightarrow[ca]"></span>。各参与方本地乘公开常数。</li>
+<li><strong>乘法：</strong><span data-tex="\mathsf{Mul}([a],[b])\rightarrow[ab]"></span>。本地乘法先产生 degree-<span data-tex="2t"></span> sharing，再经过重新随机化和次数约简恢复为标准 sharing。</li>
+<li><strong>次数约简：</strong><span data-tex="\mathsf{Reduce}([v]_{2t})\rightarrow[v]_t"></span>。改变 sharing representation，但不公开也不改变 secret。</li>
+<li><strong>输出重构：</strong><span data-tex="\mathsf{Recon}([y])\rightarrow y"></span>。各方把 output shares 发送给指定接收者，由接收者执行 Shamir interpolation。</li>
+</ul>
+<div class="fact-grid">
+<div class="fact-card">
+<span>执行视角</span>
+<strong>同一电路，各持一份</strong>
+<p>所有参与方执行同一个公开电路，<span data-tex="P_i"></span> 只处理自己的 share。</p>
+</div>
+<div class="fact-card">
+<span>核心能力</span>
+<strong>线性门天然闭合</strong>
+<p>加法与公开常数乘法保持 Shamir sharing 的次数不变。</p>
+</div>
+<div class="fact-card">
+<span>核心难点</span>
+<strong>乘法后必须修复</strong>
+<p>乘法先得到 degree-<span data-tex="2t"></span> 结果，再恢复为 degree-<span data-tex="t"></span> sharing。</p>
+</div>
+</div>
+<div class="transcript">
+<span data-tex="[x_1],\ldots,[x_n]\ \longrightarrow\ \text{同一公开算术电路}\ \longrightarrow\ [f(x_1,\ldots,x_n)]\ \longrightarrow\ f(x_1,\ldots,x_n)"></span>
+</div>
+<blockquote>一句话总结：BGW 让所有参与方在同一个公开算术电路上同步工作，但每个人始终只处理自己的 Shamir share。加法门可以本地直接推进；乘法门先得到正确乘积，再修复随机性和次数；最后所有 output shares 只发送给指定接收者，并由接收者执行 Shamir reconstruction。</blockquote>
+<details>
+<summary>复习自测：读完后应该能回答这些问题</summary>
+<div>
+<ol>
+<li>为什么 <span data-tex="[w]"></span> 是全局记号，而 <span data-tex="[w]_i"></span> 才是单个参与方真正持有的状态？</li>
+<li>为什么所有参与方必须按照同一个公开算术电路执行？</li>
+<li>为什么加法门不需要交互？</li>
+<li>为什么本地乘法已经得到正确 <span data-tex="ab"></span>，却仍然不能直接进入下一层？</li>
+<li>随机分享 0 为什么能够重新随机化而不改变 secret？</li>
+<li><span data-tex="\mathbf c"></span> 与 <span data-tex="\mathbf y"></span> 分别表示什么？为什么有 <span data-tex="\mathbf y=V\mathbf c"></span>？</li>
+<li><span data-tex="V"></span>、<span data-tex="P"></span>、<span data-tex="A=VPV^{-1}"></span> 分别由什么决定？</li>
+<li>最终 output shares 是发给谁？谁执行 Shamir reconstruction？</li>
+<li>为什么输出重构和乘法中的次数约简是两件完全不同的事情？</li>
+</ol>
+</div>
+</details>
+<section aria-labelledby="references-title" class="references">
+<h2 id="references-title">参考文献</h2>
+<ol class="reference-list">
+<li>M. Ben-Or, S. Goldwasser, and A. Wigderson, “<cite>Completeness Theorems for Non-Cryptographic Fault-Tolerant Distributed Computation</cite>,” STOC, 1988.<span class="reference-kind">BGW</span></li>
+<li>A. Shamir, “<cite>How to Share a Secret</cite>,” <em>Communications of the ACM</em>, vol. 22, no. 11, 1979.<span class="reference-kind">Shamir Secret Sharing</span></li>
+</ol>
+</section>
+</article>
+<footer class="article-footer">
+<a class="footer-back" href="../index.html">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<path d="M19 12H5M12 5l-7 7 7 7"></path>
+</svg>
+      返回所有文章
+    </a>
+<span class="footer-brand">Frieren · Cryptography Notes</span>
+</footer>
+</main>
+<script defer="" src="../static/vendor/katex/katex.min.js"></script>
+<script defer="" src="../static/js/theme.js"></script>
+<script defer="" src="../static/js/posts-data.js"></script>
+<script defer="" src="../static/js/learning-path.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-tex]').forEach(function (element) {
+      katex.render(element.dataset.tex, element, {
+        displayMode: element.classList.contains('math-line'),
+        throwOnError: false,
+        strict: false
+      });
+    });
+
+    const shareButton = document.getElementById('share-button');
+    const toast = document.getElementById('action-toast');
+    let toastTimer;
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () {
+        toast.classList.remove('show');
+      }, 2200);
+    }
+
+    document.addEventListener('frieren-theme-change', function (event) {
+      showToast(event.detail.theme === 'dark' ? '已切换为深色模式' : '已切换为常规模式');
+    });
+
+    async function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+      const field = document.createElement('textarea');
+      field.value = text;
+      field.setAttribute('readonly', '');
+      field.style.position = 'fixed';
+      field.style.opacity = '0';
+      document.body.appendChild(field);
+      field.select();
+      const copied = document.execCommand('copy');
+      field.remove();
+      if (!copied) throw new Error('copy failed');
+    }
+
+    shareButton.addEventListener('click', async function () {
+      const canonical = document.querySelector('link[rel="canonical"]');
+      const url = canonical ? canonical.href : window.location.href;
+      const shareData = {
+        title: document.title,
+        text: 'BGW 协议：基于 Shamir 秘密共享的安全多方计算',
+        url: url
+      };
+
+      if (navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
+        try {
+          await navigator.share(shareData);
+          return;
+        } catch (error) {
+          if (error && error.name === 'AbortError') return;
+        }
+      }
+
+      try {
+        await copyText(url);
+        showToast('公开链接已复制');
+      } catch (_) {
+        window.prompt('复制下面的公开链接：', url);
+      }
+    });
+  });
+</script>
+</body>
+</html>

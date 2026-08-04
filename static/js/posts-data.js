@@ -6,19 +6,41 @@
  *  2. 在下面 posts 数组里添加一条记录
  *
  * 字段说明：
- *  id        — 唯一数字 ID，自增
- *  file      — 对应的文章文件名（放在 posts/ 目录下）
- *  title     — 文章标题
- *  tag       — 分类标签（思考 / 日常 / 生活 / 阅读 / 感悟 / 随笔…自由定义）
- *  date      — 发布日期 YYYY-MM-DD
- *  excerpt   — 摘要，显示在列表页（建议 50-80 字）
- *  readTime  — 阅读时长估算（如 "约 3 分钟"）
- *  cover     — 封面图路径（相对于 index.html），留空则显示 emoji 占位
- *  emoji     — 封面无图时的占位符号
- *  learningOrder — 密码学学习路线中的顺序；非学习笔记可省略
+ *  id            — 唯一数字 ID；只要求全局唯一，不代表学习顺序
+ *  file          — 对应的文章文件名（放在 posts/ 目录下）
+ *  title         — 文章标题
+ *  tag           — 分类标签
+ *  date          — 发布日期 YYYY-MM-DD
+ *  excerpt       — 摘要，显示在列表页（建议 50–80 字）
+ *  readTime      — 阅读时长估算（如 "约 12 分钟"）
+ *  cover         — 封面图路径（相对于 index.html），留空则显示 emoji 占位
+ *  emoji         — 封面无图时的占位符号
+ *  learningTrack — 所属学习路线；非学习路线文章可省略
+ *  learningOrder — 在所属 learningTrack 内的顺序；非学习路线文章可省略
  *  learningLabel — 学习路线中显示的精简名称
+ *
+ * 学习路线：
+ *  proof-systems — 证明系统与零知识证明
+ *  mpc           — 秘密共享与安全多方计算
  */
+
+window.learningTracks = {
+  "proof-systems": {
+    label: "证明系统与零知识证明",
+    order: 1
+  },
+  "mpc": {
+    label: "秘密共享与安全多方计算",
+    order: 2
+  }
+};
+
 window.posts = [
+
+  // ============================================================
+  // 学习路线一：证明系统与零知识证明
+  // ============================================================
+
   {
     id: 3,
     file: "posts/p-np-sat-interactive-proof.html",
@@ -29,9 +51,11 @@ window.posts = [
     readTime: "约 9 分钟",
     cover: "",
     emoji: "NP",
+    learningTrack: "proof-systems",
     learningOrder: 1,
     learningLabel: "复杂性与交互证明"
   },
+
   {
     id: 5,
     file: "posts/commitment-schemes.html",
@@ -42,9 +66,11 @@ window.posts = [
     readTime: "约 12 分钟",
     cover: "",
     emoji: "C",
+    learningTrack: "proof-systems",
     learningOrder: 2,
     learningLabel: "承诺方案"
   },
+
   {
     id: 4,
     file: "posts/interactive-zk.html",
@@ -55,9 +81,26 @@ window.posts = [
     readTime: "约 13 分钟",
     cover: "",
     emoji: "ZK",
+    learningTrack: "proof-systems",
     learningOrder: 3,
     learningLabel: "交互式零知识"
   },
+
+  {
+    id: 22,
+    file: "posts/nizk-fiat-shamir.html",
+    title: "NIZK 与 Fiat–Shamir：从随机挑战到非交互证明",
+    tag: "证明系统与零知识证明",
+    date: "2026-08-04",
+    excerpt: "从 NIZK 的 CRS 接口出发，理解 public-coin 证明如何在 Random Oracle Model 中用 Fiat–Shamir 将 Verifier 随机挑战替换为 transcript hash，并梳理其安全边界。",
+    readTime: "约 20 分钟",
+    cover: "",
+    emoji: "FS",
+    learningTrack: "proof-systems",
+    learningOrder: 4,
+    learningLabel: "NIZK 与 Fiat–Shamir"
+  },
+
   {
     id: 6,
     file: "posts/knowledge-soundness.html",
@@ -68,9 +111,11 @@ window.posts = [
     readTime: "约 15 分钟",
     cover: "",
     emoji: "PoK",
-    learningOrder: 4,
+    learningTrack: "proof-systems",
+    learningOrder: 5,
     learningLabel: "知识可靠性"
   },
+
   {
     id: 2,
     file: "posts/sumcheck-protocol-notes.html",
@@ -81,48 +126,108 @@ window.posts = [
     readTime: "约 12 分钟",
     cover: "",
     emoji: "∑",
-    learningOrder: 5,
+    learningTrack: "proof-systems",
+    learningOrder: 6,
     learningLabel: "Sumcheck 协议"
   },
+
   {
-  id: 19,
-  file: "posts/multilinear-extension.html",
-  title: "Multilinear Extension：从 Boolean Table 到低度多项式",
-  tag: "证明系统与零知识证明",
-  date: "2026-08-03",
-  excerpt: "从一维 Boolean Lagrange basis 出发，解释固定 basis、唯一多线性扩展、同一 basis 如何表示不同 table，以及随机有限域点求值在 Sumcheck 和 GKR 中的意义。",
-  readTime: "约 16 分钟",
-  cover: "",
-  emoji: "MLE",
-  learningOrder: 6,
-  learningLabel: "Multilinear Extension"
-},
-{
-  id: 18,
-  file: "posts/gkr-protocol-notes.html",
-  title: "GKR Protocol：从电路执行到逐层多项式验证",
-  tag: "证明系统与零知识证明",
-  date: "2026-08-02",
-  excerpt: "从分层电路与 gate-value table 出发，依次理解 Multilinear Extension、wiring predicate 与逐层 Sumcheck 归约，并通过数值例子和示意图串联 GKR 的完整验证主线。",
-  readTime: "约 20 分钟",
-  cover: "",
-  emoji: "GKR",
-  learningOrder: 7,
-  learningLabel: "GKR 协议"
-},
-{
-  id: 20,
-  file: "posts/kzg-polynomial-commitment.html",
-  title: "KZG Polynomial Commitment：从指数编码到点值证明",
-  tag: "证明系统与零知识证明",
-  date: "2026-08-03",
-  excerpt: "从 Gen、Com、Open 与 Ver 四个算法出发，理解 KZG 如何利用隐藏点的 SRS 编码 polynomial commitment，并通过 quotient polynomial 与 bilinear pairing 验证指定点上的 evaluation。",
-  readTime: "约 20 分钟",
-  cover: "",
-  emoji: "KZG",
-  learningOrder: 8,
-  learningLabel: "KZG Polynomial Commitment"
-},
+    id: 19,
+    file: "posts/multilinear-extension.html",
+    title: "Multilinear Extension：从 Boolean Table 到低度多项式",
+    tag: "证明系统与零知识证明",
+    date: "2026-08-03",
+    excerpt: "从一维 Boolean Lagrange basis 出发，解释固定 basis、唯一多线性扩展、同一 basis 如何表示不同 table，以及随机有限域点求值在 Sumcheck 和 GKR 中的意义。",
+    readTime: "约 16 分钟",
+    cover: "",
+    emoji: "MLE",
+    learningTrack: "proof-systems",
+    learningOrder: 7,
+    learningLabel: "Multilinear Extension"
+  },
+
+  {
+    id: 18,
+    file: "posts/gkr-protocol-notes.html",
+    title: "GKR Protocol：从电路执行到逐层多项式验证",
+    tag: "证明系统与零知识证明",
+    date: "2026-08-02",
+    excerpt: "从分层电路与 gate-value table 出发，依次理解 Multilinear Extension、wiring predicate 与逐层 Sumcheck 归约，并通过数值例子和示意图串联 GKR 的完整验证主线。",
+    readTime: "约 20 分钟",
+    cover: "",
+    emoji: "GKR",
+    learningTrack: "proof-systems",
+    learningOrder: 8,
+    learningLabel: "GKR 协议"
+  },
+
+  {
+    id: 20,
+    file: "posts/kzg-polynomial-commitment.html",
+    title: "KZG Polynomial Commitment：从指数编码到点值证明",
+    tag: "证明系统与零知识证明",
+    date: "2026-08-03",
+    excerpt: "从 Gen、Com、Open 与 Ver 四个算法出发，理解 KZG 如何利用隐藏点的 SRS 编码 polynomial commitment，并通过 quotient polynomial 与 bilinear pairing 验证指定点上的 evaluation。",
+    readTime: "约 20 分钟",
+    cover: "",
+    emoji: "KZG",
+    learningTrack: "proof-systems",
+    learningOrder: 9,
+    learningLabel: "KZG Polynomial Commitment"
+  },
+
+  {
+    id: 23,
+    file: "posts/from-gkr-to-snarg.html",
+    title: "From GKR to SNARG：从交互式电路验证到简洁非交互论证",
+    tag: "证明系统与零知识证明",
+    date: "2026-08-04",
+    excerpt: "从 GKR 的深度限制和未知输入问题出发，引入 circuit flattening、Polynomial Commitment 与 Fiat–Shamir，梳理一般 NP witness 如何转化为 Succinct Non-Interactive Argument。",
+    readTime: "约 18 分钟",
+    cover: "",
+    emoji: "SNARG",
+    learningTrack: "proof-systems",
+    learningOrder: 10,
+    learningLabel: "From GKR to SNARG"
+  },
+
+  // ============================================================
+  // 学习路线二：秘密共享与安全多方计算
+  // ============================================================
+
+  {
+    id: 13,
+    file: "posts/shamir-secret-sharing.html",
+    title: "Shamir Secret Sharing（SSS，Shamir 秘密共享）",
+    tag: "密码学",
+    date: "2026-08-02",
+    excerpt: "利用有限域上的随机多项式把秘密拆成 n 份，使任意 t 份能够重构而少于 t 份不泄露秘密，并完整演示拉格朗日插值。",
+    readTime: "约 11 分钟",
+    cover: "",
+    emoji: "SSS",
+    learningTrack: "mpc",
+    learningOrder: 1,
+    learningLabel: "Shamir Secret Sharing"
+  },
+
+  {
+    id: 21,
+    file: "posts/bgw-protocol.html",
+    title: "BGW 协议：基于 Shamir 秘密共享的安全多方计算",
+    tag: "密码学",
+    date: "2026-08-04",
+    excerpt: "从 Shamir 份额上的公开算术电路出发，解释加法门、乘法后的重新随机化与次数约简、Vandermonde 线性变换以及最终输出重构，建立经典 BGW 安全多方计算的完整主线。",
+    readTime: "约 20 分钟",
+    cover: "",
+    emoji: "BGW",
+    learningTrack: "mpc",
+    learningOrder: 2,
+    learningLabel: "BGW 协议"
+  },
+
+  // ============================================================
+  // 其他密码学基础篇章
+  // ============================================================
 
   {
     id: 7,
@@ -135,6 +240,7 @@ window.posts = [
     cover: "",
     emoji: "DES"
   },
+
   {
     id: 8,
     file: "posts/aes.html",
@@ -146,6 +252,7 @@ window.posts = [
     cover: "",
     emoji: "AES"
   },
+
   {
     id: 9,
     file: "posts/diffie-hellman.html",
@@ -157,6 +264,7 @@ window.posts = [
     cover: "",
     emoji: "DH"
   },
+
   {
     id: 10,
     file: "posts/elgamal.html",
@@ -168,6 +276,7 @@ window.posts = [
     cover: "",
     emoji: "EG"
   },
+
   {
     id: 11,
     file: "posts/rsa.html",
@@ -179,6 +288,7 @@ window.posts = [
     cover: "",
     emoji: "RSA"
   },
+
   {
     id: 12,
     file: "posts/ecc.html",
@@ -190,17 +300,7 @@ window.posts = [
     cover: "",
     emoji: "ECC"
   },
-  {
-    id: 13,
-    file: "posts/shamir-secret-sharing.html",
-    title: "Shamir Secret Sharing（SSS，Shamir 秘密共享）",
-    tag: "密码学",
-    date: "2026-08-02",
-    excerpt: "利用有限域上的随机多项式把秘密拆成 n 份，使任意 t 份能够重构而少于 t 份不泄露秘密，并完整演示拉格朗日插值。",
-    readTime: "约 11 分钟",
-    cover: "",
-    emoji: "SSS"
-  },
+
   {
     id: 14,
     file: "posts/sha1.html",
@@ -212,6 +312,7 @@ window.posts = [
     cover: "",
     emoji: "SHA"
   },
+
   {
     id: 15,
     file: "posts/hmac.html",
@@ -223,6 +324,7 @@ window.posts = [
     cover: "",
     emoji: "MAC"
   },
+
   {
     id: 16,
     file: "posts/sm2.html",
@@ -234,6 +336,7 @@ window.posts = [
     cover: "",
     emoji: "SM2"
   },
+
   {
     id: 17,
     file: "posts/sm4.html",
@@ -245,4 +348,5 @@ window.posts = [
     cover: "",
     emoji: "SM4"
   }
+
 ];
