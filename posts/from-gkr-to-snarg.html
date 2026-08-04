@@ -632,7 +632,7 @@
     margin-bottom: .35rem;
   }
 
-  .fact-card span {
+  .fact-card > span {
     display: block;
     font-family: var(--mono);
     font-size: .78rem;
@@ -1233,22 +1233,22 @@
 <div class="math-block gold">
 <div class="math-line" data-tex="\mathsf{cm}\leftarrow\mathsf{Commit}(\widetilde V_0)"></div>
 </div>
-<p>这个 commitment 需要提供两个关键能力：</p>
+<p>这个 polynomial commitment 在这里承担三项作用：</p>
 <div class="fact-grid">
 <div class="fact-card">
 <span>Binding</span>
 <strong>先固定 Polynomial</strong>
-<p>Prover 一旦发送 commitment，后续不能根据随机 challenge 再偷偷换成另一张计算轨迹。</p>
+<p>Commitment 先固定 <span data-tex="\widetilde V_0"></span>，Prover 不能在 challenge 出现后再更换计算轨迹。</p>
 </div>
 <div class="fact-card">
 <span>Succinct Opening</span>
 <strong>只证明一个 Evaluation</strong>
-<p>当 Verifier 以后给出随机点 <span data-tex="z"></span> 时，Prover 可以简洁证明 <span data-tex="\widetilde V_0(z)=t"></span>。</p>
+<p>给定随机点 <span data-tex="z"></span>，Prover 只需简洁证明 <span data-tex="\widetilde V_0(z)=t"></span>，无需公开整张 table。</p>
 </div>
 <div class="fact-card">
 <span>Compactness</span>
-<strong>不用发送整张 Table</strong>
-<p>Verifier 只保留 commitment，而不是完整 <span data-tex="V_0"></span>。</p>
+<strong>无需保存整张 Table</strong>
+<p>Verifier 只需保存 succinct commitment 和 opening proof，不需要持有完整 <span data-tex="V_0"></span>。</p>
 </div>
 </div>
 <p>这也是为什么这里需要的是 <strong>Polynomial Commitment</strong>，而不是普通 Commitment。普通 commitment 只能“锁住一个消息”，却没有直接提供对任意 polynomial evaluation 的 succinct opening 接口。</p>
