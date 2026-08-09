@@ -25,6 +25,27 @@
     }
   }
 
+  function renderRichText(node, value) {
+    const source = String(value == null ? '' : value);
+    const pattern = /\[\[([\s\S]*?)\]\]/g;
+    let cursor = 0;
+    let match;
+
+    while ((match = pattern.exec(source)) !== null) {
+      if (match.index > cursor) {
+        node.appendChild(document.createTextNode(source.slice(cursor, match.index)));
+      }
+      const math = el('span', 'formal-inline-math');
+      renderMath(math, match[1], false);
+      node.appendChild(math);
+      cursor = pattern.lastIndex;
+    }
+
+    if (cursor < source.length) {
+      node.appendChild(document.createTextNode(source.slice(cursor)));
+    }
+  }
+
   function renderDefinition(item) {
     const row = el('div', 'formal-definition-row');
     row.appendChild(el('div', 'formal-definition-label', item.label));
@@ -55,7 +76,9 @@
       const tr = document.createElement('tr');
       const values = [row.phase, row.from, row.to, row.message, row.public, row.secret, row.check];
       values.forEach(function (value, index) {
-        tr.appendChild(el('td', index === 1 || index === 2 ? 'formal-route' : '', value));
+        const cell = el('td', index === 1 || index === 2 ? 'formal-route' : '');
+        renderRichText(cell, value);
+        tr.appendChild(cell);
       });
       body.appendChild(tr);
     });

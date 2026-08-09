@@ -86,6 +86,11 @@ function buildFilters() {
 }
 
 function setFilter(tag, updateHistory = false) {
+  const tagAliases = {
+    '密码学': '密码学基础',
+    '证明系统与零知识证明': '证明系统'
+  };
+  tag = tagAliases[tag] || tag;
   const availableTags = new Set(['all', ...posts.map(post => post.tag)]);
   if (!availableTags.has(tag)) tag = 'all';
   currentTag = tag;

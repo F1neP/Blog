@@ -340,6 +340,16 @@ html[data-theme="dark"] .lesson-nav {
   white-space: nowrap;
 }
 
+.formal-inline-math {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: -0.08em;
+}
+
+.formal-inline-math .katex {
+  font-size: 1em;
+}
+
 .formal-table .formal-route {
   color: var(--ink);
   font-weight: 600;
