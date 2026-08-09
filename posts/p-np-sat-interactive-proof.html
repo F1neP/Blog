@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="从 P、NP 与 SAT 到 Interactive Proof：解释求解与验证、NP-complete、多项式归约、Completeness、Soundness，以及随机挑战如何限制作弊。">
 <title>P、NP、SAT 与 Interactive Proof · Frieren</title>
-<link rel="icon" href="../HK.ico" type="image/x-icon">
+<link rel="icon" href="../images/HK.ico" type="image/x-icon">
 <link rel="canonical" href="https://blog.fp1022.dpdns.org/posts/p-np-sat-interactive-proof.html">
 <link rel="stylesheet" href="../static/css/style.css">
 <link rel="stylesheet" href="../static/css/post.css">
@@ -906,13 +906,13 @@
 
     <h2 id="interactive-proof">三、Interactive Proof：随机挑战带来了什么？</h2>
 
-    <p>IP 由计算能力很强的 Prover P 和概率多项式时间的 Verifier V 组成。双方围绕公共输入 x 多轮交换消息：</p>
+    <p>IP 由计算能力不受多项式时间限制的 Prover P 和概率多项式时间的 Verifier V 组成。双方围绕公共输入 x 多轮交换消息。一般 IP 的诚实 Prover 是一个交互策略，并不要求存在一个多项式长度的 NP witness；只有在讨论 NP relation 或 Proof of Knowledge 时，才额外把秘密见证 w 纳入协议语义：</p>
 
     <div class="transcript"><span data-tex="P\longrightarrow m_1\longleftarrow r_1\longrightarrow m_2\longleftarrow r_2\longrightarrow\cdots\longrightarrow V\in\{\mathrm{accept},\mathrm{reject}\}"></span></div>
 
     <div class="fact-grid">
       <div class="fact-card"><span>STATEMENT</span><strong>公共输入 x</strong><p>双方都知道、需要证明真假的命题实例。</p></div>
-      <div class="fact-card"><span>WITNESS</span><strong>秘密证据 w</strong><p>诚实 Prover 用它生成能够回答挑战的消息。</p></div>
+      <div class="fact-card"><span>PROVER STRATEGY</span><strong>交互式证明策略</strong><p>一般 IP 只要求真命题存在能使 V 接受的 Prover 策略；NP 关系证明中，该策略通常由 witness w 驱动。</p></div>
       <div class="fact-card"><span>RANDOMNESS</span><strong>验证者随机数 ρ</strong><p>使作弊者不能提前为所有挑战准备答案。</p></div>
     </div>
 
@@ -935,6 +935,11 @@
     <div class="sc-callout">
       <strong>概率从哪里来？</strong>
       <p>概率主要来自 Verifier 的随机挑战。Prover 必须先固定前一条消息，再看到挑战；如果允许它看到挑战后重新选择承诺，Soundness 通常就会失效。</p>
+    </div>
+
+    <div class="sc-callout">
+      <strong>IP、NP relation 与 Proof of Knowledge 不要混用</strong>
+      <p>IP 的 Completeness 与 Soundness 只讨论语言成员资格；NP relation 进一步写出 <span data-tex="R(x,w)=1"></span>；Proof of Knowledge 再要求从成功证明者中提取这样的 witness。后两者是证明系统的附加结构，不是一般 IP 定义自带的条件。</p>
     </div>
 
     <h2 id="history">四、历史与关系脉络</h2>

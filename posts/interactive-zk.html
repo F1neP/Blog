@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="Interactive Zero-Knowledge Proof 学习笔记：通过 Simulator、Rewinding、二次剩余 Sigma Protocol 和三染色协议解释如何证明命题而不泄露 witness。">
 <title>Interactive Zero-Knowledge Proofs · Frieren</title>
-<link rel="icon" href="../HK.ico" type="image/x-icon">
+<link rel="icon" href="../images/HK.ico" type="image/x-icon">
 <link rel="canonical" href="https://blog.fp1022.dpdns.org/posts/interactive-zk.html">
 <link rel="stylesheet" href="../static/css/style.css">
 <link rel="stylesheet" href="../static/css/post.css">
@@ -847,10 +847,10 @@
       <span class="math-note">视图包含公共输入、V* 的内部随机数，以及它在协议中收到和生成的消息。</span>
     </div>
 
-    <p>如果存在一个不接收 witness 的概率多项式时间 Simulator（模拟器）S，使模拟视图与真实视图不可区分：</p>
+    <p>形式化地，对任意可能作弊的概率多项式时间验证者 V*（以及它可能持有的辅助输入），都应存在一个不接收 witness 的概率多项式时间 Simulator（模拟器）S<sub>V*</sub>，使模拟视图与真实视图不可区分：</p>
 
     <div class="math-block gold">
-      <div class="math-line" data-tex="\left\{S^{V^*}(x)\right\}_{x\in L}\;\approx_c\;\left\{\operatorname{View}^{P}_{V^*}(x,w)\right\}_{x\in L}"></div>
+      <div class="math-line" data-tex="\forall V^*\in\mathsf{PPT}\ \exists S_{V^*}\in\mathsf{PPT}:\quad\left\{S_{V^*}(x)\right\}_{(x,w)\in R}\;\approx_c\;\left\{\operatorname{View}^{P}_{V^*}(x,w)\right\}_{(x,w)\in R}"></div>
     </div>
 
     <p>那么真实交互没有向 V* 提供它无法自行模拟出的额外有效信息，这就是 Computational Zero-Knowledge（计算零知识）。如果两个分布完全相同，则称为 Perfect Zero-Knowledge（完美零知识）；若统计距离可忽略，则称为 Statistical Zero-Knowledge（统计零知识）。</p>
@@ -899,10 +899,10 @@
     <p>就称 y 是模 N 的 Quadratic Residue（二次剩余）。在下面的 Sigma Protocol（Σ 协议）中，公共 statement 是 (N,y)，秘密 witness 是平方根 x。</p>
 
     <div class="protocol-loop">
-      <div class="loop-step"><span class="loop-no">COMMIT</span><h3>发送承诺</h3><p>P 随机选择 r，发送 t=r² mod N。</p></div>
-      <div class="loop-step"><span class="loop-no">CHALLENGE</span><h3>随机挑战</h3><p>V 随机选择 b∈{0,1}。</p></div>
+      <div class="loop-step"><span class="loop-no">COMMIT</span><h3>发送承诺</h3><p>P 均匀选择 r∈ℤ<sub>N</sub><sup>*</sup>，发送 t=r² mod N。</p></div>
+      <div class="loop-step"><span class="loop-no">CHALLENGE</span><h3>检查承诺并随机挑战</h3><p>V 先检查 t∈ℤ<sub>N</sub><sup>*</sup>，失败则拒绝；否则随机选择 b∈{0,1}。</p></div>
       <div class="loop-step"><span class="loop-no">RESPONSE</span><h3>回答挑战</h3><p>P 返回 z=r·xᵇ mod N。</p></div>
-      <div class="loop-step"><span class="loop-no">VERIFY</span><h3>验证等式</h3><p>V 检查 z²≡t·yᵇ mod N。</p></div>
+      <div class="loop-step"><span class="loop-no">VERIFY</span><h3>验证等式与群成员</h3><p>V 先检查 z∈ℤ<sub>N</sub><sup>*</sup>，再检查 z²≡t·yᵇ mod N；任一条件失败都拒绝。</p></div>
     </div>
 
     <div class="math-block green">
@@ -944,7 +944,7 @@
 
     <div class="math-block green"><div class="math-line" data-tex="x=19\cdot29\bmod77=12"></div></div>
 
-    <p>这称为 Special Soundness（特殊可靠性）：能够回答同一承诺下的两个不同挑战，就足以提取 witness。作弊者如果不知道 x，通常只能提前准备其中一种挑战的回答，所以单轮欺骗成功率至多为 1/2；独立重复 k 轮后：</p>
+    <p>因为有效响应被要求属于 ℤ<sub>N</sub><sup>*</sup>，所以 z<sub>0</sub> 可逆，上述提取式有定义。这称为 Special Soundness（特殊可靠性）：能够回答同一承诺下的两个不同挑战，就足以提取 witness。对不掌握任何有效平方根的证明者，单轮知识误差为 1/2；采用彼此独立、按顺序产生挑战的 k 次重复后：</p>
 
     <div class="math-block red"><div class="math-line" data-tex="\Pr[\text{cheating prover passes all rounds}]\leq 2^{-k}"></div></div>
 

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="Sumcheck Protocol 学习笔记：从指数规模求和到随机点检查，包含完整公式、Prover-Verifier 数据流与有限域数值例子。">
 <title>Sumcheck Protocol：逐轮压缩求和 · Frieren</title>
-<link rel="icon" href="../HK.ico" type="image/x-icon">
+<link rel="icon" href="../images/HK.ico" type="image/x-icon">
 <link rel="canonical" href="https://blog.fp1022.dpdns.org/posts/sumcheck-protocol-notes.html">
 <link rel="stylesheet" href="../static/css/style.css">
 <link rel="stylesheet" href="../static/css/post.css">
@@ -1244,7 +1244,7 @@
     <div class="fact-grid">
       <div class="fact-card"><span>ROUNDS</span><strong>m 轮</strong><p>每轮随机固定一个变量，所以轮数由变量数量 m 决定。</p></div>
       <div class="fact-card"><span>MESSAGE SIZE</span><strong>d+1 个域元素</strong><p>d 次一元多项式需要 d+1 个系数或取值来表示。</p></div>
-      <div class="fact-card"><span>VERIFIER</span><strong>约 O(dm)</strong><p>Verifier 每轮只检查低度一元多项式，不再计算 2<sup>m</sup> 个点。</p></div>
+      <div class="fact-card"><span>VERIFIER</span><strong>O(dm)+T<sub>f</sub></strong><p>O(dm) 是逐轮检查成本；T<sub>f</sub> 是最终获得 f(r<sub>1</sub>,…,r<sub>m</sub>) 的成本，不能省略。</p></div>
     </div>
 
     <div class="sc-callout">
@@ -1252,9 +1252,14 @@
       <p><strong>回答：</strong>不是。变量个数 m 决定交互轮数，单变量次数上界 d 决定每轮描述多项式所需的 d+1 个域元素。在三变量一次多项式中，m=3、d=1，因此协议进行 3 轮，每轮传输 2 个系数。</p>
     </div>
 
+    <div class="sc-callout">
+      <strong>最终一次求值不是免费的</strong>
+      <p>纯 Sumcheck 假定 Verifier 能够亲自计算或通过受验证的接口获得 <span data-tex="f(r_1,\ldots,r_m)"></span>。因此 Verifier 总成本应写为 <span data-tex="O(dm)+T_f"></span>。在 GKR 中，这个最终求值会被改写成下一层的少量 MLE claims；在非交互论证中，还可能由 Polynomial Commitment 的 opening 接口接管。</p>
+    </div>
+
     <h2 id="triangle">六、应用：验证图中的三角形数量</h2>
 
-    <p>设图的 Adjacency Matrix（邻接矩阵）为 A∈{0,1}<sup>n×n</sup>。图中的三角形数量可以写成：</p>
+    <p>设 G 是无自环的简单无向图，Adjacency Matrix（邻接矩阵）A∈{0,1}<sup>n×n</sup> 满足 A<sub>i,j</sub>=A<sub>j,i</sub> 且 A<sub>i,i</sub>=0。工作域的特征不得为 2 或 3，使 6 在域中可逆。图中的三角形数量可以写成：</p>
 
     <div class="math-block"><div class="math-line" data-tex="\operatorname{Triangles}(G)=\frac{1}{6}\sum_{(i,j,k)\in[n]^3}A_{i,j}A_{j,k}A_{k,i}"></div></div>
 
@@ -1262,7 +1267,7 @@
 
     <div class="math-block green"><div class="math-line" data-tex="f(X,Y,Z)=\widetilde{A}(X,Y)\cdot\widetilde{A}(Y,Z)\cdot\widetilde{A}(Z,X)"></div></div>
 
-    <p>X、Y、Z 各包含 log<sub>2</sub>n 个比特变量，总变量数量为 3log<sub>2</sub>n。因此，可以使用 3log<sub>2</sub>n 轮 Sumcheck，将对所有节点三元组的求和检查压缩为一个随机点上的 f 求值。</p>
+    <p>若 n 不是 2 的幂，先把邻接表补零到 <span data-tex="N=2^{\lceil\log_2 n\rceil}"></span>。X、Y、Z 各包含 log<sub>2</sub>N 个比特变量，总变量数量为 3log<sub>2</sub>N。于是可以使用 3log<sub>2</sub>N 轮 Sumcheck，将对所有节点三元组的求和检查压缩为一个随机点上的 f 求值。注意每个向量变量同时出现在两个 MLE 因子中，因此 f 对每个标量变量的 individual degree 至多为 2，而不是 1；可靠性界中应取 d=2。</p>
 
     <h2>七、最终记忆框架</h2>
 

@@ -6,7 +6,7 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <meta content="KZG Polynomial Commitment 学习笔记：从 Polynomial Commitment 的目标出发，理解隐藏点 tau、Structured Reference String、指数中的多项式求值、quotient polynomial、pairing verification，并通过 F_17 数值例子完整演示 Commit、Open 与 Verify。" name="description"/>
 <title>KZG Polynomial Commitment：从指数编码到点值证明 · Frieren</title>
-<link href="../HK.ico" rel="icon" type="image/x-icon"/>
+<link href="../images/HK.ico" rel="icon" type="image/x-icon"/>
 <link href="https://blog.fp1022.dpdns.org/posts/kzg-polynomial-commitment.html" rel="canonical"/>
 <link href="../static/css/style.css" rel="stylesheet"/>
 <link href="../static/css/post.css" rel="stylesheet"/>
@@ -1179,7 +1179,7 @@
 <div class="math-block">
 <div class="math-line" data-tex="e:G_1\times G_2\rightarrow G_T,\qquad e(g^a,h^b)=e(g,h)^{ab}."></div>
 </div>
-<p>随后采样隐藏值 <span data-tex="\tau\leftarrow\mathbb F_p"></span>，并生成：</p>
+<p>随后采样非零隐藏值 <span data-tex="\tau\leftarrow\mathbb F_p^*"></span>，并生成：</p>
 <div class="math-block green">
 <div class="math-line" data-tex="\mathsf{pp}=\left(g,g^\tau,g^{\tau^2},\ldots,g^{\tau^d};\ h,h^\tau\right)."></div>
 </div>
@@ -1351,7 +1351,16 @@
 <li><strong>Trusted setup：</strong>最终 <span data-tex="\tau"></span> 必须保持未知。</li>
 <li><strong>Hiding：</strong>基础 KZG 主要提供 binding 与 succinct opening；不发送 <span data-tex="f"></span> 并不等于 commitment 自动隐藏 <span data-tex="f"></span>。</li>
 </ul>
-<p>KZG 的 computational binding 并不是因为单个 <span data-tex="f(\tau)"></span> 在信息论上唯一确定整个 <span data-tex="f"></span>，而是依赖隐藏的 <span data-tex="\tau"></span>、degree bound 以及相应的双线性群计算困难假设。</p>
+<p>KZG 的 computational/evaluation binding 并不是因为单个 <span data-tex="f(\tau)"></span> 在信息论上唯一确定整个 <span data-tex="f"></span>，而是依赖隐藏的 <span data-tex="\tau"></span>、明确的 degree bound，以及与该次数上界相关的 Strong Diffie–Hellman（通常写作 d-SDH 或 q-SDH）类假设。若进一步声称 Knowledge Soundness 或可提取性，还需要单独给出相应 extractor 与知识假设或代数群模型证明，不能由普通 binding 自动推出。</p>
+
+<div class="sc-callout">
+<strong>必须区分三种安全声明</strong>
+<p><strong>Polynomial binding</strong> 约束同一 commitment 对应的 polynomial；<strong>evaluation binding</strong> 约束同一点不能产生两个不同的有效 evaluation openings；<strong>knowledge soundness</strong> 则要求从成功证明者提取被承诺对象或满足关系的 witness。本文算法直接说明的是 correctness，安全部分必须按采用的正式定义和假设分别证明。</p>
+</div>
+<div class="sc-callout">
+<strong>基础 KZG 是单变量接口</strong>
+<p>本文承诺的是 <span data-tex="f(X)\in\mathbb F_p[X]"></span>，opening point 是标量 <span data-tex="z\in\mathbb F_p"></span>。GKR 最终产生的通常是多线性多项式在向量点 <span data-tex="\widetilde V(z_1,\ldots,z_m)"></span> 的声明；若要组合二者，必须使用 multilinear PCS，或给出从该多线性 evaluation 到单变量 KZG openings 的明确归约。</p>
+</div>
 <h2 id="memory">六、速记总结</h2>
 <table class="symbol-table">
 <thead><tr><th>阶段</th><th>核心式子</th><th>含义</th></tr></thead>
@@ -1382,9 +1391,6 @@
 <h2 id="references-title">参考文献</h2>
 <ol class="reference-list">
 <li>A. Kate, G. M. Zaverucha, and I. Goldberg, “<cite>Constant-Size Commitments to Polynomials and Their Applications</cite>,” ASIACRYPT 2010. <span class="reference-kind">KZG Polynomial Commitment</span></li>
-<li>“<cite>Multilinear Extension：从 Boolean Table 到低度多项式</cite>,” Frieren · Cryptography Notes. <a href="multilinear-extension.html">相关笔记</a> <span class="reference-kind">MLE</span></li>
-<li>“<cite>Sumcheck Protocol：逐轮压缩求和</cite>,” Frieren · Cryptography Notes. <a href="sumcheck-protocol-notes.html">相关笔记</a> <span class="reference-kind">Sumcheck</span></li>
-<li>“<cite>GKR Protocol：从电路执行到逐层多项式验证</cite>,” Frieren · Cryptography Notes. <a href="gkr-protocol-notes.html">相关笔记</a> <span class="reference-kind">GKR</span></li>
 </ol>
 </section>
 </article>

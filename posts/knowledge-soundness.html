@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="从普通 Soundness 的边界出发，引入 Extractor 与 Knowledge Soundness，区分 Simulator 和 Extractor，并梳理 NIZK、SNARK、STARK、Bulletproofs 与 Sumcheck 的性质和发展关系。">
 <title>Knowledge Soundness 与现代证明系统 · Frieren</title>
-<link rel="icon" href="../HK.ico" type="image/x-icon">
+<link rel="icon" href="../images/HK.ico" type="image/x-icon">
 <link rel="canonical" href="https://blog.fp1022.dpdns.org/posts/knowledge-soundness.html">
 <link rel="stylesheet" href="../static/css/style.css">
 <link rel="stylesheet" href="../static/css/post.css">
@@ -120,10 +120,10 @@
 
     <h2 id="extractor">二、Knowledge Soundness 与 Extractor</h2>
 
-    <p>Knowledge Soundness 通常通过 Extractor（Knowledge Extractor，知识提取器）E 定义。E 可以黑盒访问作弊证明者 P*：它运行、重启或回退 P*，并尝试输出有效 witness。</p>
+    <p>Knowledge Soundness 通常通过 Extractor（Knowledge Extractor，知识提取器）E 定义。量词应覆盖任意高效作弊证明者 P* 及其辅助输入；在黑盒定义中，E 通过 oracle 方式运行、重启或回退 P*，在非黑盒定义中则可能使用 P* 的代码。具体模型必须明确，不能把 rewinding 当作所有证明系统默认支持的能力。</p>
 
     <div class="math-block green">
-      <div class="math-line" data-tex="p_{\mathrm{acc}}(x)>\kappa(x)+\frac{1}{\operatorname{poly}(\lambda)}\quad\Longrightarrow\quad\Pr\!\left[R\!\left(x,E^{P^*}(x)\right)=1\right]\geq\frac{1}{\operatorname{poly}(\lambda)}"></div>
+      <div class="math-line" data-tex="\forall P^*\in\mathsf{PPT}\ \exists E^{P^*}:\quad p_{\mathrm{acc}}(x,\mathsf{aux})>\kappa(x)+\frac{1}{\operatorname{poly}(\lambda)}\Longrightarrow\Pr\!\left[R\!\left(x,E^{P^*}(x,\mathsf{aux})\right)=1\right]\geq\frac{1}{\operatorname{poly}(\lambda)}"></div>
       <span class="math-note">κ 是 Knowledge Error（知识误差）。具体提取概率和运行时间因定义与协议而异；核心含义是“超过知识误差的成功率必须对应可提取知识”。</span>
     </div>
 
@@ -161,15 +161,15 @@
 
     <h2 id="qr">三、二次剩余协议中的知识提取</h2>
 
-    <p>考虑公开 N 与 y，并证明自己知道 x，使 y=x² mod N。一个典型三轮结构是：</p>
+    <p>考虑公开 N 与 <span data-tex="y\in\mathbb Z_N^*"></span>，并证明自己知道 <span data-tex="x\in\mathbb Z_N^*"></span>，使 y=x² mod N。一个典型三轮结构是：</p>
 
     <div class="round-card">
       <div class="round-head"><strong>Σ-PROTOCOL VIEW</strong><span>同一 t，不同挑战 e</span></div>
       <div class="round-body">
-        <div class="message"><span class="who">PROVER</span><span class="payload">采样 r，发送 t=r² mod N。</span></div>
-        <div class="message verifier"><span class="who">VERIFIER</span><span class="payload">随机发送挑战 e∈{0,1}。</span></div>
+        <div class="message"><span class="who">PROVER</span><span class="payload">均匀采样 r∈ℤ<sub>N</sub><sup>*</sup>，发送 t=r² mod N。</span></div>
+        <div class="message verifier"><span class="who">VERIFIER</span><span class="payload">先检查 t∈ℤ<sub>N</sub><sup>*</sup>，再随机发送挑战 e∈{0,1}。</span></div>
         <div class="message"><span class="who">PROVER</span><span class="payload">返回 z=r·x<sup>e</sup> mod N。</span></div>
-        <div class="message check"><span class="who">CHECK</span><span class="payload">验证 z²≡t·y<sup>e</sup> (mod N)。</span></div>
+        <div class="message check"><span class="who">CHECK</span><span class="payload">检查 z∈ℤ<sub>N</sub><sup>*</sup> 并验证 z²≡t·y<sup>e</sup> (mod N)。</span></div>
       </div>
     </div>
 
@@ -186,7 +186,7 @@
       <span class="math-note">这就是“两个挑战都能回答 ⇒ 可以提取平方根”的代数原因。</span>
     </div>
 
-    <p>单次挑战只有 1 bit。一个不知道 x 的作弊者可以预先准备回答 e=0 或 e=1 中的一个，但难以同时回答两个，所以单轮知识误差通常是 1/2；重复 k 轮可把误差降到约 2<sup>−k</sup>。</p>
+    <p>单次挑战只有 1 bit。Special Soundness 表明同一 t 下的两种有效回答可提取 witness，因此该协议的单轮知识误差为 1/2；采用独立且按顺序产生挑战的 k 次重复后，知识误差降为 2<sup>−k</sup>。</p>
 
     <div class="math-block gold">
       <div class="math-line" data-tex="\kappa_k\approx\left(\frac12\right)^k=2^{-k}"></div>

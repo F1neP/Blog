@@ -6,7 +6,7 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <meta content="NIZK 与 Fiat–Shamir 学习笔记：从交互式零知识的随机挑战出发，形式化 NIZK 的 CRS 接口，理解 Fiat–Shamir 如何在 Random Oracle Model 中用哈希生成挑战，并区分 completeness、soundness、zero knowledge 与显式哈希实例化的安全边界。" name="description"/>
 <title>NIZK 与 Fiat–Shamir：从随机挑战到非交互证明 · Frieren</title>
-<link href="../HK.ico" rel="icon" type="image/x-icon"/>
+<link href="../images/HK.ico" rel="icon" type="image/x-icon"/>
 <link href="https://blog.fp1022.dpdns.org/posts/nizk-fiat-shamir.html" rel="canonical"/>
 <link href="../static/css/style.css" rel="stylesheet"/>
 <link href="../static/css/post.css" rel="stylesheet"/>
@@ -1092,8 +1092,8 @@
 <div class="sumcheck-hero"><div class="hero-proof">
 <div class="hero-node"><strong>a</strong><span>Prover First Message</span></div><div class="hero-arrow">→</div>
 <div class="hero-node"><strong>e ← V</strong><span>随机 Challenge</span></div><div class="hero-arrow">→</div>
-<div class="hero-node"><strong>e = H(a)</strong><span>Fiat–Shamir</span></div><div class="hero-arrow">→</div>
-<div class="hero-node"><strong>π=(a,e,z)</strong><span>Non-interactive Proof</span></div>
+<div class="hero-node"><strong>e = H(ctx,a)</strong><span>Fiat–Shamir</span></div><div class="hero-arrow">→</div>
+<div class="hero-node"><strong>π=(a,z)</strong><span>Non-interactive Proof</span></div>
 </div></div><div class="hero-overlay"></div>
 </div>
 <main class="article-wrap">
@@ -1110,7 +1110,7 @@
 <li><a href="#definition">NIZK 的形式化接口</a></li>
 <li><a href="#three-message">三消息 Public-Coin 结构</a></li>
 <li><a href="#fiat-shamir">Fiat–Shamir 到底替换了什么</a></li>
-<li><a href="#rom-construction">讲义中的 ROM 构造</a></li>
+<li><a href="#rom-construction">ROM 中的具体构造</a></li>
 <li><a href="#completeness">为什么 Completeness 保持</a></li>
 <li><a href="#soundness">为什么 Soundness 依赖随机挑战</a></li>
 <li><a href="#zk">为什么还能保持 Zero-Knowledge</a></li>
@@ -1132,19 +1132,19 @@
 <div class="fact-card"><span>CORE QUESTION</span><strong>随机性从哪里来</strong><p>去掉在线 Verifier 后，仍然必须保留原协议依赖的不可预测 challenge。</p></div>
 </div>
 <h2 id="definition">二、NIZK 的形式化接口</h2>
-<p>讲义把 NIZK 定义为三个算法。对关系 <span data-tex="R_L"></span>，若 <span data-tex="(x,w)\in R_L"></span>，则 <span data-tex="x"></span> 是 statement，<span data-tex="w"></span> 是 witness。</p>
+<p>NIZK 通常用参数生成、证明和验证三个算法描述。对关系 <span data-tex="R_L"></span>，若 <span data-tex="(x,w)\in R_L"></span>，则 <span data-tex="x"></span> 是 statement，<span data-tex="w"></span> 是 witness。下面先写 CRS model 的标准接口；在 Random Oracle Model 中，双方还共同访问理想随机预言机 H，而不应把 H 与 CRS 当成同一个对象。</p>
 <table class="symbol-table"><thead><tr><th>算法</th><th>接口</th><th>作用</th></tr></thead><tbody>
 <tr><td>Gen</td><td><span data-tex="\mathsf{Gen}(1^\lambda)\to\mathsf{crs}"></span></td><td>生成 Common Reference String（CRS）。</td></tr>
 <tr><td>Prover</td><td><span data-tex="P(\mathsf{crs},x,w)\to\pi"></span></td><td>利用 witness 生成非交互 proof。</td></tr>
 <tr><td>Verifier</td><td><span data-tex="V(\mathsf{crs},x,\pi)\to\{0,1\}"></span></td><td>只根据公开信息和 proof 接受或拒绝。</td></tr>
 </tbody></table>
-<p>相应地，讲义要求三类安全性质：</p>
+<p>相应地，NIZK 需要满足三类基本安全性质：</p>
 <div class="protocol-stages">
 <section class="protocol-stage"><header class="stage-heading"><span class="stage-index">01</span><div><span class="stage-role">COMPLETENESS</span><h3>真实 Statement 能通过</h3></div></header><p>若 <span data-tex="(x,w)\in R_L"></span>，诚实 Prover 生成的 proof 应以压倒性概率被接受。</p></section>
 <section class="protocol-stage"><header class="stage-heading"><span class="stage-index">02</span><div><span class="stage-role">SOUNDNESS</span><h3>错误 Statement 难以伪造</h3></div></header><p>多项式时间 cheating Prover 不应为 <span data-tex="x\notin L"></span> 构造出可接受 proof，成功概率至多为 negligible。</p></section>
 <section class="protocol-stage"><header class="stage-heading"><span class="stage-index">03</span><div><span class="stage-role">ZERO-KNOWLEDGE</span><h3>Proof 不泄露 Witness</h3></div></header><p>存在 PPT Simulator，可以只根据允许的公开信息生成与真实 proof 分布不可区分的模拟结果。</p></section>
 </div>
-<p>讲义此处给出的基础定义是 <strong>adaptive soundness</strong> 与 <strong>non-adaptive zero-knowledge</strong>，随后指出还可以进一步要求 multi-theorem ZK 和 adaptive ZK。也就是说，“NIZK”并不只有一个强度等级，必须看具体定义允许 adversary 在什么时候选择 statement、能看到多少份 proofs。</p>
+<p>本文先采用 <strong>adaptive soundness</strong> 与 <strong>non-adaptive zero-knowledge</strong>，并区分更强的 multi-theorem ZK 和 adaptive ZK。也就是说，“NIZK”并不只有一个强度等级，必须看具体定义允许 adversary 在什么时候选择 statement、能看到多少份 proofs。</p>
 <div class="sc-callout"><strong>CRS 不是 Witness，也不是 Challenge</strong><p><span data-tex="\mathsf{crs}"></span> 是 Setup 阶段产生的公共参考信息。它在 proof 生成前已经存在，并作为 Prover 与 Verifier 的共同公开输入。Challenge 是否由 CRS、Verifier 随机性或 Random Oracle 产生，是后续具体构造的问题。</p></div>
 <h2 id="three-message">三、先看三消息 Public-Coin 结构</h2>
 <p>Fiat–Shamir 最容易从一个三消息 public-coin protocol 理解。所谓 public-coin，是指 Verifier 的消息本质上只是公开随机数，而不是依赖隐藏状态计算出的秘密信息。</p>
@@ -1161,28 +1161,28 @@
 <p>如果 cheating Prover 可以在看到 <span data-tex="e"></span> 之后再决定 <span data-tex="a"></span>，原协议依赖的随机挑战结构就被破坏了。</p>
 <h2 id="fiat-shamir">四、Fiat–Shamir 到底替换了什么？</h2>
 <p>去交互的核心难点是：没有在线 Verifier 后，谁来生成 <span data-tex="e"></span>？Fiat–Shamir paradigm 的思路是把 challenge 改为 transcript 的确定性哈希值。</p>
-<div class="math-block green"><div class="math-line" data-tex="e=H(a)"></div><span class="math-note">本文严格沿用 Lecture 19 的简化写法。</span></div>
+<div class="math-block green"><div class="math-line" data-tex="e=H(\mathsf{domain}\parallel\mathsf{pp}\parallel x\parallel a)"></div><span class="math-note">domain 是协议与版本的域分离标签，pp 表示需要绑定的公开参数；各字段必须采用无歧义编码。</span></div>
 <p>于是 Prover 可以独立完成：</p>
-<div class="transcript"><span data-tex="a\ \longrightarrow\ e=H(a)\ \longrightarrow\ z\ \longrightarrow\ \pi=(a,e,z)"></span></div>
+<div class="transcript"><span data-tex="a\ \longrightarrow\ e=H(\mathsf{domain},\mathsf{pp},x,a)\ \longrightarrow\ z\ \longrightarrow\ \pi=(a,z)"></span></div>
 <p>Verifier 不再发送 challenge，而是收到 proof 后自己重新计算：</p>
-<div class="math-block"><div class="math-line" data-tex="e\stackrel{?}{=}H(a)"></div><div class="math-line" data-tex="V(x,a,e,z)\stackrel{?}{=}1"></div></div>
-<figure class="gkr-figure"><svg aria-labelledby="fs-title fs-desc" role="img" viewbox="0 0 860 330"><title id="fs-title">Fiat-Shamir removes the online challenge</title><desc id="fs-desc">The interactive verifier challenge is replaced by a hash-derived challenge computed from the prover first message.</desc><text class="svg-title" text-anchor="middle" x="430" y="32">Interactive challenge → Fiat–Shamir challenge</text><rect class="svg-node" height="72" rx="12" width="180" x="60" y="90"></rect><rect class="svg-node-accent" height="72" rx="12" width="180" x="340" y="90"></rect><rect class="svg-node-green" height="72" rx="12" width="180" x="620" y="90"></rect><text class="svg-small" text-anchor="middle" x="150" y="116">Prover</text><text class="svg-text" text-anchor="middle" x="150" y="142">a</text><text class="svg-small" text-anchor="middle" x="430" y="116">Interactive</text><text class="svg-text" text-anchor="middle" x="430" y="142">e ←R 𝔈</text><text class="svg-small" text-anchor="middle" x="710" y="116">Response</text><text class="svg-text" text-anchor="middle" x="710" y="142">z</text><path class="svg-edge" d="M240 126 L340 126"></path><path class="svg-edge" d="M520 126 L620 126"></path><rect class="svg-node" height="72" rx="12" width="180" x="60" y="220"></rect><rect class="svg-node-accent" height="72" rx="12" width="180" x="340" y="220"></rect><rect class="svg-node-green" height="72" rx="12" width="180" x="620" y="220"></rect><text class="svg-small" text-anchor="middle" x="150" y="246">Prover</text><text class="svg-text" text-anchor="middle" x="150" y="272">a</text><text class="svg-small" text-anchor="middle" x="430" y="246">Fiat–Shamir</text><text class="svg-text" text-anchor="middle" x="430" y="272">e = H(a)</text><text class="svg-small" text-anchor="middle" x="710" y="246">Proof</text><text class="svg-text" text-anchor="middle" x="710" y="272">π=(a,e,z)</text><path class="svg-edge-accent" d="M240 256 L340 256"></path><path class="svg-edge-accent" d="M520 256 L620 256"></path></svg><figcaption>Fiat–Shamir 并没有删除 challenge；它删除的是<strong>在线发送 challenge 的 Verifier 交互步骤</strong>。challenge 仍然存在，只是改由哈希函数确定。</figcaption></figure>
+<div class="math-block"><div class="math-line" data-tex="e\leftarrow H(\mathsf{domain}\parallel\mathsf{pp}\parallel x\parallel a)"></div><div class="math-line" data-tex="V(x,a,e,z)\stackrel{?}{=}1"></div></div>
+<figure class="gkr-figure"><svg aria-labelledby="fs-title fs-desc" role="img" viewbox="0 0 860 330"><title id="fs-title">Fiat-Shamir removes the online challenge</title><desc id="fs-desc">The interactive verifier challenge is replaced by a hash-derived challenge bound to the public context and prover first message.</desc><text class="svg-title" text-anchor="middle" x="430" y="32">Interactive challenge → Fiat–Shamir challenge</text><rect class="svg-node" height="72" rx="12" width="180" x="60" y="90"></rect><rect class="svg-node-accent" height="72" rx="12" width="180" x="340" y="90"></rect><rect class="svg-node-green" height="72" rx="12" width="180" x="620" y="90"></rect><text class="svg-small" text-anchor="middle" x="150" y="116">Prover</text><text class="svg-text" text-anchor="middle" x="150" y="142">a</text><text class="svg-small" text-anchor="middle" x="430" y="116">Interactive</text><text class="svg-text" text-anchor="middle" x="430" y="142">e ←R 𝔈</text><text class="svg-small" text-anchor="middle" x="710" y="116">Response</text><text class="svg-text" text-anchor="middle" x="710" y="142">z</text><path class="svg-edge" d="M240 126 L340 126"></path><path class="svg-edge" d="M520 126 L620 126"></path><rect class="svg-node" height="72" rx="12" width="180" x="60" y="220"></rect><rect class="svg-node-accent" height="72" rx="12" width="180" x="340" y="220"></rect><rect class="svg-node-green" height="72" rx="12" width="180" x="620" y="220"></rect><text class="svg-small" text-anchor="middle" x="150" y="246">Prover</text><text class="svg-text" text-anchor="middle" x="150" y="272">a</text><text class="svg-small" text-anchor="middle" x="430" y="246">Fiat–Shamir</text><text class="svg-text" text-anchor="middle" x="430" y="272">e = H(context,a)</text><text class="svg-small" text-anchor="middle" x="710" y="246">Proof</text><text class="svg-text" text-anchor="middle" x="710" y="272">π=(a,z)</text><path class="svg-edge-accent" d="M240 256 L340 256"></path><path class="svg-edge-accent" d="M520 256 L620 256"></path></svg><figcaption>Fiat–Shamir 并没有删除 challenge；它删除的是<strong>在线发送 challenge 的 Verifier 交互步骤</strong>。challenge 仍然存在，只是改由绑定公开上下文与 transcript 的哈希函数确定。</figcaption></figure>
 <div class="sc-callout"><strong>Fiat–Shamir 不是“把整个协议 Hash 一下”</strong><p>真正被替换的是 public-coin Verifier 的随机消息。原协议的 first message、response 和 verification predicate 仍然保留，新的 challenge 必须与已经固定的 transcript 绑定。</p></div>
 <h2 id="rom-construction">五、Lecture 19 中的 NIZK 构造</h2>
-<p>讲义不是直接声称“任何交互式 ZK 都可以安全地 Fiat–Shamir 化”，而是从前一讲的 3-Coloring ZK 出发，在 Random Oracle Model 中给出一个具体构造。</p>
-<p>先把基础 ZK protocol 并行重复 <span data-tex="k"></span> 次，以降低 soundness error。设：</p>
-<div class="math-block"><div class="math-line" data-tex="a=(a_1,\ldots,a_k)"></div><div class="math-line" data-tex="e=(e_1,\ldots,e_k)\in\{0,1\}^k"></div><div class="math-line" data-tex="z=(z_1,\ldots,z_k)"></div></div>
-<p>然后在 ROM 中令：</p>
-<div class="math-block green"><div class="math-line" data-tex="e=H(a)"></div></div>
+<p>这里不声称“任何交互式 ZK 都可以安全地 Fiat–Shamir 化”，而是从前文的 3-Coloring ZK 出发，在 Random Oracle Model 中说明一个具体构造。</p>
+<p>先把基础 3-Coloring ZK protocol 并行重复 <span data-tex="k"></span> 次，以降低 soundness error。该协议每次挑战是一条待打开的边，而不是一个 challenge bit。设：</p>
+<div class="math-block"><div class="math-line" data-tex="a=(a_1,\ldots,a_k)"></div><div class="math-line" data-tex="e=(e_1,\ldots,e_k)\in E^k"></div><div class="math-line" data-tex="z=(z_1,\ldots,z_k)"></div></div>
+<p>然后在 ROM 中哈希完整公开上下文，并把输出通过明确、近似无偏的编码映射到挑战空间：</p>
+<div class="math-block green"><div class="math-line" data-tex="e=\mathsf{MapTo}_{E^k}\!\left(H(\mathsf{domain}\parallel\mathsf{pp}\parallel x\parallel a)\right)"></div></div>
 <p>于是 NIZK Prover 按以下顺序执行：</p>
 <div class="protocol-stages">
 <section class="protocol-stage"><header class="stage-heading"><span class="stage-index">01</span><div><span class="stage-role">FIRST MESSAGES</span><h3>生成并行实例的 a</h3></div></header><p>独立运行基础 Prover 的 first-message algorithm，得到 <span data-tex="a_1,\ldots,a_k"></span>。</p></section>
-<section class="protocol-stage"><header class="stage-heading"><span class="stage-index">02</span><div><span class="stage-role">HASH CHALLENGE</span><h3>调用 Random Oracle</h3></div></header><p>计算 <span data-tex="e=H(a)"></span>，把输出解释成 <span data-tex="k"></span> 个 challenge bits。</p></section>
+<section class="protocol-stage"><header class="stage-heading"><span class="stage-index">02</span><div><span class="stage-role">HASH CHALLENGE</span><h3>调用 Random Oracle</h3></div></header><p>哈希域分离标签、公开参数、statement 与全部 first messages，再把输出映射成 <span data-tex="k"></span> 条挑战边。</p></section>
 <section class="protocol-stage"><header class="stage-heading"><span class="stage-index">03</span><div><span class="stage-role">RESPONSES</span><h3>生成 z</h3></div></header><p>对每个并行实例，根据对应 <span data-tex="e_i"></span> 生成 response <span data-tex="z_i"></span>。</p></section>
-<section class="protocol-stage"><header class="stage-heading"><span class="stage-index">04</span><div><span class="stage-role">OUTPUT</span><h3>形成非交互 Proof</h3></div></header><p>输出 <span data-tex="\pi=(a,e,z)"></span>。</p></section>
+<section class="protocol-stage"><header class="stage-heading"><span class="stage-index">04</span><div><span class="stage-role">OUTPUT</span><h3>形成非交互 Proof</h3></div></header><p>输出 <span data-tex="\pi=(a,z)"></span>；Verifier 会从相同公开上下文重新计算 e，因此 e 不是可自由选择的独立证明字段。</p></section>
 </div>
-<p>Verifier 解析 <span data-tex="\pi=(a,e,z)"></span> 后先检查：</p>
-<div class="math-block gold"><div class="math-line" data-tex="e=H(a)"></div></div>
+<p>Verifier 解析 <span data-tex="\pi=(a,z)"></span> 后先重新计算：</p>
+<div class="math-block gold"><div class="math-line" data-tex="e=\mathsf{MapTo}_{E^k}\!\left(H(\mathsf{domain}\parallel\mathsf{pp}\parallel x\parallel a)\right)"></div></div>
 <p>然后对所有 <span data-tex="i\in[k]"></span> 检查基础 protocol：</p>
 <div class="math-block green"><div class="math-line" data-tex="V(x,a_i,e_i,z_i)=1"></div></div>
 <p>全部通过才接受。</p>
@@ -1193,30 +1193,30 @@
 <div class="transcript"><span data-tex="\text{Base completeness}\quad\Longrightarrow\quad\text{NIZK completeness}"></span></div>
 <h2 id="soundness">七、为什么 Soundness 依赖随机 Challenge？</h2>
 <p>交互式 protocol 的 soundness 依赖一个关键事实：Prover 在发送 <span data-tex="a"></span> 时不知道 Verifier 之后会选择哪个 <span data-tex="e"></span>。因此 cheating strategy 很难只为某个预先选定的 challenge 准备 transcript。</p>
-<p>讲义中的 ROM 构造通过两步恢复这一效果：</p>
-<ul class="sc-checklist"><li><strong>Parallel repetition：</strong>把基础 protocol 的 soundness error 降到 negligible。</li><li><strong>Random Oracle：</strong><span data-tex="H(a)"></span> 被建模为对新输入给出独立随机输出，因此在 <span data-tex="a"></span> 固定之后产生不可预测 challenge。</li></ul>
-<p>讲义因此把 soundness 的直觉概括为：在 ROM 中，与 <span data-tex="H"></span> 交互可以模拟“由随机 Verifier 给 challenge”的效果。</p>
+<p>该 ROM 构造通过两步恢复这一效果：</p>
+<ul class="sc-checklist"><li><strong>Parallel repetition：</strong>按基础协议的真实 challenge space 把 soundness error 降到 negligible。</li><li><strong>Random Oracle：</strong>对已经绑定公开上下文和 first message 的新查询给出独立随机输出，从而承担原协议的随机 challenge。</li></ul>
+<p>对这里的三染色协议，若图不可三染色，单轮错误接受概率至多为 <span data-tex="1-1/|E|"></span>；k 次独立并行重复的上界为 <span data-tex="(1-1/|E|)^k"></span>。它不能套用二元挑战协议的 <span data-tex="2^{-k}"></span>。</p>
 <div class="sc-callout"><strong>这里不能反过来理解</strong><p>Fiat–Shamir 的安全性不是来自“Hash 很难逆”。关键不是 preimage resistance，而是原 protocol 的 challenge 结构，以及在所采用安全模型中哈希输出能否承担原本 verifier randomness 的角色。</p></div>
 <h2 id="zk">八、为什么还能保持 Zero-Knowledge？</h2>
 <p>这是最容易被误解的一步。基础交互协议存在 honest-verifier simulator，可以直接生成一个看起来合法的 transcript：</p>
 <div class="math-block green"><div class="math-line" data-tex="(a,e,z)\leftarrow S_{\mathrm{HV}}(x)"></div></div>
-<p>但是在 Fiat–Shamir 版本中，Verifier 还会检查 <span data-tex="e=H(a)"></span>。普通模拟出来的随机 <span data-tex="e"></span> 未必刚好等于真实 Random Oracle 对 <span data-tex="a"></span> 的输出。</p>
+<p>但是在 Fiat–Shamir 版本中，Verifier 会根据完整公开上下文和 <span data-tex="a"></span> 重新计算 e。普通模拟出来的随机 <span data-tex="e"></span> 未必刚好等于该 Random Oracle 查询的输出。</p>
 <p>ROM 的关键能力是：安全证明中的 Simulator 可以<strong>program Random Oracle</strong>。因此模拟顺序是：</p>
 <div class="protocol-stages">
 <section class="protocol-stage"><header class="stage-heading"><span class="stage-index">01</span><div><span class="stage-role">SIMULATE</span><h3>先模拟基础 Transcript</h3></div></header><p>利用 HVZK Simulator 得到 <span data-tex="(a,e,z)"></span>，不需要真实 witness。</p></section>
-<section class="protocol-stage"><header class="stage-heading"><span class="stage-index">02</span><div><span class="stage-role">PROGRAM RO</span><h3>令 H(a)=e</h3></div></header><p>在模拟实验的 Random Oracle 中，把输入 <span data-tex="a"></span> 的输出设为刚才模拟得到的 <span data-tex="e"></span>。</p></section>
-<section class="protocol-stage"><header class="stage-heading"><span class="stage-index">03</span><div><span class="stage-role">OUTPUT</span><h3>输出 π=(a,e,z)</h3></div></header><p>Verifier 重新查询 <span data-tex="H(a)"></span> 时得到同一个 <span data-tex="e"></span>，因此 transcript 与 Fiat–Shamir 检查一致。</p></section>
+<section class="protocol-stage"><header class="stage-heading"><span class="stage-index">02</span><div><span class="stage-role">PROGRAM RO</span><h3>令 H(context,a) 映射到 e</h3></div></header><p>在模拟实验的 Random Oracle 中，把完整公开上下文与 <span data-tex="a"></span> 对应查询的输出设置为能够映射到刚才模拟得到的 <span data-tex="e"></span>。</p></section>
+<section class="protocol-stage"><header class="stage-heading"><span class="stage-index">03</span><div><span class="stage-role">OUTPUT</span><h3>输出 π=(a,z)</h3></div></header><p>Verifier 重新执行同一 Random Oracle 查询和挑战映射时得到同一个 <span data-tex="e"></span>，因此 transcript 与 Fiat–Shamir 检查一致。</p></section>
 </div>
-<div class="math-block gold"><div class="math-line" data-tex="(a,e,z)\leftarrow S_{\mathrm{HV}}(x),\qquad H(a):=e"></div></div>
-<div class="sc-callout"><strong>“Program Random Oracle”属于安全证明，不属于真实协议</strong><p>诚实 Prover 不能指定 <span data-tex="H(a)"></span> 的输出，也不能“先选 challenge 再倒推 Hash”。可编程 Random Oracle 是 Simulator 在理想化安全实验中使用的证明能力，用于解释为什么真实 proof 不泄露 witness。</p></div>
-<p>讲义还指出，如果 Simulator 可以对多个未查询的新输入进行这种 programming，就能够进一步处理 many-instance simulation。随后再讨论 multi-theorem 与 adaptive ZK 的更强定义。</p>
+<div class="math-block gold"><div class="math-line" data-tex="(a,e,z)\leftarrow S_{\mathrm{HV}}(x),\qquad \mathsf{MapTo}\!\left(H(\mathsf{domain}\parallel\mathsf{pp}\parallel x\parallel a)\right):=e"></div></div>
+<div class="sc-callout"><strong>“Program Random Oracle”属于安全证明，不属于真实协议</strong><p>诚实 Prover 不能指定哈希输出，也不能“先选 challenge 再倒推 Hash”。可编程 Random Oracle 是 Simulator 在理想化安全实验中使用的证明能力，用于解释为什么真实 proof 不泄露 witness；严格证明还需处理该查询此前已被 adversary 查询的事件。</p></div>
+<p>如果 Simulator 可以对多个此前未查询的新输入进行这种 programming，还可以进一步研究 many-instance simulation、multi-theorem 与 adaptive ZK；这些结论仍取决于精确安全实验。</p>
 <h2 id="explicit-hash">九、换成现实 Hash 后发生什么？</h2>
 <p>这一节是整篇最重要的安全边界。Lecture 19 明确指出：</p>
 <div class="math-block gold"><div class="math-line" data-tex="\text{ROM proof}\ \not\Rightarrow\ \text{arbitrary explicit hash is automatically secure}"></div></div>
 <p>在 Random Oracle Model 中，<span data-tex="H"></span> 被理想化为真正随机且可由 Simulator 编程的 oracle。现实中我们会部署某个固定、显式的哈希函数，但这并不自动继承 ROM 中的全部证明性质。</p>
-<p>讲义分别强调了两个风险：</p>
+<p>这里需要分别注意两个风险：</p>
 <table class="truth-table"><thead><tr><th>性质</th><th>ROM 中的证明工具</th><th>换成显式 Hash 后的问题</th></tr></thead><tbody>
-<tr><td>Zero-Knowledge</td><td>Simulator 可以 program RO，使 <span data-tex="H(a)=e"></span></td><td>固定 Hash 一般不能按模拟需要自由编程。</td></tr>
+<tr><td>Zero-Knowledge</td><td>Simulator 可以 program RO，使完整公开上下文与 a 对应的查询映射到 e</td><td>固定 Hash 一般不能按模拟需要自由编程。</td></tr>
 <tr><td>Soundness</td><td>新输入上的随机 oracle 输出承担随机 challenge</td><td>并不存在“任何 public-coin protocol + 任意 Hash 都安全”的一般结论。</td></tr>
 </tbody></table>
 <p>Lecture 19 进一步提醒：某些多消息 protocol 即使使用 Random Oracle 也可能失去 soundness；对于只具有 computational soundness 的协议，也存在 Fiat–Shamir 不安全的反例。因此，Fiat–Shamir 应被理解为一个需要<strong>针对具体 protocol 与安全模型证明</strong>的范式，而不是无条件安全的机械步骤。</p>
@@ -1228,7 +1228,7 @@
 <tr><td>Random Oracle Model</td><td>把 Hash 理想化为真正随机 oracle，并允许安全证明中的 Simulator 编程。</td><td>不是现实哈希函数本身。</td></tr>
 <tr><td>CRS</td><td>NIZK Setup 输出的公共参考信息。</td><td>不是 witness，也不是每次 proof 的随机 challenge。</td></tr>
 <tr><td>HVZK Simulator</td><td>模拟面对诚实随机 Verifier 时的基础 transcript。</td><td>不能单独解释 Fiat–Shamir transcript 的哈希一致性。</td></tr>
-<tr><td>Programmable RO</td><td>让 NIZK Simulator 把模拟 challenge 与 <span data-tex="H(a)"></span> 对齐。</td><td>不是现实 Prover 可以操纵 Hash。</td></tr>
+<tr><td>Programmable RO</td><td>让 NIZK Simulator 把模拟 challenge 与绑定完整公开上下文的哈希查询对齐。</td><td>不是现实 Prover 可以操纵 Hash。</td></tr>
 </tbody></table>
 <h2 id="proof-systems">十一、它在后续证明系统中的位置</h2>
 <p>Fiat–Shamir 的价值不仅出现在经典 ZK。Lecture 20 特别强调 Sumcheck 是 public-coin protocol，因为 Verifier 每轮只发送均匀随机 field elements。因此，后续很多 succinct proof systems 都会再次遇到同一个结构问题：</p>
@@ -1240,8 +1240,8 @@
 <tr><td><span data-tex="a"></span></td><td>Prover 在看到 challenge 前固定的 first message。</td></tr>
 <tr><td><span data-tex="e"></span></td><td>原交互协议中由 Verifier 随机产生的 public challenge。</td></tr>
 <tr><td><span data-tex="z"></span></td><td>Prover 对 challenge 的 response。</td></tr>
-<tr><td><span data-tex="e=H(a)"></span></td><td>Lecture 19 中 Fiat–Shamir 去交互的核心替换。</td></tr>
-<tr><td><span data-tex="\pi=(a,e,z)"></span></td><td>讲义中构造得到的非交互 proof transcript。</td></tr>
+<tr><td><span data-tex="e=H(\mathsf{domain}\parallel\mathsf{pp}\parallel x\parallel a)"></span></td><td>Fiat–Shamir 去交互的核心替换；实际挑战还要按协议映射到正确空间。</td></tr>
+<tr><td><span data-tex="\pi=(a,z)"></span></td><td>非交互 proof；challenge e 由 Verifier 根据完整公开上下文重新计算。</td></tr>
 <tr><td>Programmable RO</td><td>ROM 安全证明中 Simulator 对齐模拟 transcript 与 hash challenge 的工具。</td></tr>
 </tbody></table>
 <div class="fact-grid">
@@ -1251,9 +1251,9 @@
 </div>
 <ul class="sc-checklist">
 <li><strong>NIZK 不等于 Fiat–Shamir：</strong>前者是 proof-system 概念，后者是去交互范式。</li>
-<li><strong>Challenge 没有消失：</strong>只是从 <span data-tex="e\leftarrow V"></span> 变成 <span data-tex="e=H(a)"></span>。</li>
+<li><strong>Challenge 没有消失：</strong>只是从 <span data-tex="e\leftarrow V"></span> 变成由完整 transcript context 的哈希导出。</li>
 <li><strong>时间顺序仍然重要：</strong><span data-tex="a"></span> 必须先固定，challenge 才能由其确定。</li>
-<li><strong>ROM simulation 的核心是 programming：</strong>先模拟 <span data-tex="(a,e,z)"></span>，再设置 <span data-tex="H(a)=e"></span>。</li>
+<li><strong>ROM simulation 的核心是 programming：</strong>先模拟 <span data-tex="(a,e,z)"></span>，再编程绑定公开上下文与 a 的 Random Oracle 查询。</li>
 <li><strong>Programming 不是现实攻击能力：</strong>它只存在于安全证明的 idealized oracle experiment。</li>
 <li><strong>显式 Hash 不是自动安全：</strong>具体 Fiat–Shamir 实例化必须结合底层 protocol 与模型单独分析。</li>
 </ul>
@@ -1263,8 +1263,8 @@
 <li>Fiat–Shamir 删除的是 challenge，还是删除“Verifier 在线发送 challenge”这一步？</li>
 <li>为什么 first message <span data-tex="a"></span> 必须在 challenge 产生之前固定？</li>
 <li>Lecture 19 的构造中，为什么先进行 parallel repetition？</li>
-<li>为什么 Verifier 必须检查 <span data-tex="e=H(a)"></span>？</li>
-<li>ROM 中的 Simulator 为什么先生成 <span data-tex="(a,e,z)"></span>，再 program <span data-tex="H(a)=e"></span>？</li>
+<li>为什么 Verifier 重新计算 challenge 时必须绑定协议域、公开参数、statement 与 first message？</li>
+<li>ROM 中的 Simulator 为什么先生成 <span data-tex="(a,e,z)"></span>，再 program 对应的完整上下文查询？</li>
 <li>为什么“Simulator 可以 program RO”不意味着现实 Prover 可以控制 Hash 输出？</li>
 <li>为什么 ROM 中安全不能直接推出任意显式哈希实例化都安全？</li>
 <li>NIZK、Fiat–Shamir、CRS 和 Random Oracle 分别属于哪一层概念？</li>
@@ -1275,8 +1275,6 @@
 <li>A. Fiat and A. Shamir, “<cite>How to Prove Yourself: Practical Solutions to Identification and Signature Problems</cite>,” in <em>CRYPTO ’86</em>, LNCS 263, 1986, pp. 186–194. <span class="reference-kind">Fiat–Shamir 原始工作</span></li>
 <li>U. Feige, D. Lapidot, and A. Shamir, “<cite>Multiple Non-Interactive Zero Knowledge Proofs Based on a Single Random String</cite>,” in <em>FOCS</em>, 1990, pp. 308–317. <span class="reference-kind">NIZK 扩展阅读</span></li>
 <li>S. Goldwasser and Y. T. Kalai, “<cite>On the (In)security of the Fiat-Shamir Paradigm</cite>,” in <em>FOCS</em>, 2003, pp. 102–113. <span class="reference-kind">Fiat–Shamir 安全边界</span></li>
-<li>“<cite>Interactive Zero-Knowledge Proofs</cite>,” Frieren · Cryptography Notes. <a href="interactive-zk.html">前置笔记</a> <span class="reference-kind">Zero-Knowledge</span></li>
-<li>“<cite>Sumcheck Protocol：逐轮压缩求和</cite>,” Frieren · Cryptography Notes. <a href="sumcheck-protocol-notes.html">后续笔记</a> <span class="reference-kind">Public-Coin Proof</span></li>
 </ol></section>
 </article>
 <footer class="article-footer">

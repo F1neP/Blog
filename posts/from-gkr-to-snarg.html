@@ -6,7 +6,7 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <meta content="From GKR to SNARG 学习笔记：从 GKR 的深度限制出发，理解 circuit flattening、Multilinear Extension、Polynomial Commitment 与 Fiat–Shamir 如何组合，把 NP witness 转换为简洁的非交互论证。" name="description"/>
 <title>From GKR to SNARG：从交互式电路验证到简洁非交互论证 · Frieren</title>
-<link href="../HK.ico" rel="icon" type="image/x-icon"/>
+<link href="../images/HK.ico" rel="icon" type="image/x-icon"/>
 <link href="https://blog.fp1022.dpdns.org/posts/from-gkr-to-snarg.html" rel="canonical"/>
 <link href="../static/css/style.css" rel="stylesheet"/>
 <link href="../static/css/post.css" rel="stylesheet"/>
@@ -1123,7 +1123,7 @@
 <nav aria-label="密码学学习顺序" class="lesson-nav anim anim-3" data-learning-nav="" data-post-id="23" hidden=""></nav>
 <article class="article-content anim anim-4">
 <div class="sc-kicker">LEARNING NOTE · FROM GKR TO SNARG</div>
-<p class="sc-lead">GKR 已经能够让一个高效 Verifier 验证大型算术电路的执行，但它仍然是交互式协议，而且其轮数会随电路深度增长。要进一步得到面向一般 NP 关系的 Succinct Non-Interactive Argument（SNARG，简洁非交互论证），还需要解决三个问题：如何摆脱原电路深度、如何让 Verifier 检查自己并不知道的大型 witness 或计算轨迹，以及如何消除 Verifier 的随机交互。对应的三个关键组件分别是 circuit flattening、Polynomial Commitment 和 Fiat–Shamir。</p>
+<p class="sc-lead">GKR 已经能够让一个高效 Verifier 验证大型算术电路的执行，但它仍然是交互式协议，而且其轮数会随电路深度增长。要进一步构造面向一般 NP 关系的 Succinct Non-Interactive Argument（SNARG，简洁非交互论证），还需要解决三个问题：如何摆脱原电路深度、如何让 Verifier 检查自己并不知道的大型 witness 或计算轨迹，以及如何消除 Verifier 的随机交互。对应的高层组件分别是 circuit flattening、与 GKR 最终多线性 evaluation 兼容的 Polynomial Commitment，以及经过具体安全证明的 Fiat–Shamir 变换。</p>
 <blockquote>这篇文章不再拆解单个组件，而是把已经学过的工具拼起来：<strong>Flattening 把深计算变成浅验证电路，Polynomial Commitment 让未知的大型输入可以被绑定并在随机点打开，GKR 把整张电路正确性压缩到一个 evaluation claim，Fiat–Shamir 再把随机交互变成 transcript-derived challenges。</strong></blockquote>
 <nav aria-label="文章目录" class="sc-toc">
 <div class="sc-toc-title">Contents</div>
@@ -1134,7 +1134,7 @@
 <li><a href="#gkr-open">第三步：GKR 归约到一个随机点 Opening</a></li>
 <li><a href="#np">从一般计算到 NP Witness</a></li>
 <li><a href="#fiat-shamir">第四步：Fiat–Shamir 消除交互</a></li>
-<li><a href="#snarg">最终得到的 SNARG 是什么</a></li>
+<li><a href="#snarg">何时才能称为 SNARG</a></li>
 <li><a href="#distinctions">SNARG、SNARK 与 NIZK 的区别</a></li>
 <li><a href="#memory">最终记忆框架</a></li>
 </ol>
@@ -1170,21 +1170,21 @@
 <p>即使前两项解决，GKR 仍然需要 Verifier 多轮发送随机 challenge。</p>
 </div>
 </div>
-<p>从 GKR 走向 SNARG，就是依次解决这三个问题。</p>
+<p>从 GKR 走向 SNARG，就是依次解决这三个问题。但这首先是一张构造蓝图：只有在 PCS 类型、evaluation 接口、transcript binding、soundness composition 与 succinctness 核算全部对齐后，才能把它提升为一个具体 SNARG 定理。</p>
 <h2 id="flatten">二、第一步：把深计算变成浅验证电路</h2>
 <p>首先处理电路深度。假设原电路 <span data-tex="C"></span> 一共有 <span data-tex="S"></span> 条 wires。Prover 先真正执行一次 <span data-tex="C(x)"></span>，把所有 wire values 按固定顺序排列成：</p>
 <div class="math-block gold">
-<div class="math-line" data-tex="V_0=(v_1,v_2,\ldots,v_S)"></div>
+<div class="math-line" data-tex="W_C=(v_1,v_2,\ldots,v_S)"></div>
 </div>
-<p>其中每个 <span data-tex="v_j"></span> 都是原电路某条 wire 的值。现在不再让新的电路重新执行原计算，而是构造一个<strong>一致性检查电路</strong> <span data-tex="C'"></span>：</p>
+<p>其中每个 <span data-tex="v_j"></span> 都是原电路某条 wire 的值，W<sub>C</sub> 表示完整 computation trace。这里刻意不使用 GKR 文章中的 V<sub>0</sub>，因为那里 V<sub>0</sub> 专指 output layer 的 gate-value function。现在不再让新的电路重新执行原计算，而是把公开输入 x 和目标输出 y hardwire 进一个<strong>一致性检查电路</strong> <span data-tex="C'_{x,y}"></span>；后文在边界已明确时简写为 <span data-tex="C'"></span>：</p>
 <div class="math-block green">
-<div class="math-line" data-tex="C'(V_0)=1\quad\Longleftrightarrow\quad V_0\text{ 中所有 wire values 都满足 }C\text{ 的 gate relations}"></div>
+<div class="math-line" data-tex="C'_{x,y}(W_C)=1\Longleftrightarrow\begin{cases}\mathsf{Input}(W_C)=x,\\\mathsf{Output}(W_C)=y,\\W_C\text{ 满足 }C\text{ 的全部 gate relations}.\end{cases}"></div>
 </div>
 <p>例如原电路中某个加法 gate 满足：</p>
 <div class="math-block">
 <div class="math-line" data-tex="v_k=v_i+v_j"></div>
 </div>
-<p>那么 <span data-tex="C'"></span> 只需要检查这条局部约束是否成立；乘法 gate 同理。所有 gate consistency checks 可以大规模并行，最后再把各检查结果汇总，因此 <span data-tex="C'"></span> 可以做得很浅，深度只需：</p>
+<p>那么 <span data-tex="C'_{x,y}"></span> 要检查这条局部约束；乘法 gate 同理，同时还要检查 trace 的输入、输出边界分别等于公开的 x、y。缺少边界绑定时，一个内部自洽但对应其他输入或输出的 trace 也可能被接受。所有 gate consistency 与 boundary checks 可以大规模并行，最后再把各检查结果汇总，因此 <span data-tex="C'_{x,y}"></span> 可以做得很浅，深度只需：</p>
 <div class="math-block green">
 <div class="math-line" data-tex="O(\log S)"></div>
 </div>
@@ -1203,10 +1203,10 @@
 <text class="svg-small" text-anchor="middle" x="132" y="287">深度可能很大</text>
 <rect class="svg-node-accent" height="145" rx="12" width="210" x="300" y="112"></rect>
 <text class="svg-small" text-anchor="middle" x="405" y="140">完整 Wire Assignment</text>
-<text class="svg-text" text-anchor="middle" x="405" y="181">V₀=(v₁,…,vS)</text>
+<text class="svg-text" text-anchor="middle" x="405" y="181">W_C=(v₁,…,vS)</text>
 <text class="svg-small" text-anchor="middle" x="405" y="216">Prover 已经计算出的轨迹</text>
 <rect class="svg-node-green" height="190" rx="12" width="265" x="590" y="90"></rect>
-<text class="svg-small" text-anchor="middle" x="722" y="120">浅一致性检查电路 C′</text>
+<text class="svg-small" text-anchor="middle" x="722" y="120">浅一致性检查电路 C′_{x,y}</text>
 <rect class="svg-node" height="44" rx="8" width="82" x="620" y="150"></rect>
 <rect class="svg-node" height="44" rx="8" width="82" x="712" y="150"></rect>
 <rect class="svg-node" height="44" rx="8" width="82" x="666" y="214"></rect>
@@ -1221,40 +1221,44 @@
 </figure>
 <div class="sc-callout">
 <strong>这里的“Flatten”到底改变了什么？</strong>
-<p>原来要验证的是一个可能很深的计算过程；现在要验证的是一个大型静态 assignment 是否满足所有 gate constraints。原计算的深度被转换成了 witness/trace 的长度，而验证电路本身可以很浅。</p>
+<p>原来要验证的是一个可能很深的计算过程；现在要验证的是一个大型静态 assignment 是否满足所有 gate constraints，并与公开输入输出边界一致。原计算的深度被转换成了 witness/trace 的长度，而验证电路本身可以很浅。</p>
 </div>
-<h2 id="commit">三、第二步：Verifier 不知道 V₀，怎么办？</h2>
-<p>到这里出现一个新的矛盾：<span data-tex="C'"></span> 的输入正是完整 wire assignment <span data-tex="V_0"></span>，但 Verifier 如果自己知道 <span data-tex="V_0"></span>，就几乎等于已经拿到了原计算的所有中间结果。更重要的是，Verifier 本来就没有能力自己计算这些 wires。</p>
-<p>因此 Prover 先把 <span data-tex="V_0"></span> 看成 Boolean Hypercube 上的一张 table，并构造它的 Multilinear Extension：</p>
+<h2 id="commit">三、第二步：Verifier 不知道完整计算轨迹 W<sub>C</sub>，怎么办？</h2>
+<p>到这里出现一个新的矛盾：<span data-tex="C'"></span> 的输入正是完整 wire assignment <span data-tex="W_C"></span>，但 Verifier 如果自己知道 <span data-tex="W_C"></span>，就几乎等于已经拿到了原计算的所有中间结果。更重要的是，Verifier 本来就没有能力自己计算这些 wires。</p>
+<p>因此 Prover 先把 <span data-tex="W_C"></span> 看成 Boolean Hypercube 上的一张 table，并构造它的 Multilinear Extension：</p>
 <div class="math-block green">
-<div class="math-line" data-tex="\widetilde V_0:\mathbb F^m\rightarrow\mathbb F"></div>
+<div class="math-line" data-tex="\widetilde W_C:\mathbb F^m\rightarrow\mathbb F"></div>
 </div>
-<p>其中 <span data-tex="2^m"></span> 至少能够容纳全部 <span data-tex="S"></span> 个 wire values。然后 Prover 不把整个 <span data-tex="V_0"></span> 发给 Verifier，而是发送一个 succinct polynomial commitment：</p>
+<p>其中 <span data-tex="2^m"></span> 至少能够容纳全部 <span data-tex="S"></span> 个 wire values。然后 Prover 不把整个 <span data-tex="W_C"></span> 发给 Verifier，而是发送一个 succinct polynomial commitment：</p>
 <div class="math-block gold">
-<div class="math-line" data-tex="\mathsf{cm}\leftarrow\mathsf{Commit}(\widetilde V_0)"></div>
+<div class="math-line" data-tex="\mathsf{cm}\leftarrow\mathsf{Commit}(\widetilde W_C)"></div>
 </div>
 <p>这个 polynomial commitment 在这里承担三项作用：</p>
 <div class="fact-grid">
 <div class="fact-card">
 <span>Binding</span>
 <strong>先固定 Polynomial</strong>
-<p>Commitment 先固定 <span data-tex="\widetilde V_0"></span>，Prover 不能在 challenge 出现后再更换计算轨迹。</p>
+<p>Commitment 先固定 <span data-tex="\widetilde W_C"></span>，Prover 不能在 challenge 出现后再更换计算轨迹。</p>
 </div>
 <div class="fact-card">
 <span>Succinct Opening</span>
 <strong>只证明一个 Evaluation</strong>
-<p>给定随机点 <span data-tex="z"></span>，Prover 只需简洁证明 <span data-tex="\widetilde V_0(z)=t"></span>，无需公开整张 table。</p>
+<p>给定随机点 <span data-tex="z"></span>，Prover 只需简洁证明 <span data-tex="\widetilde W_C(z)=t"></span>，无需公开整张 table。</p>
 </div>
 <div class="fact-card">
 <span>Compactness</span>
 <strong>无需保存整张 Table</strong>
-<p>Verifier 只需保存 succinct commitment 和 opening proof，不需要持有完整 <span data-tex="V_0"></span>。</p>
+<p>Verifier 只需保存 succinct commitment 和 opening proof，不需要持有完整 <span data-tex="W_C"></span>。</p>
 </div>
 </div>
 <p>这也是为什么这里需要的是 <strong>Polynomial Commitment</strong>，而不是普通 Commitment。普通 commitment 只能“锁住一个消息”，却没有直接提供对任意 polynomial evaluation 的 succinct opening 接口。</p>
 <div class="sc-callout">
 <strong>KZG 在这里扮演什么角色？</strong>
-<p>这里的构造只需要一个抽象 Polynomial Commitment Scheme（PCS）。KZG 是我们已经学习过的一种具体实现，但“GKR → SNARG”并不等同于“KZG → SNARG”，也不要求这一篇把 PCS 固定成 KZG。</p>
+<p>这里需要的是能够承诺多线性多项式并在向量点 <span data-tex="z\in\mathbb F^m"></span> 简洁打开的 PCS。前文介绍的基础 KZG 直接承诺的是单变量多项式 <span data-tex="f(X)"></span>，其接口不能未经转换就验证 <span data-tex="\widetilde W_C(z_1,\ldots,z_m)"></span>。若选择单变量 KZG，必须额外给出把 multilinear evaluation 归约为一个或多个 univariate openings 的编码与证明；另一种选择是直接采用具有 multilinear opening 接口的 PCS。</p>
+</div>
+<div class="sc-callout">
+<strong>PCS 的兼容性是协议条件，不是记号细节</strong>
+<p>Commitment 必须先于产生随机点 z 的 transcript 固定同一个 <span data-tex="\widetilde W_C"></span>，opening 还必须绑定 commitment、公开 statement、evaluation point 与 claimed value。普通消息承诺、单变量 KZG 和 multilinear PCS 的接口不能仅因为都叫“commitment”就互换。</p>
 </div>
 <h2 id="gkr-open">四、第三步：GKR 最终只留下一个 Evaluation Claim</h2>
 <p>现在双方在浅电路 <span data-tex="C'"></span> 上运行 GKR。由于：</p>
@@ -1264,11 +1268,11 @@
 <p>GKR 的轮数与通信不再取决于原始计算的深度，而只以 <span data-tex="S"></span> 的多对数规模增长。</p>
 <p>更关键的是，GKR 会把“整张 consistency-check circuit 是否接受”逐层归约，最后变成 input layer 上的一个随机点声明：</p>
 <div class="math-block green">
-<div class="math-line" data-tex="\widetilde V_0(z)=t,\qquad z\in\mathbb F^m"></div>
+<div class="math-line" data-tex="\widetilde W_C(z)=t,\qquad z\in\mathbb F^m"></div>
 </div>
-<p>如果 Verifier 真正拥有 <span data-tex="V_0"></span>，它可以自己算这个值；但现在它只有 commitment。于是最后一步正好调用 Polynomial Commitment 的 opening 接口：</p>
+<p>如果 Verifier 真正拥有 <span data-tex="W_C"></span>，它可以自己算这个值；但现在它只有 commitment。于是最后一步正好调用 Polynomial Commitment 的 opening 接口：</p>
 <div class="math-block gold">
-<div class="math-line" data-tex="\pi_{\mathrm{open}}\leftarrow\mathsf{Open}(\widetilde V_0,z,t)"></div>
+<div class="math-line" data-tex="\pi_{\mathrm{open}}\leftarrow\mathsf{Open}(\widetilde W_C,z,t)"></div>
 <div class="math-line" data-tex="\mathsf{VerifyOpen}(\mathsf{cm},z,t,\pi_{\mathrm{open}})=1"></div>
 </div>
 <figure class="gkr-figure">
@@ -1278,25 +1282,25 @@
 <text class="svg-title" text-anchor="middle" x="450" y="28">GKR 与 Polynomial Commitment 的接口刚好闭合</text>
 <rect class="svg-node-accent" height="92" rx="12" width="190" x="45" y="112"></rect>
 <text class="svg-small" text-anchor="middle" x="140" y="140">Prover 先固定</text>
-<text class="svg-text" text-anchor="middle" x="140" y="172">cm = Com(Ṽ₀)</text>
+<text class="svg-text" text-anchor="middle" x="140" y="172">cm = Com(W̃_C)</text>
 <rect class="svg-node-green" height="135" rx="12" width="245" x="300" y="90"></rect>
 <text class="svg-small" text-anchor="middle" x="422" y="120">GKR on C′</text>
 <text class="svg-text" text-anchor="middle" x="422" y="155">Circuit Claim</text>
 <text class="svg-small" text-anchor="middle" x="422" y="187">逐层压缩</text>
 <rect class="svg-node-accent" height="92" rx="12" width="245" x="610" y="112"></rect>
 <text class="svg-small" text-anchor="middle" x="732" y="140">最终随机点声明</text>
-<text class="svg-text" text-anchor="middle" x="732" y="174">Ṽ₀(z)=t</text>
+<text class="svg-text" text-anchor="middle" x="732" y="174">W̃_C(z)=t</text>
 <rect class="svg-node-green" height="58" rx="12" width="245" x="610" y="252"></rect>
 <text class="svg-text" text-anchor="middle" x="732" y="287">PCS Opening</text>
 <line class="svg-edge-accent" x1="235" x2="300" y1="158" y2="158"></line>
 <line class="svg-edge-accent" x1="545" x2="610" y1="158" y2="158"></line>
 <line class="svg-edge" x1="732" x2="732" y1="204" y2="252"></line>
 </svg>
-<figcaption>GKR 不需要 Polynomial Commitment 去证明整个电路；它只需要 PCS 在最后负责一个随机 evaluation。两者通过 <span data-tex="\widetilde V_0(z)=t"></span> 这个接口衔接。</figcaption>
+<figcaption>GKR 不需要 Polynomial Commitment 去证明整个电路；它只需要 PCS 在最后负责一个随机 evaluation。两者通过 <span data-tex="\widetilde W_C(z)=t"></span> 这个接口衔接。</figcaption>
 </figure>
-<p>因此，这一阶段已经得到一个<strong>succinct interactive argument</strong>：</p>
+<p>因此，在选定兼容 PCS 并证明它与 GKR 组合后的 evaluation binding/soundness 之后，这一阶段可以得到一个<strong>succinct interactive argument</strong>：</p>
 <div class="transcript">
-<span data-tex="\text{Commit to }\widetilde V_0\ \rightarrow\ \text{GKR on }C'\ \rightarrow\ \widetilde V_0(z)=t\ \rightarrow\ \text{PCS Opening}"></span>
+<span data-tex="\text{Commit to }\widetilde W_C\ \rightarrow\ \text{GKR on }C'\ \rightarrow\ \widetilde W_C(z)=t\ \rightarrow\ \text{PCS Opening}"></span>
 </div>
 <h2 id="np">五、从“验证一次计算”推广到“证明一个 NP Statement”</h2>
 <p>现在把问题换回 NP。设语言 <span data-tex="L"></span> 由关系 <span data-tex="R"></span> 定义：</p>
@@ -1345,13 +1349,13 @@
 </div>
 <p>但 GKR 是 public-coin protocol：Verifier 的消息本质上就是独立随机元素。于是可以使用 Fiat–Shamir，把每一轮应由 Verifier 采样的 challenge 改成当前 transcript 的 hash：</p>
 <div class="math-block green">
-<div class="math-line" data-tex="r_i=H(x,\mathsf{cm},a_1,r_1,\ldots,a_i)"></div>
+<div class="math-line" data-tex="r_i=\mathsf{MapTo}_{\mathbb F}\!\left(H(\mathsf{domain}\parallel\mathsf{pp}\parallel i\parallel x\parallel\mathsf{cm}\parallel a_1\parallel r_1\parallel\cdots\parallel a_i)\right)"></div>
 </div>
 <p>于是 Prover 不再等待一个在线 Verifier，而是自己按照 transcript 顺序确定所有 challenges，并一次性生成完整证明：</p>
 <div class="math-block gold">
 <div class="math-line" data-tex="\pi=(\mathsf{cm},\text{GKR messages},\text{PCS opening proof})"></div>
 </div>
-<p>Verifier 收到 <span data-tex="(x,\pi)"></span> 后，只需按照完全相同的 hash 规则重新计算每轮 challenge，再执行原有的 GKR checks 和 PCS opening verification。</p>
+<p>其中 domain 绑定协议与版本，pp 绑定 PCS/GKR 公共参数，i 防止跨轮次复用，各字段必须使用无歧义编码；哈希输出还要通过明确方法映射为近似均匀的域元素。Verifier 收到 <span data-tex="(x,\pi)"></span> 后，按照完全相同的规则重算每轮 challenge，再执行原有的 GKR checks 和 PCS opening verification。</p>
 <figure class="gkr-figure">
 <svg aria-labelledby="fs-title fs-desc" role="img" viewbox="0 0 900 390">
 <title id="fs-title">Fiat-Shamir removes verifier interaction</title>
@@ -1383,14 +1387,14 @@
 </figure>
 <div class="sc-callout">
 <strong>Fiat–Shamir 不是“免费去交互”</strong>
-<p>交互被消除后，soundness 不再只依赖原 GKR 的信息论随机挑战，还需要对 Fiat–Shamir hash 的安全性作密码学假设。本文只沿用这一范式，不把它表述成对任意 public-coin protocol 都自动成立的通用定理。</p>
+<p>交互被消除后，soundness 不再只依赖原 GKR 的信息论随机挑战，还需要在明确模型中证明 Fiat–Shamir 后协议安全。本文只给出这一构造范式：public-coin 并不是“可安全 Fiat–Shamir 化”的充分条件，最终结论取决于具体协议结构、Random Oracle/其他模型、查询方式以及与 PCS 的组合证明。</p>
 </div>
-<h2 id="snarg">七、最终得到的 SNARG 到底是什么？</h2>
+<h2 id="snarg">七、何时才能把这条蓝图称为 SNARG？</h2>
 <p>SNARG 的全称是：</p>
 <div class="math-block green">
 <div class="math-line" data-tex="\text{Succinct Non-Interactive Argument}"></div>
 </div>
-<p>把前面的组件合起来后，Prover 可以把一个原本很长的 NP witness 及其验证过程，转换成一个简洁的 cryptographic proof object <span data-tex="\pi"></span>：</p>
+<p>在选定兼容的 PCS、补全多线性 evaluation 接口、证明组合 soundness，并确认 proof size 与 verifier time 均满足目标 succinctness 定义后，Prover 才能把一个原本很长的 NP witness 及其验证过程转换成简洁的 cryptographic proof object <span data-tex="\pi"></span>：</p>
 <div class="transcript">
 <span data-tex="w\ \longrightarrow\ \text{Commitment}\ +\ \text{GKR transcript}\ +\ \text{PCS opening}\ \xrightarrow{\text{Fiat--Shamir}}\ \pi"></span>
 </div>
@@ -1434,7 +1438,7 @@
 <tr>
 <td>SNARG</td>
 <td>Succinct + Non-Interactive + Argument</td>
-<td>是，目标就是这一层</td>
+<td>有条件：本文给出 blueprint，具体实例仍需 PCS/FS 兼容性、组合 soundness 与复杂度证明</td>
 </tr>
 <tr>
 <td>SNARK</td>
@@ -1494,10 +1498,10 @@
 <text class="svg-text" text-anchor="middle" x="282" y="151">C′ + V₀</text>
 <rect class="svg-node-green" height="72" rx="11" width="155" x="395" y="100"></rect>
 <text class="svg-small" text-anchor="middle" x="472" y="124">Commit</text>
-<text class="svg-text" text-anchor="middle" x="472" y="151">Com(Ṽ₀)</text>
+<text class="svg-text" text-anchor="middle" x="472" y="151">Com(W̃_C)</text>
 <rect class="svg-node-accent" height="72" rx="11" width="155" x="590" y="100"></rect>
 <text class="svg-small" text-anchor="middle" x="667" y="124">GKR + Open</text>
-<text class="svg-text" text-anchor="middle" x="667" y="151">Ṽ₀(z)=t</text>
+<text class="svg-text" text-anchor="middle" x="667" y="151">W̃_C(z)=t</text>
 <rect class="svg-node-green" height="72" rx="11" width="130" x="785" y="100"></rect>
 <text class="svg-small" text-anchor="middle" x="850" y="124">Fiat–Shamir</text>
 <text class="svg-text" text-anchor="middle" x="850" y="151">π</text>
@@ -1515,16 +1519,16 @@
 <li><strong>Polynomial Commitment 解决 hidden input：</strong>先绑定整个 polynomial，之后只在所需随机点 succinctly open。</li>
 <li><strong>GKR 解决 large computation：</strong>把整张 shallow circuit 的正确性压缩到一个随机 evaluation claim。</li>
 <li><strong>Fiat–Shamir 解决 interaction：</strong>把 public-coin challenges 改由 transcript hash 产生。</li>
-<li><strong>得到的是 SNARG：</strong>当前主线没有自动得到 Zero-Knowledge，也没有自动得到 Knowledge Soundness。</li>
+<li><strong>目标是 SNARG：</strong>当前主线是条件化 blueprint；补全兼容 PCS、Fiat–Shamir 与组合 soundness/复杂度证明后才得到具体 SNARG，且仍不自动得到 Zero-Knowledge 或 Knowledge Soundness。</li>
 </ul>
-<blockquote><strong>一句话总结：</strong>从 GKR 到 SNARG 的关键不是再发明一个新的“大协议”，而是把接口对齐：flattening 把任意深计算转换成浅一致性验证，Polynomial Commitment 绑定 Verifier 不知道的大型输入，GKR 把整个验证压缩成一个随机点 evaluation，PCS 完成该点 opening，最后 Fiat–Shamir 用 transcript hash 消除 Verifier 的在线随机交互，于是得到简洁的非交互论证。</blockquote>
+<blockquote><strong>一句话总结：</strong>从 GKR 到 SNARG 的关键是把接口和安全证明同时对齐：flattening 把深计算转换成浅一致性验证，兼容的 PCS 绑定未知输入并打开 GKR 最终的多线性 evaluation，经过证明的 Fiat–Shamir 变换消除在线随机交互；只有再完成组合 soundness 与 succinctness 核算，才能得到具体的简洁非交互论证。</blockquote>
 <details>
 <summary>复习自测：我是否真正理解了 From GKR to SNARG？</summary>
 <div>
 <ol>
 <li>为什么直接在原始深电路上运行 GKR 仍然会受到 depth 的影响？</li>
 <li>flattened circuit <span data-tex="C'"></span> 的输入是什么？它到底检查什么？</li>
-<li>为什么 Verifier 不能直接知道完整的 <span data-tex="V_0"></span>？</li>
+<li>为什么 Verifier 不能直接知道完整的 <span data-tex="W_C"></span>？</li>
 <li>为什么普通 commitment 不足以替代 polynomial commitment？</li>
 <li>GKR 和 PCS 是在哪一个具体 claim 上衔接的？</li>
 <li>为什么 hardwire <span data-tex="x"></span> 后，NP witness verification 可以放进这一框架？</li>
@@ -1539,10 +1543,8 @@
 <ol class="reference-list">
 <li>S. Goldwasser, Y. T. Kalai, and G. N. Rothblum, “<cite>Delegating Computation: Interactive Proofs for Muggles</cite>,” STOC 2008. <span class="reference-kind">GKR</span></li>
 <li>A. Fiat and A. Shamir, “<cite>How to Prove Yourself: Practical Solutions to Identification and Signature Problems</cite>,” CRYPTO 1986. <span class="reference-kind">Fiat–Shamir</span></li>
-<li>“<cite>GKR Protocol：从电路执行到逐层多项式验证</cite>,” Frieren · Cryptography Notes. <a href="gkr-protocol-notes.html">前置笔记</a> <span class="reference-kind">GKR</span></li>
-<li>“<cite>Multilinear Extension：从 Boolean Table 到低度多项式</cite>,” Frieren · Cryptography Notes. <a href="multilinear-extension.html">前置笔记</a> <span class="reference-kind">MLE</span></li>
-<li>“<cite>KZG Polynomial Commitment：从指数编码到点值证明</cite>,” Frieren · Cryptography Notes. <a href="kzg-polynomial-commitment.html">相关笔记</a> <span class="reference-kind">PCS 实例</span></li>
-<li>“<cite>NIZK 与 Fiat–Shamir：从交互式证明到非交互证明</cite>,” Frieren · Cryptography Notes. <a href="nizk-fiat-shamir.html">前置笔记</a> <span class="reference-kind">Fiat–Shamir</span></li>
+<li>A. Kate, G. M. Zaverucha, and I. Goldberg, “<cite>Constant-Size Commitments to Polynomials and Their Applications</cite>,” ASIACRYPT 2010. <span class="reference-kind">Polynomial Commitment</span></li>
+<li>S. Goldwasser and Y. T. Kalai, “<cite>On the (In)security of the Fiat–Shamir Paradigm</cite>,” FOCS 2003. <span class="reference-kind">Fiat–Shamir 安全边界</span></li>
 </ol>
 </section>
 </article>

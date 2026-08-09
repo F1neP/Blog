@@ -182,7 +182,7 @@ window.posts = [
     title: "From GKR to SNARG：从交互式电路验证到简洁非交互论证",
     tag: "证明系统与零知识证明",
     date: "2026-08-04",
-    excerpt: "从 GKR 的深度限制和未知输入问题出发，引入 circuit flattening、Polynomial Commitment 与 Fiat–Shamir，梳理一般 NP witness 如何转化为 Succinct Non-Interactive Argument。",
+    excerpt: "从 GKR 的深度限制和未知输入问题出发，梳理 circuit flattening、兼容的多线性 Polynomial Commitment 与 Fiat–Shamir 如何组成 SNARG 构造蓝图，并明确接口和组合安全条件。",
     readTime: "约 18 分钟",
     cover: "",
     emoji: "SNARG",

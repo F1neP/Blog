@@ -6,7 +6,7 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <meta content="GKR Protocol 学习笔记：从分层电路与 gate-value table 出发，依次理解 Multilinear Extension、wiring predicate 与逐层 Sumcheck 归约，并配有数值例子和示意图。" name="description"/>
 <title>GKR Protocol：从电路执行到逐层多项式验证 · Frieren</title>
-<link href="../HK.ico" rel="icon" type="image/x-icon"/>
+<link href="../images/HK.ico" rel="icon" type="image/x-icon"/>
 <link href="https://blog.fp1022.dpdns.org/posts/gkr-protocol-notes.html" rel="canonical"/>
 <link href="../static/css/style.css" rel="stylesheet"/>
 <link href="../static/css/post.css" rel="stylesheet"/>
@@ -1135,7 +1135,7 @@
 <h2 id="goal">一、GKR 要解决什么问题？</h2>
 <p>设有一个深度为 <em>D</em>、规模为 <em>S</em> 的电路 <em>C</em>。给定输入 <em>x</em> 与声称的输出 <em>y</em>，Verifier 希望判断：</p>
 <div class="math-block gold"><div class="math-line" data-tex="C(x)\stackrel{?}{=}y"></div></div>
-<p>如果 Verifier 自己重新执行所有 gate，那么验证成本与原计算几乎相同。GKR 的目标是构造一个 Doubly-Efficient Interactive Proof：Prover 可以承担与电路规模相关的工作，而 Verifier 的工作量和通信量只与电路深度以及 <span data-tex="\operatorname{polylog}(S)"></span> 相关。</p>
+<p>如果 Verifier 自己重新执行所有 gate，那么验证成本与原计算几乎相同。GKR 的目标是构造一个 Doubly-Efficient Interactive Proof：Prover 承担与电路规模相关的工作；对于具有高效可计算 wiring predicates 的分层电路，Verifier 除读取或预处理输入所需的成本外，每层只付出 <span data-tex="\operatorname{polylog}(S)"></span> 量级的工作与通信。典型总成本应写成输入访问成本加 <span data-tex="D\cdot\operatorname{polylog}(S)"></span>，而不是无条件忽略输入长度。</p>
 <div class="fact-grid">
 <div class="fact-card"><span>PROVER</span><strong>poly(S)</strong><p>Prover 本来就承担大规模计算，因此允许其工作量随电路规模增长。</p></div>
 <div class="fact-card"><span>VERIFIER</span><strong>远小于 S</strong><p>目标是避免重新计算整个电路，只维护少量随机点声明。</p></div>
@@ -1446,8 +1446,14 @@
 <h3>两个 claims 会不会指数增长？</h3>
 <p>如果每层都简单执行：</p>
 <div class="math-block"><div class="math-line" data-tex="1\rightarrow2\rightarrow4\rightarrow8\rightarrow\cdots"></div></div>
-<p>如果每层都简单把两个 claims 各自再分成两个，数量确实会指数增长。GKR 在后续归约中让两个 claims 共享 Verifier randomness，从而把需要继续维护的检查数量控制在常数规模，而不是随层数翻倍。</p>
-<p>这里不展开 two-claim reduction 的进一步代数细节。理解本节主线只需要把握一点：<strong>Layer i 的 consistency claim 经 Sumcheck 后会留下 Layer i+1 上少量随机点 evaluations，而协议会继续控制这些 claims 的数量，不让它按 2^D 增长。</strong></p>
+<p>如果每层都简单把两个 claims 各自再分成两个，数量确实会指数增长。标准 GKR 使用 line restriction 把这两个 evaluations 合并为下一层的一个随机点 claim，而不是仅靠“共享相同随机数”自动合并。</p>
+<p>令 <span data-tex="\ell(t)=z_1+t(z_2-z_1)"></span> 是经过 <span data-tex="z_1,z_2"></span> 的仿射直线，并定义一元限制多项式：</p>
+<div class="math-block green"><div class="math-line" data-tex="h(t)=\widetilde V_{i+1}(\ell(t))"></div></div>
+<p>因为 <span data-tex="\widetilde V_{i+1}"></span> 是 m 元 multilinear polynomial，<span data-tex="h"></span> 的次数至多为 m。Prover 发送 h 的系数，Verifier 首先检查两个端点：</p>
+<div class="math-block"><div class="math-line" data-tex="h(0)=\widetilde V_{i+1}(z_1),\qquad h(1)=\widetilde V_{i+1}(z_2)"></div></div>
+<p>检查通过后，Verifier 采样新的随机数 <span data-tex="\rho\leftarrow\mathbb F"></span>，把两个旧 claims 合并成：</p>
+<div class="math-block gold"><div class="math-line" data-tex="\widetilde V_{i+1}(\ell(\rho))=h(\rho)"></div></div>
+<p>于是每层结束时仍只需向下一层维护一个随机点 evaluation claim。若 h 伪造，由低度多项式随机点检验可知，它在随机 <span data-tex="\rho"></span> 处逃过检查的概率受到相应次数与域大小之比约束。</p>
 <h3>为什么 Verifier 能高效处理 wiring？</h3>
 <p>在 Sumcheck 最后的随机点上，Verifier 需要自己计算：</p>
 <div class="math-block"><div class="math-line" data-tex="\widetilde{\operatorname{ADD}}_i(z_0,z_1,z_2),\qquad \widetilde{\operatorname{MULT}}_i(z_0,z_1,z_2)"></div></div>
@@ -1542,12 +1548,6 @@
           “<cite>Delegating Computation: Interactive Proofs for Muggles</cite>,”
           in <em>Proceedings of the 40th Annual ACM Symposium on Theory of Computing (STOC)</em>, 2008, pp. 113–122.
           <span class="reference-kind">GKR 原始论文</span>
-</li>
-<li>
-          “<cite>Sumcheck Protocol：逐轮压缩求和</cite>,”
-          Frieren · Cryptography Notes.
-          <a href="sumcheck-protocol-notes.html">本系列上一篇笔记</a>
-<span class="reference-kind">前置笔记</span>
 </li>
 </ol>
 </section>

@@ -6,7 +6,7 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <meta content="Multilinear Extension（MLE）学习笔记：从 Boolean Lagrange basis 出发，理解固定 basis、唯一多线性扩展、数值构造、随机域点求值，以及 MLE 在 Sumcheck 与 GKR 中的作用。" name="description"/>
 <title>Multilinear Extension：从 Boolean Table 到低度多项式 · Frieren</title>
-<link href="../HK.ico" rel="icon" type="image/x-icon"/>
+<link href="../images/HK.ico" rel="icon" type="image/x-icon"/>
 <link href="https://blog.fp1022.dpdns.org/posts/multilinear-extension.html" rel="canonical"/>
 <link href="../static/css/style.css" rel="stylesheet"/>
 <link href="../static/css/post.css" rel="stylesheet"/>
@@ -1226,7 +1226,7 @@
 <ul class="sc-checklist"><li><strong>MLE 是 extension：</strong>定义域从 <span data-tex="\{0,1\}^m"></span> 扩展到 <span data-tex="\mathbb F^m"></span>。</li><li><strong>MLE 是 multilinear：</strong>每个变量 individual degree 至多为 1。</li><li><strong>basis 来自 Boolean Lagrange interpolation：</strong>一维是 <span data-tex="1-x"></span> 与 <span data-tex="x"></span>。</li><li><strong>固定的是 basis，不是数据：</strong><span data-tex="f(b)"></span> 才是不同 table 的系数。</li><li><strong>MLE 唯一：</strong>在 multilinearity 约束下，Boolean Hypercube 上的全部值唯一决定整个 polynomial。</li><li><strong>随机域点不是实际数据项：</strong><span data-tex="\widetilde f(r)"></span> 是整张 table 的代数 evaluation。</li><li><strong>MLE 不压缩信息：</strong>它改变的是表示方式，使数据获得低度代数结构。</li></ul>
 <blockquote><strong>一句话总结：</strong>Multilinear Extension 用固定的 Boolean Lagrange basis 把一张任意 Boolean table 唯一地写成低度多项式；basis 负责位置，table value 负责数据，而随机域点求值为 Sumcheck、GKR 等协议提供了可验证的代数接口。</blockquote>
 <details><summary>复习自测：我是否真正理解了 MLE？</summary><div><ol><li>为什么一维 Boolean basis 必然是 <span data-tex="1-x"></span> 与 <span data-tex="x"></span>？</li><li>为什么 <span data-tex="x_1x_2x_3"></span> 是 multilinear？</li><li><span data-tex="\chi_b(c)"></span> 在 Boolean points 上具有什么 selector 性质？</li><li>为什么不同 table 可以使用完全相同的 basis？</li><li>对于 <span data-tex="m=3"></span>，一共有多少个 Boolean basis polynomials？</li><li>为什么 polynomial extension 不唯一，但 multilinear extension 唯一？</li><li><span data-tex="\widetilde f(2,3)"></span> 为什么不能理解成编号为 (2,3) 的 table entry？</li><li>MLE 为什么适合与 Sumcheck 组合？</li></ol></div></details>
-<section aria-labelledby="references-title" class="references"><h2 id="references-title">参考文献</h2><ol class="reference-list"><li>Y. Kalai, “<cite>Lecture 21: The GKR Protocol</cite>,” MIT 6.5620, <em>Foundations of Cryptography</em>, Nov. 24, 2025. <span class="reference-kind">MLE 定义与构造来源</span></li><li>“<cite>Sumcheck Protocol：逐轮压缩求和</cite>,” Frieren · Cryptography Notes. <a href="sumcheck-protocol-notes.html">前置笔记</a> <span class="reference-kind">Sumcheck</span></li><li>“<cite>GKR Protocol：从电路执行到逐层多项式验证</cite>,” Frieren · Cryptography Notes. <a href="gkr-protocol-notes.html">后续笔记</a> <span class="reference-kind">GKR</span></li></ol></section>
+<section aria-labelledby="references-title" class="references"><h2 id="references-title">参考文献</h2><ol class="reference-list"><li>Y. Kalai, “<cite>Lecture 21: The GKR Protocol</cite>,” MIT 6.5620, <em>Foundations of Cryptography</em>, Nov. 24, 2025. <span class="reference-kind">MLE 定义与构造</span></li><li>S. Goldwasser, Y. T. Kalai, and G. N. Rothblum, “<cite>Delegating Computation: Interactive Proofs for Muggles</cite>,” in <em>STOC</em>, 2008, pp. 113–122. <span class="reference-kind">GKR 与低度扩展</span></li></ol></section>
 </article>
 <footer class="article-footer">
 <a class="footer-back" href="../index.html">
