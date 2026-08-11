@@ -1,6 +1,11 @@
 <!DOCTYPE html><html lang="zh-CN"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="description" content="讲解 ElGamal 公钥加密的密钥生成、双分量密文、解密、数值例子和安全边界。">
-<title>ElGamal Public-Key Encryption（ElGamal，ElGamal 公钥加密） · Frieren</title><link rel="icon" href="../images/HK.ico" type="image/x-icon"><link rel="canonical" href="https://blog.fp1022.dpdns.org/posts/elgamal.html">
+<title>ElGamal Public-Key Encryption（ElGamal，ElGamal 公钥加密） · Frieren</title>
+<link href="../images/favicon-32x32.png?v=20260810" rel="icon" sizes="32x32" type="image/png"/>
+<link href="../images/favicon-16x16.png?v=20260810" rel="icon" sizes="16x16" type="image/png"/>
+<link href="../favicon.ico?v=20260810" rel="shortcut icon" type="image/x-icon"/>
+<link href="../images/apple-touch-icon.png?v=20260810" rel="apple-touch-icon" sizes="180x180"/>
+<link rel="canonical" href="https://blog.fp1022.dpdns.org/posts/elgamal.html">
 <link rel="stylesheet" href="../static/css/style.css"><link rel="stylesheet" href="../static/css/post.css"><link rel="stylesheet" href="../static/css/learning-note.css"><link rel="stylesheet" href="../static/css/algorithm-note.css"><link rel="stylesheet" href="../static/vendor/katex/katex.min.css"><script>(function(){let t;try{t=localStorage.getItem('frieren-theme')}catch(_){ }if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t})();</script></head>
 <body data-share-title="ElGamal Public-Key Encryption（ElGamal，ElGamal 公钥加密）"><div class="back-fixed"><a class="back-btn" href="../index.html">← 返回</a></div><div class="article-actions"><button class="article-action" id="share-button" type="button">分享</button><button class="article-action" type="button" data-theme-toggle><span data-theme-label>深色</span></button></div><div class="action-toast" id="action-toast"></div>
 <div class="post-hero algorithm-hero"><div class="note-hero"><div class="hero-flow"><div class="hero-node"><strong>y=gˣ</strong><span>接收者公钥</span></div><div class="hero-arrow">→</div><div class="hero-node"><strong>k ← random</strong><span>每次加密新采样</span></div><div class="hero-arrow">→</div><div class="hero-node"><strong>(gᵏ,m·yᵏ)</strong><span>双分量密文</span></div><div class="hero-arrow">→</div><div class="hero-node"><strong>m</strong><span>私钥 x 解密</span></div></div></div><div class="hero-overlay"></div></div>

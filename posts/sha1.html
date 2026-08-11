@@ -1,6 +1,11 @@
 <!DOCTYPE html><html lang="zh-CN"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="description" content="讲解 SHA-1 的填充、消息扩展、80 轮压缩、abc 测试向量与安全边界。">
-<title>Secure Hash Algorithm 1（SHA-1，安全散列算法 1） · Frieren</title><link rel="icon" href="../images/HK.ico" type="image/x-icon"><link rel="canonical" href="https://blog.fp1022.dpdns.org/posts/sha1.html">
+<title>Secure Hash Algorithm 1（SHA-1，安全散列算法 1） · Frieren</title>
+<link href="../images/favicon-32x32.png?v=20260810" rel="icon" sizes="32x32" type="image/png"/>
+<link href="../images/favicon-16x16.png?v=20260810" rel="icon" sizes="16x16" type="image/png"/>
+<link href="../favicon.ico?v=20260810" rel="shortcut icon" type="image/x-icon"/>
+<link href="../images/apple-touch-icon.png?v=20260810" rel="apple-touch-icon" sizes="180x180"/>
+<link rel="canonical" href="https://blog.fp1022.dpdns.org/posts/sha1.html">
 <link rel="stylesheet" href="../static/css/style.css"><link rel="stylesheet" href="../static/css/post.css"><link rel="stylesheet" href="../static/css/learning-note.css"><link rel="stylesheet" href="../static/css/algorithm-note.css"><link rel="stylesheet" href="../static/vendor/katex/katex.min.css"><script>(function(){let t;try{t=localStorage.getItem('frieren-theme')}catch(_){ }if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t})();</script></head>
 <body data-share-title="Secure Hash Algorithm 1（SHA-1，安全散列算法 1）"><div class="back-fixed"><a class="back-btn" href="../index.html">← 返回</a></div><div class="article-actions"><button class="article-action" id="share-button" type="button">分享</button><button class="article-action" type="button" data-theme-toggle><span data-theme-label>深色</span></button></div><div class="action-toast" id="action-toast"></div>
 <div class="post-hero algorithm-hero"><div class="note-hero"><div class="hero-flow"><div class="hero-node"><strong>Message</strong><span>任意长度消息</span></div><div class="hero-arrow">→</div><div class="hero-node"><strong>Padding</strong><span>512 位分组</span></div><div class="hero-arrow">→</div><div class="hero-node"><strong>80 Rounds</strong><span>五个 32 位工作字</span></div><div class="hero-arrow">→</div><div class="hero-node"><strong>160-bit</strong><span>消息摘要</span></div></div></div><div class="hero-overlay"></div></div>
