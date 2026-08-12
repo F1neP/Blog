@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="用理想功能、真实/理想实验和模拟器严格定义协议隐私，并以双服务器求和为例逐步解释模拟证明、威胁模型、ZKP 对应关系与安全边界。">
+  <title>理想—现实模拟安全：怎样严格定义协议没有额外泄漏 · Frieren</title>
+  <link rel="canonical" href="https://blog.fp1022.dpdns.org/posts/ideal-real-simulation-security.html">
+  <link rel="icon" href="../images/favicon-32x32.png?v=20260810" sizes="32x32" type="image/png">
+  <link rel="stylesheet" href="../static/css/style.css">
+  <link rel="stylesheet" href="../static/css/post.css">
+  <link rel="stylesheet" href="../static/css/learning-note.css">
+  <link rel="stylesheet" href="../static/css/research-note.css">
+  <link rel="stylesheet" href="../static/vendor/katex/katex.min.css">
+  <script>(function(){let t;try{t=localStorage.getItem('frieren-theme')}catch(_){ }if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';document.documentElement.dataset.theme=t})();</script>
+</head>
+<body class="research-note" data-share-title="理想—现实模拟安全：怎样严格定义协议没有额外泄漏">
+  <div class="back-fixed"><a class="back-btn" href="../index.html">← 返回</a></div>
+  <div class="article-actions">
+    <button class="article-action" id="share-button" type="button">分享</button>
+    <button class="article-action" type="button" data-theme-toggle><span data-theme-label>深色</span></button>
+  </div>
+  <div class="action-toast" id="action-toast"></div>
+
+  <div class="post-hero research-hero">
+    <div class="research-hero-map">
+      <div class="research-hero-node"><strong>理想功能</strong><span>规定允许的输出与泄漏</span></div>
+      <div class="research-hero-arrow">→</div>
+      <div class="research-hero-node"><strong>真实协议</strong><span>消息、随机数与中止</span></div>
+      <div class="research-hero-arrow">→</div>
+      <div class="research-hero-node"><strong>模拟器</strong><span>仅凭允许信息重建视图</span></div>
+      <div class="research-hero-arrow">→</div>
+      <div class="research-hero-node"><strong>不可区分</strong><span>没有额外可利用信息</span></div>
+    </div>
+    <div class="hero-overlay"></div>
+  </div>
+
+  <main class="article-wrap">
+    <div class="article-meta">
+      <span class="meta-tag">安全基础 · 形式化定义</span>
+      <span class="meta-date">2026-08-12</span>
+      <span class="meta-readtime">约 30 分钟</span>
+    </div>
+    <h1 class="article-title">理想—现实模拟安全：怎样严格定义协议没有额外泄漏</h1>
+    <nav class="lesson-nav" data-learning-nav data-post-id="24" hidden></nav>
+    <hr class="article-divider">
+
+    <article class="article-content" data-learning-standard="complete">
+      <div class="research-kicker">SECURITY DEFINITIONS · REAL / IDEAL · SIMULATION</div>
+      <p class="research-lead">“使用了加密”“消息看起来随机”或“攻击者无法直接恢复秘密”，都不足以构成协议安全定义。模拟范式提出一个更强且可检验的问题：攻击者在真实执行中看到和影响的一切，能否只根据理想功能明确允许的输入、输出与泄漏生成？若能，真实协议便没有赋予攻击者理想过程之外的能力。</p>
+      <aside class="necessity-note" aria-label="本章必要性"><strong>为什么需要这一章？</strong><p>理解加密、秘密分享或零知识机制，并不等于已经说明“协议安全”：还必须精确规定攻击者被允许知道什么、能够影响什么，以及协议中止是否泄漏信息。本章给出理想功能、真实/理想实验与模拟器这一套可证伪的安全语言，使后续 MPC 和 ZKP 的安全结论具有明确边界。</p></aside>
+
+      <div class="memory-frame" aria-labelledby="learning-objectives">
+        <div>
+          <span class="note-label">PREREQUISITES</span>
+          <h3>阅读前置</h3>
+          <p>只需了解概率多项式时间算法、计算不可区分和秘密分享的基本概念。本文先讲清 stand-alone 模拟定义，不把 UC 框架的环境机、会话组合等细节提前混入。</p>
+        </div>
+        <div>
+          <span class="note-label">LEARNING OUTCOMES</span>
+          <h3 id="learning-objectives">读完本节，你应当能够</h3>
+          <ul>
+            <li>从功能、泄漏、中止和输出接收者四方面写出理想功能；</li>
+            <li>解释真实实验、理想实验、攻击者和模拟器各自的角色；</li>
+            <li>为双服务器求和构造一个具体模拟器，并指出证明依赖的威胁模型；</li>
+            <li>区分隐私、正确性、输入有效性、公平性、鲁棒性与可组合性。</li>
+          </ul>
+        </div>
+      </div>
+
+      <nav class="note-toc" aria-label="本页目录">
+        <div class="note-toc-title">Contents</div>
+        <ol>
+          <li><a href="#problem">为什么“看不到明文”仍不够</a></li>
+          <li><a href="#functionality">先写理想功能</a></li>
+          <li><a href="#experiments">真实与理想实验</a></li>
+          <li><a href="#sum-example">双服务器求和：完整模拟</a></li>
+          <li><a href="#zkp-bridge">ZKP 中的模拟与抽取</a></li>
+          <li><a href="#guarantees">保证、假设与不保证</a></li>
+          <li><a href="#workflow">可复用的分析顺序</a></li>
+        </ol>
+      </nav>
+
+      <section id="problem">
+        <h2>一、为什么“看不到明文”仍不够</h2>
+        <p>设若干参与方希望公开输入之和 <span data-tex="y=\sum_i x_i"></span>。一个协议即使从不发送单个 <span data-tex="x_i"></span> 的明文，也可能额外泄漏输入是否为零、输入长度、某个中间部分和，甚至通过是否中止泄漏一个比较结果。仅检查“明文是否出现”无法判断这些信息是否被允许。</p>
+        <p>模拟定义不试图逐项猜测所有攻击，而是先建立一个只执行目标功能的可信过程。真实协议只要泄漏了理想过程无法产生的信息，模拟器就无法重建攻击者视图，安全证明便会失败。这样，“隐私”从一句主观描述变成可被反例推翻的比较命题。</p>
+
+        <figure class="principle-figure" aria-labelledby="scope-caption">
+          <div class="flow-map nine">
+            <div class="flow-stage"><small>STEP 01</small><strong>目标功能</strong><span>究竟计算什么</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-stage"><small>STEP 02</small><strong>允许泄漏</strong><span>长度、身份、输出</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-stage"><small>STEP 03</small><strong>真实视图</strong><span>消息、状态、中止</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-stage"><small>STEP 04</small><strong>构造模拟器</strong><span>不得使用诚实秘密</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-stage"><small>STEP 05</small><strong>比较分布</strong><span>完全／统计／计算</span></div>
+          </div>
+          <figcaption id="scope-caption">模拟证明的顺序：安全性不是从密码组件名称推出，而是从“功能—视图—模拟”比较得出。</figcaption>
+        </figure>
+
+        <div class="security-boundary">
+          <strong>一个常见逻辑错误</strong>
+          <p>“每条消息都经过加密，所以协议保护输入隐私”并不成立。加密可能隐藏消息内容，却不自动处理访问模式、消息长度、密钥持有者串谋、恶意输入、选择性中止及输出本身造成的推断。</p>
+        </div>
+      </section>
+
+      <section id="functionality">
+        <h2>二、先写理想功能：允许什么，禁止什么</h2>
+        <p>理想功能 <span data-tex="\mathcal F"></span> 可以理解为一个可信程序：它接收各方输入，只执行规定计算，并只向规定对象返回规定信息。以有限域上的求和为例，可写成：</p>
+        <div class="math-block" data-tex="\mathcal F_{\mathrm{sum}}(x_1,\ldots,x_n):\quad y\gets \sum_{i=1}^{n}x_i\bmod q;\quad \mathrm{send}\ y\ \mathrm{to}\ P_{\mathrm{out}}."></div>
+        <p>这行公式仍不完整。一个可用于证明的功能至少还要固定以下语义：</p>
+        <div class="property-grid">
+          <article><span>INPUT</span><h3>输入与有效性</h3><p>谁能提交输入？输入是否必须属于 <span data-tex="[0,B]"></span>？缺失输入按零处理、等待，还是触发中止？</p></article>
+          <article><span>LEAKAGE</span><h3>显式泄漏</h3><p>参与方数量、身份、输入长度、在线状态、输出长度等元信息是否允许被攻击者获知？</p></article>
+          <article><span>OUTPUT</span><h3>输出接收者</h3><p>只有聚合者得到 <span data-tex="y"></span>，还是所有参与方都得到？输出自身可能推断出的信息属于功能泄漏。</p></article>
+          <article><span>ABORT</span><h3>中止与交付</h3><p>攻击者能否在看到自己的输出后阻止诚实方得到输出？这决定协议声称的是带中止安全还是公平交付。</p></article>
+        </div>
+        <p>若希望把模 <span data-tex="q"></span> 的结果解释为普通整数和，还需限制 <span data-tex="0\le x_i\le B"></span> 且取 <span data-tex="q>nB"></span>，否则协议可能在域上完全正确，却因回绕而不符合整数语义。</p>
+      </section>
+
+      <section id="experiments">
+        <h2>三、真实实验与理想实验究竟比较什么</h2>
+        <p>在真实实验中，各方运行协议 <span data-tex="\Pi"></span>，真实攻击者 <span data-tex="\mathcal A"></span> 控制被腐化方，读取其内部状态并按模型篡改消息。在理想实验中，各方只把输入交给 <span data-tex="\mathcal F"></span>；模拟器 <span data-tex="\mathcal S"></span> 代替真实攻击者与理想功能交互。比较对象不是某一条密文，而是诚实方输出与攻击者最终视图组成的整体分布。</p>
+
+        <figure class="principle-figure" aria-labelledby="worlds-caption">
+          <div class="protocol-strip">
+            <div><small>REAL</small><strong><span data-tex="\Pi+\mathcal A"></span></strong><span>协议消息、随机数、局部状态与攻击行为</span></div>
+            <div><small>COMPARE</small><strong>整体输出分布</strong><span>诚实输出与攻击者视图一起比较</span></div>
+            <div><small>IDEAL</small><strong><span data-tex="\mathcal F+\mathcal S"></span></strong><span>只允许功能规定的输出、泄漏与中止</span></div>
+            <div><small>GOAL</small><strong>不可区分</strong><span>观察者不能以非忽略优势判断来自哪一侧</span></div>
+          </div>
+          <figcaption id="worlds-caption">模拟器不是“破解真实协议”，而是证明真实攻击者的全部可见信息都能由理想世界允许的信息生成。</figcaption>
+        </figure>
+
+        <p>stand-alone 计算安全的一种常用写法是：对任意 PPT 真实攻击者 <span data-tex="\mathcal A"></span>，存在 PPT 模拟器 <span data-tex="\mathcal S"></span>，使对所有安全参数、合法输入和辅助信息，</p>
+        <div class="math-block" data-tex="\left\{\operatorname{REAL}_{\Pi,\mathcal A}(1^\lambda,\mathbf x;z)\right\}_{\lambda}\ \approx_c\ \left\{\operatorname{IDEAL}_{\mathcal F,\mathcal S}(1^\lambda,\mathbf x;z)\right\}_{\lambda}."></div>
+        <p>量词顺序很重要：模拟器可以针对攻击策略构造，但不能针对某个诚实输入“偷看答案”。若两侧分布相同，得到完全安全；统计距离可忽略，得到统计安全；只能由计算有界区分器区分，得到计算安全。</p>
+      </section>
+
+      <section id="sum-example">
+        <h2>四、双服务器求和：一步步构造模拟器</h2>
+        <p>考虑 <span data-tex="n"></span> 个客户端、两个不串谋服务器 <span data-tex="S_0,S_1"></span> 和一个获准得到总和的输出方。客户端 <span data-tex="C_i"></span> 持有 <span data-tex="x_i\in\mathbb F_q"></span>，随机采样 <span data-tex="r_i\leftarrow\mathbb F_q"></span>，并发送加法份额</p>
+        <div class="math-block" data-tex="a_i=r_i\ \longrightarrow S_0,\qquad b_i=x_i-r_i\ \longrightarrow S_1."></div>
+        <p>服务器分别计算 <span data-tex="A=\sum_i a_i"></span> 与 <span data-tex="B=\sum_i b_i"></span>，输出方重构 <span data-tex="y=A+B"></span>。正确性直接来自</p>
+        <div class="math-block" data-tex="A+B=\sum_i\bigl(r_i+x_i-r_i\bigr)=\sum_i x_i\pmod q."></div>
+
+        <figure class="principle-figure" aria-labelledby="sum-caption">
+          <div class="protocol-strip">
+            <div><small>CLIENT <span data-tex="C_i"></span></small><strong>随机拆分</strong><span><span data-tex="x_i=r_i+(x_i-r_i)"></span></span></div>
+            <div><small>SERVER <span data-tex="S_0"></span></small><strong>聚合左份额</strong><span><span data-tex="A=\sum_i r_i"></span></span></div>
+            <div><small>SERVER <span data-tex="S_1"></span></small><strong>聚合右份额</strong><span><span data-tex="B=\sum_i(x_i-r_i)"></span></span></div>
+            <div><small>OUTPUT</small><strong>只重构总和</strong><span><span data-tex="y=A+B"></span></span></div>
+          </div>
+          <figcaption id="sum-caption">每个服务器只接触一组均匀份额；只有汇总值被组合。图示表达的是半诚实、至多一个服务器腐化的最小模型。</figcaption>
+        </figure>
+
+        <h3>腐化 <span data-tex="S_0"></span> 时的模拟</h3>
+        <p><span data-tex="S_0"></span> 的真实视图包含 <span data-tex="(r_1,\ldots,r_n)"></span> 及其和 <span data-tex="A"></span>。由于每个 <span data-tex="r_i"></span> 都在 <span data-tex="\mathbb F_q"></span> 上独立均匀，模拟器完全不需要知道任何 <span data-tex="x_i"></span>：它采样 <span data-tex="\tilde r_i\leftarrow\mathbb F_q"></span>，令 <span data-tex="\tilde A=\sum_i\tilde r_i"></span>，便得到与真实视图完全相同的分布。</p>
+
+        <h3>腐化 <span data-tex="S_1"></span> 或输出方时的模拟</h3>
+        <p>对固定的 <span data-tex="x_i"></span>，映射 <span data-tex="r_i\mapsto x_i-r_i"></span> 是域上的双射，因此 <span data-tex="b_i"></span> 同样独立均匀；模拟器可直接采样。若输出方只看到 <span data-tex="A,B"></span> 和获准输出 <span data-tex="y"></span>，则采样均匀 <span data-tex="\tilde A"></span> 并令 <span data-tex="\tilde B=y-\tilde A"></span> 即可。这正说明其视图除总和外不包含额外输入信息。</p>
+
+        <div class="security-boundary">
+          <strong>这个证明没有覆盖什么</strong>
+          <ul>
+            <li>若 <span data-tex="S_0"></span> 与 <span data-tex="S_1"></span> 串谋，它们可逐个重构 <span data-tex="x_i=a_i+b_i"></span>；</li>
+            <li>恶意服务器可以提交错误的 <span data-tex="A"></span> 或 <span data-tex="B"></span>，因此尚无主动正确性；</li>
+            <li>恶意客户端可提交任意域元素，协议没有证明输入范围或输入来源；</li>
+            <li>消息长度、参与人数和掉线模式若未写入泄漏函数，证明便没有覆盖这些元信息。</li>
+          </ul>
+        </div>
+        <p>因此，本例证明的是一个精确而有限的命题：在半诚实模型下，只要两个服务器不串谋，单个服务器视图对客户端输入提供完美隐私；它不是“协议在任何攻击下都安全”。</p>
+      </section>
+
+      <section id="zkp-bridge">
+        <h2>五、ZKP 中的模拟与知识抽取不是一回事</h2>
+        <p>零知识证明同样使用模拟思想。对关系 <span data-tex="R(x,w)=1"></span>，零知识要求：任意恶意验证者 <span data-tex="V^*"></span> 与真实证明者交互得到的视图，都可由只知道公开陈述 <span data-tex="x"></span> 的模拟器生成：</p>
+        <div class="math-block" data-tex="\operatorname{View}_{V^*}^{P(w)}(x)\ \approx\ \mathcal S^{V^*}(x)."></div>
+        <p>这里模拟器不使用见证 <span data-tex="w"></span>，所以验证者没有从交互中学到陈述真实性之外的知识。但“虚假陈述不能通过”由可靠性保证；“通过者确实掌握见证”则由知识可靠性及抽取器保证。模拟器服务于隐私，抽取器服务于知识性，不能相互替代。</p>
+
+        <div class="table-scroll">
+          <table class="complexity-table">
+            <thead><tr><th>场景</th><th>理想信息</th><th>证明工具</th><th>回答的问题</th></tr></thead>
+            <tbody>
+              <tr><td>MPC 隐私</td><td>腐化方输入、规定输出与显式泄漏</td><td>模拟器</td><td>真实执行是否额外泄漏或赋予额外能力？</td></tr>
+              <tr><td>ZKP 零知识</td><td>公开陈述 <span data-tex="x"></span> 及接受事实</td><td>模拟器</td><td>验证者是否学到见证相关信息？</td></tr>
+              <tr><td>知识可靠性</td><td>有效公开陈述</td><td>抽取器</td><td>成功证明者是否实际掌握某个见证？</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="guarantees">
+        <h2>六、保证、威胁模型与组合边界</h2>
+        <p>一条模拟定理只有连同模型一起才有意义。至少应说明腐化是静态还是自适应、对手是半诚实还是恶意、允许多少方串谋、通信信道是否认证、是否存在可信设置，以及协议如何处理并发会话与中止。</p>
+        <div class="property-grid">
+          <article><span>PRIVACY</span><h3>隐私</h3><p>腐化方视图可由规定输入、输出与泄漏模拟；它不自动意味着输出本身不会造成推断。</p></article>
+          <article><span>CORRECTNESS</span><h3>正确性</h3><p>诚实执行产生功能规定的结果；恶意正确性还需验证畸形消息、输入与状态转换。</p></article>
+          <article><span>FAIRNESS</span><h3>公平性与交付</h3><p>所有诚实方同时得到输出，或攻击者不能单方面阻断输出；这通常不能由隐私推出。</p></article>
+          <article><span>COMPOSITION</span><h3>可组合性</h3><p>stand-alone 不可区分不自动覆盖并发会话。需要相应组合定理或 UC 等更强框架。</p></article>
+        </div>
+        <p>还要区分“带中止安全”和“保证输出交付”：前者允许恶意方使协议停止，但要求停止前不产生额外泄漏；后者还要求诚实方最终获得输出。抗拒绝服务通常属于系统活性与资源约束问题，也不能从密码学隐私证明中直接推出。</p>
+      </section>
+
+      <section id="workflow">
+        <h2>七、可复用的协议分析顺序</h2>
+        <ol>
+          <li><strong>写功能：</strong>输入域、计算、输出接收者、合法泄漏和中止语义。</li>
+          <li><strong>定对手：</strong>腐化集合、串谋上界、静态/自适应、半诚实/恶意及网络能力。</li>
+          <li><strong>列真实视图：</strong>收到的消息、局部随机数、密钥、状态、输出与时序信息。</li>
+          <li><strong>构造模拟器：</strong>只能使用腐化方输入、理想输出和显式泄漏；逐项生成视图。</li>
+          <li><strong>比较分布：</strong>指出是完全、统计还是计算不可区分，并写出依赖的困难假设。</li>
+          <li><strong>单独证明其他性质：</strong>正确性、输入有效性、知识可靠性、公平性、鲁棒性与组合安全。</li>
+        </ol>
+
+        <h3>核心速查</h3>
+        <div class="table-scroll">
+          <table class="quick-reference-table"><tbody>
+            <tr><th>核心对象</th><td>理想功能 <span data-tex="\mathcal F"></span>、真实协议 <span data-tex="\Pi"></span>、攻击者 <span data-tex="\mathcal A"></span>、模拟器 <span data-tex="\mathcal S"></span></td></tr>
+            <tr><th>核心量词</th><td>对任意 PPT 攻击者，存在 PPT 模拟器，使所有合法输入下的整体输出分布不可区分</td></tr>
+            <tr><th>证明关键</th><td>模拟器不能读取诚实方秘密，只能使用理想功能明确允许的信息</td></tr>
+            <tr><th>最易误解</th><td>隐私不等于正确性、知识可靠性、公平性、鲁棒性或可组合性</td></tr>
+          </tbody></table>
+        </div>
+
+        <h3>复习问题</h3>
+        <ol class="review-list">
+          <li>为什么“所有协议消息都经过加密”不能替代理想功能？</li>
+          <li>双服务器求和中，腐化 <span data-tex="S_0"></span> 的模拟器具体生成哪些随机变量？为什么分布完全相同？</li>
+          <li>若两个服务器允许串谋，哪一步模拟失败？应修改协议还是修改功能与威胁模型？</li>
+          <li>ZKP 的模拟器与知识抽取器分别证明哪一性质？</li>
+          <li>带中止安全为何不能推出公平性和保证输出交付？</li>
+        </ol>
+      </section>
+
+      <section class="references">
+        <h2>参考文献</h2>
+        <ol class="reference-list">
+          <li>O. Goldreich, <cite>Foundations of Cryptography, Volume II: Basic Applications</cite>, Cambridge University Press, 2004.<span class="reference-kind">教材</span></li>
+          <li>Y. Lindell, <cite>How To Simulate It — A Tutorial on the Simulation Proof Technique</cite>, 2017. <a href="https://eprint.iacr.org/2016/046" target="_blank" rel="noopener noreferrer">IACR ePrint</a><span class="reference-kind">教程</span></li>
+          <li>R. Canetti, <cite>Universally Composable Security: A New Paradigm for Cryptographic Protocols</cite>, FOCS 2001. <a href="https://eprint.iacr.org/2000/067" target="_blank" rel="noopener noreferrer">IACR ePrint</a><span class="reference-kind">组合安全</span></li>
+        </ol>
+      </section>
+    </article>
+
+    <footer class="article-footer"><a class="footer-back" href="../index.html">← 返回所有文章</a><span class="footer-brand">Frieren · Security Protocol Notes</span></footer>
+  </main>
+  <script defer src="../static/vendor/katex/katex.min.js"></script>
+  <script defer src="../static/js/theme.js"></script>
+  <script defer src="../static/js/posts-data.js"></script>
+  <script defer src="../static/js/learning-path.js"></script>
+  <script defer src="../static/js/note-page.js"></script>
+</body>
+</html>

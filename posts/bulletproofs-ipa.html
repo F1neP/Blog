@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="从 Pedersen 承诺、位分解和内积论证出发，完整理解 Bulletproofs 范围证明的目标、构造、形式化流程、实例、安全性质、复杂度与实现边界。">
+  <title>Bulletproofs 与 IPA：无可信设置的范围证明 · Frieren</title>
+  <link rel="canonical" href="https://blog.fp1022.dpdns.org/posts/bulletproofs-ipa.html">
+  <link rel="icon" href="../images/favicon-32x32.png?v=20260810" sizes="32x32" type="image/png">
+  <link rel="stylesheet" href="../static/css/style.css">
+  <link rel="stylesheet" href="../static/css/post.css">
+  <link rel="stylesheet" href="../static/css/learning-note.css">
+  <link rel="stylesheet" href="../static/css/research-note.css">
+  <link rel="stylesheet" href="../static/vendor/katex/katex.min.css">
+  <script>(function(){let t;try{t=localStorage.getItem('frieren-theme')}catch(_){ }if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';document.documentElement.dataset.theme=t})();</script>
+</head>
+<body class="research-note" data-share-title="Bulletproofs 与 IPA：无可信设置的范围证明">
+  <div class="back-fixed"><a class="back-btn" href="../index.html">← 返回</a></div>
+  <div class="article-actions">
+    <button class="article-action" id="share-button" type="button">分享</button>
+    <button class="article-action" type="button" data-theme-toggle><span data-theme-label>深色</span></button>
+  </div>
+  <div class="action-toast" id="action-toast"></div>
+
+  <div class="post-hero research-hero">
+    <div class="research-hero-map">
+      <div class="research-hero-node"><strong>Pedersen 承诺</strong><span>V = gᵛhᵞ</span></div>
+      <div class="research-hero-arrow">→</div>
+      <div class="research-hero-node"><strong>范围关系</strong><span>v ∈ [0, 2ⁿ)</span></div>
+      <div class="research-hero-arrow">→</div>
+      <div class="research-hero-node"><strong>多项式压缩</strong><span>t(X)=〈l(X),r(X)〉</span></div>
+      <div class="research-hero-arrow">→</div>
+      <div class="research-hero-node"><strong>IPA 折叠</strong><span>log₂ n rounds</span></div>
+    </div>
+    <div class="hero-overlay"></div>
+  </div>
+
+  <main class="article-wrap">
+    <div class="article-meta">
+      <span class="meta-tag">证明系统 · Bulletproofs</span>
+      <span class="meta-date">2026-08-12</span>
+      <span class="meta-readtime">约 35 分钟</span>
+    </div>
+    <h1 class="article-title">Bulletproofs 与 IPA：无可信设置的范围证明</h1>
+    <nav class="lesson-nav" data-learning-nav data-post-id="37" hidden></nav>
+    <hr class="article-divider">
+
+    <article class="article-content" data-learning-standard="complete">
+      <div class="research-kicker">PROOF SYSTEMS · RANGE PROOFS · INNER-PRODUCT ARGUMENTS</div>
+      <p class="research-lead">Bulletproofs 解决的不是“证明者知道一个数”这么简单的问题，而是：在不公开数值 <span data-tex="v"></span> 的前提下，证明一个 Pedersen 承诺确实承诺了满足给定范围的整数。它先把范围条件转成位约束和一个加权内积，再用内积论证（Inner-Product Argument，IPA）递归压缩。最终证明大小随位数对数增长，但验证工作并不会因此自动变成对数复杂度。</p>
+<aside class="necessity-note" aria-label="本章必要性"><strong>为什么需要这一章？</strong><p>Pedersen 承诺只能说明某个值已被隐藏并绑定，不能说明该值位于合法范围。Bulletproofs 在无可信设置的条件下把范围关系归约为内积关系，并用 IPA 对数轮压缩；它是理解透明范围证明及其聚合收益的典型入口。</p></aside>
+
+      <div class="memory-frame" aria-labelledby="learning-objectives">
+        <div>
+          <span class="note-label">PREREQUISITES</span>
+          <h3>阅读前置</h3>
+          <p>需要知道有限域和素数阶群的基本运算、离散对数困难性、Pedersen 承诺，以及 Fiat–Shamir 变换的基本思想。不要求预先掌握 Bulletproofs 或 IPA。</p>
+        </div>
+        <div>
+          <span class="note-label">LEARNING OUTCOMES</span>
+          <h3 id="learning-objectives">读完本节，你应当能够</h3>
+          <ul>
+            <li>准确说明范围证明的公开陈述、秘密见证和使用场景；</li>
+            <li>从 <span data-tex="0\le v<2^n"></span> 推导位分解与布尔约束；</li>
+            <li>按消息顺序解释 <span data-tex="A,S,T_1,T_2,\hat t,\tau_x,\mu"></span> 的作用；</li>
+            <li>解释 IPA 为何得到对数证明大小，以及验证为何仍是线性规模；</li>
+            <li>区分完备性、可靠性、零知识、无需可信设置与实现安全。</li>
+          </ul>
+        </div>
+      </div>
+
+      <nav class="note-toc" aria-label="本页目录">
+        <div class="note-toc-title">Contents</div>
+        <ol>
+          <li><a href="#problem">问题与作用</a></li>
+          <li><a href="#commitment">形式化关系</a></li>
+          <li><a href="#range">位分解实例</a></li>
+          <li><a href="#protocol">完整协议流程</a></li>
+          <li><a href="#ipa">IPA 折叠原理</a></li>
+          <li><a href="#properties">性质与复杂度</a></li>
+          <li><a href="#risks">安全边界</a></li>
+          <li><a href="#review">复习自测</a></li>
+        </ol>
+      </nav>
+
+      <h2 id="problem">一、它解决什么问题，为什么需要它</h2>
+      <p>设付款方公开一个承诺 <span data-tex="V"></span>，但不希望公开金额 <span data-tex="v"></span>。仅有承诺只能说明“某个值已经被绑定”，不能说明这个值在业务允许的整数区间内。若协议在模 <span data-tex="q"></span> 的有限域中计算，负数或超大整数还可能通过模约化伪装成合法元素。因此系统需要一个零知识范围证明：</p>
+      <div class="math-block">
+        <div class="math-line" data-tex="\mathcal R_{\mathrm{range}}=\left\{\bigl((V,n),(v,\gamma)\bigr):V=g^v h^\gamma\ \land\ 0\le v<2^n\right\}."></div>
+      </div>
+      <p>其中 <span data-tex="(V,n)"></span> 是公开陈述，<span data-tex="(v,\gamma)"></span> 是秘密见证。证明者应让验证者确信关系成立，同时不泄露 <span data-tex="v"></span> 和盲化因子 <span data-tex="\gamma"></span>。典型应用包括保密交易中的金额非负与无溢出检查、隐私资产负债证明、拍卖出价范围，以及更大零知识协议中的整数范围子约束。</p>
+
+      <div class="concept-grid">
+        <div class="concept-card"><span>INPUT</span><strong>公开承诺与位长</strong><p>验证者只看到 <span data-tex="V"></span>、范围位数 <span data-tex="n"></span>、生成元和协议上下文。</p></div>
+        <div class="concept-card"><span>WITNESS</span><strong>数值与承诺随机数</strong><p>证明者掌握 <span data-tex="v,\gamma"></span>，并需证明它们与公开承诺是同一组开口。</p></div>
+        <div class="concept-card"><span>GUARANTEE</span><strong>范围成员关系</strong><p>接受意味着承诺值属于 <span data-tex="[0,2^n)"></span>；不等于该值满足任意有符号解释。</p></div>
+        <div class="concept-card"><span>DESIGN POINT</span><strong>短证明而非短验证</strong><p>IPA 把证明通信压到对数级，但 verifier 通常仍需线性规模的多标量乘。</p></div>
+      </div>
+
+      <h2 id="commitment">二、基础对象与形式化约束</h2>
+      <p>在素数阶群 <span data-tex="\mathbb G"></span> 中取生成元 <span data-tex="g,h"></span>，并要求没有参与方知道 <span data-tex="\log_g h"></span>。Pedersen 承诺写为：</p>
+      <div class="math-block">
+        <div class="math-line" data-tex="V=g^v h^\gamma."></div>
+      </div>
+      <p>它对 <span data-tex="v"></span> 是完美隐藏的；在离散对数假设下，攻击者难以为同一个 <span data-tex="V"></span> 找到两个不同开口。注意，“无可信设置”并不等于“不需要公共参数”：协议仍需确定群、哈希函数、域分离标签，以及一组关系未知的向量生成元 <span data-tex="\mathbf g=(g_1,\ldots,g_n)"></span>、<span data-tex="\mathbf h=(h_1,\ldots,h_n)"></span>。这些生成元通常通过透明、可复现的 hash-to-group 过程导出。</p>
+
+      <p>把 <span data-tex="v"></span> 写成低位在前的二进制向量 <span data-tex="\mathbf a_L\in\{0,1\}^n"></span>，令 <span data-tex="\mathbf 2^n=(1,2,\ldots,2^{n-1})"></span>，则范围关系等价于：</p>
+      <div class="math-block green">
+        <div class="math-line" data-tex="\langle\mathbf a_L,\mathbf 2^n\rangle=v,"></div>
+        <div class="math-line" data-tex="\mathbf a_R=\mathbf a_L-\mathbf1,\qquad \mathbf a_L\circ\mathbf a_R=\mathbf0."></div>
+      </div>
+      <p>第二个等式逐坐标给出 <span data-tex="a_i(a_i-1)=0"></span>。由于域是域而没有零因子，每个 <span data-tex="a_i"></span> 只能是 0 或 1。第一式再把这些位按二进制权重重组为同一个 <span data-tex="v"></span>。这两个条件缺一不可：只有重组等式不能保证“位”真的是位；只有布尔约束也没有把位向量绑定到承诺值。</p>
+
+      <h2 id="range">三、一个可手算的例子：证明 13 属于四位范围</h2>
+      <p>令 <span data-tex="n=4"></span>、<span data-tex="v=13"></span>。低位在前的位向量为：</p>
+      <div class="math-block gold">
+        <div class="math-line" data-tex="\mathbf a_L=(1,0,1,1),\qquad \mathbf2^4=(1,2,4,8),"></div>
+        <div class="math-line" data-tex="\langle\mathbf a_L,\mathbf2^4\rangle=1+0+4+8=13."></div>
+      </div>
+      <p>再令 <span data-tex="\mathbf a_R=\mathbf a_L-\mathbf1=(0,-1,0,0)"></span>，逐坐标乘积确为零：<span data-tex="(1\cdot0,0\cdot(-1),1\cdot0,1\cdot0)=\mathbf0"></span>。真实协议不会把这两个向量发送给验证者，而是先承诺它们，再用随机挑战把所有坐标约束压缩。这个小例子只解释“要证明的代数事实”；真正的零知识性来自后续随机盲化，可靠性来自挑战不可预测和承诺绑定。</p>
+      <div class="security-boundary">
+        <strong>为什么域大小必须覆盖目标整数范围</strong>
+        <p>协议中的等式在 <span data-tex="\mathbb F_q"></span> 上成立，而应用声称的是整数区间。参数必须保证 <span data-tex="2^n<q"></span>，并明确字节序、整数编码和有无符号语义，否则“域元素相等”可能不能唯一对应预期整数。</p>
+      </div>
+
+      <h2 id="protocol">四、Bulletproof 范围证明的完整流程</h2>
+      <p>下面给出单值范围证明的结构。为避免把盲化生成元 <span data-tex="h"></span> 与向量生成元 <span data-tex="h_i"></span> 混淆，向量幂记作 <span data-tex="\mathbf g^{\mathbf a}=\prod_i g_i^{a_i}"></span>。实际标准或代码库可能采用加法群记号，但代数关系相同。</p>
+
+      <figure class="principle-figure" aria-labelledby="bulletproof-flow-caption">
+        <div class="protocol-strip">
+          <div><small>STEP 01</small><strong>承诺秘密向量</strong><span>发送 A、S；隐藏位向量和随机遮罩</span></div>
+          <div><small>STEP 02</small><strong>压缩约束</strong><span>由 y、z 构造 l(X)、r(X)、t(X)</span></div>
+          <div><small>STEP 03</small><strong>打开随机点</strong><span>发送 T₁、T₂ 后得到 x，公开压缩值</span></div>
+          <div><small>STEP 04</small><strong>IPA 证明</strong><span>证明 t̂ 是两个隐藏向量的内积</span></div>
+        </div>
+        <figcaption id="bulletproof-flow-caption">范围约束先被随机挑战压缩为一个内积等式，再由 IPA 递归折叠；对数大小来自最后一步，而不是跳过前面的约束检查。</figcaption>
+      </figure>
+
+      <h3>阶段 1：承诺位向量和随机方向</h3>
+      <p>证明者采样盲化标量 <span data-tex="\alpha,\rho"></span> 与随机向量 <span data-tex="\mathbf s_L,\mathbf s_R\in\mathbb F_q^n"></span>，发送：</p>
+      <div class="math-block">
+        <div class="math-line" data-tex="A=h^\alpha\mathbf g^{\mathbf a_L}\mathbf h^{\mathbf a_R},"></div>
+        <div class="math-line" data-tex="S=h^\rho\mathbf g^{\mathbf s_L}\mathbf h^{\mathbf s_R}."></div>
+      </div>
+      <p>双方从 transcript 导出非零挑战 <span data-tex="y,z\in\mathbb F_q"></span>。<span data-tex="A"></span> 绑定真实见证，<span data-tex="S"></span> 提供随机方向，使后续只在随机点打开多项式而不泄露原向量。</p>
+
+      <h3>阶段 2：把所有坐标约束压成一个内积多项式</h3>
+      <p>令 <span data-tex="\mathbf y^n=(1,y,\ldots,y^{n-1})"></span>，并定义：</p>
+      <div class="math-block green">
+        <div class="math-line" data-tex="\mathbf l(X)=(\mathbf a_L-z\mathbf1)+\mathbf s_LX,"></div>
+        <div class="math-line" data-tex="\mathbf r(X)=\mathbf y^n\circ(\mathbf a_R+z\mathbf1+\mathbf s_RX)+z^2\mathbf2^n,"></div>
+        <div class="math-line" data-tex="t(X)=\langle\mathbf l(X),\mathbf r(X)\rangle=t_0+t_1X+t_2X^2."></div>
+      </div>
+      <p><span data-tex="y"></span> 的幂把不同坐标随机加权，<span data-tex="z"></span> 同时绑定布尔约束和数值重组关系。证明者随机取 <span data-tex="\tau_1,\tau_2"></span> 并发送系数承诺 <span data-tex="T_1=g^{t_1}h^{\tau_1}"></span>、<span data-tex="T_2=g^{t_2}h^{\tau_2}"></span>。</p>
+
+      <h3>阶段 3：在随机点打开压缩多项式</h3>
+      <p>双方由最新 transcript 导出挑战 <span data-tex="x"></span>。证明者计算：</p>
+      <div class="math-block gold">
+        <div class="math-line" data-tex="\hat t=t(x)=\langle\mathbf l(x),\mathbf r(x)\rangle,"></div>
+        <div class="math-line" data-tex="\tau_x=\tau_2x^2+\tau_1x+z^2\gamma,\qquad \mu=\alpha+\rho x."></div>
+      </div>
+      <p>验证者首先检查将 <span data-tex="\hat t"></span> 绑定回原始承诺 <span data-tex="V"></span> 的主等式：</p>
+      <div class="math-block">
+        <div class="math-line" data-tex="g^{\hat t}h^{\tau_x}\stackrel{?}=V^{z^2}g^{\delta(y,z)}T_1^xT_2^{x^2},"></div>
+        <div class="math-line" data-tex="\delta(y,z)=(z-z^2)\langle\mathbf1,\mathbf y^n\rangle-z^3\langle\mathbf1,\mathbf2^n\rangle."></div>
+      </div>
+      <p>该等式验证 <span data-tex="t(x)"></span> 的常数项确实包含与 <span data-tex="V"></span> 一致的数值约束，但它还没有证明 <span data-tex="\hat t"></span> 真是被承诺向量的内积；这一步交给 IPA。</p>
+
+      <h3>阶段 4：用 IPA 证明内积关系</h3>
+      <p>协议把 <span data-tex="\mathbf l(x),\mathbf r(x)"></span> 及 <span data-tex="\hat t"></span> 绑定到一个向量承诺 <span data-tex="P"></span>，随后执行内积论证。验证者只有在主等式和 IPA 都通过时才接受。任何一步失败都应返回拒绝；实现不能在解析失败、非规范点编码或挑战为零时继续验证。</p>
+
+      <h2 id="ipa">五、IPA 为什么能把证明压到对数大小</h2>
+      <p>抽象地看，IPA 要证明承诺中的向量满足 <span data-tex="c=\langle\mathbf a,\mathbf b\rangle"></span>。当向量长度为 <span data-tex="n=2^k"></span> 时，每轮将向量分成左右两半，计算两个交叉项承诺 <span data-tex="L,R"></span>，再由 transcript 生成非零挑战 <span data-tex="u"></span>：</p>
+      <div class="math-block green">
+        <div class="math-line" data-tex="\mathbf a'=u\mathbf a_L+u^{-1}\mathbf a_R,"></div>
+        <div class="math-line" data-tex="\mathbf b'=u^{-1}\mathbf b_L+u\mathbf b_R."></div>
+      </div>
+      <p>生成元也按互补权重折叠，使更新后的承诺仍表示同一个关系。每轮长度减半，经过 <span data-tex="k=\log_2 n"></span> 轮只剩两个标量，证明中则保存每轮的 <span data-tex="L,R"></span>。因此通信是对数级。验证者可以从全部挑战重建每个原始生成元的最终权重，再用一次大规模多标量乘完成检查；所以“证明短”不等价于“验证只访问对数个原始坐标”。</p>
+
+      <p>非交互版本通过 Fiat–Shamir 依次计算 <span data-tex="y,z,x,u_1,\ldots,u_k"></span>。挑战必须哈希此前全部消息、公开承诺、生成元域、位长、聚合顺序、曲线与协议版本。顺序不可交换，也不能在获得挑战后再选择对应承诺。</p>
+
+      <h2 id="properties">六、性质、效率与适用边界</h2>
+      <div class="property-grid">
+        <article><span>COMPLETENESS</span><h3>完备性</h3><p>若 <span data-tex="V"></span> 的开口满足范围且证明者按协议计算，则所有多项式与承诺等式成立，诚实验证者接受。</p></article>
+        <article><span>SOUNDNESS</span><h3>论证可靠性</h3><p>在承诺计算绑定、离散对数困难以及随机预言机模型中的 Fiat–Shamir 假设下，伪造者不能以非可忽略概率证明错误范围陈述。</p></article>
+        <article><span>ZERO KNOWLEDGE</span><h3>零知识</h3><p>盲化标量与随机向量遮蔽见证；正式主张应对应论文中的零知识定义，而不是仅凭“证明里没直接出现 <span data-tex="v"></span>”。</p></article>
+        <article><span>TRANSPARENT</span><h3>无需陷门设置</h3><p>不需要含秘密毒废料的结构化参考串，但仍依赖正确群参数、独立生成元导出和一致 transcript 规范。</p></article>
+      </div>
+
+      <div class="table-scroll">
+        <table class="complexity-table">
+          <thead><tr><th>指标</th><th>单值 n 位范围证明</th><th>应如何理解</th></tr></thead>
+          <tbody>
+            <tr><td>证明大小</td><td><span data-tex="O(\log n)"></span> 个群/域元素</td><td>经典构造常被概括为约 <span data-tex="2\log_2n+9"></span> 个群和域元素；具体字节数取决于编码与变体。</td></tr>
+            <tr><td>Prover</td><td><span data-tex="O(n)"></span></td><td>主要成本是向量运算与多标量乘，可并行和预计算，但不能忽略常数。</td></tr>
+            <tr><td>Verifier</td><td><span data-tex="O(n)"></span></td><td>IPA 证明短，验证通常仍需线性规模 MSM；可用批验证降低摊销成本。</td></tr>
+            <tr><td>轮数</td><td><span data-tex="O(\log n)"></span></td><td>Fiat–Shamir 将交互轮次编译为一份非交互 transcript。</td></tr>
+            <tr><td>聚合</td><td>证明增量近似对数增长</td><td>多个值共享证明结构，但见证处理和验证总工作不会凭空消失。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Bulletproofs 适合强调透明设置、证明通信和聚合能力的离散对数型应用。若系统最重视极低链上验证成本，配对型 SNARK 可能更合适；若需要证明一般程序，应先把程序编译成约束系统，再评估 Bulletproofs 的线性验证是否仍可接受。</p>
+
+      <h2 id="risks">七、实现与使用中的安全边界</h2>
+      <div class="security-boundary">
+        <strong>Red-team checklist</strong>
+        <ul>
+          <li><strong>生成元关系已知：</strong>若有人知道向量生成元或盲化生成元之间的离散对数关系，承诺绑定性可能失效；生成元应带域分离地透明导出。</li>
+          <li><strong>陈述绑定不完整：</strong>遗漏 <span data-tex="V"></span>、位长、聚合位置、曲线、网络或协议版本会给跨实例重放和语义替换留下空间。</li>
+          <li><strong>整数语义混淆：</strong>证明 <span data-tex="0\le v<2^n"></span> 不自动证明补码解释下的有符号范围，也不自动防止上层协议中的加法溢出。</li>
+          <li><strong>非规范编码与小子群：</strong>验证器必须拒绝非法点、无穷点滥用、非规范标量和不满足群成员关系的输入。</li>
+          <li><strong>随机数复用或偏置：</strong><span data-tex="\alpha,\rho,\tau_1,\tau_2,\mathbf s_L,\mathbf s_R"></span> 的复用可能泄露见证关系；应使用可靠 CSPRNG。</li>
+          <li><strong>挑战处理错误：</strong>涉及逆元的挑战不得为零；challenge-to-field、重采样规则和 transcript 顺序必须跨实现完全一致。</li>
+        </ul>
+      </div>
+
+      <h3 id="review">复习自测</h3>
+      <ol class="review-list">
+        <li>为什么 Pedersen 承诺本身不能证明被承诺数值非负？范围关系中的 statement 和 witness 分别是什么？</li>
+        <li>写出 <span data-tex="v=11,n=4"></span> 的 <span data-tex="\mathbf a_L,\mathbf a_R"></span>，并验证两个核心约束。</li>
+        <li><span data-tex="A,S"></span> 与 <span data-tex="T_1,T_2"></span> 分别绑定了什么？为什么挑战必须在相应承诺之后产生？</li>
+        <li>主多项式承诺等式已经通过时，为什么还需要 IPA？</li>
+        <li>如何解释“证明大小是 <span data-tex="O(\log n)"></span>，验证成本是 <span data-tex="O(n)"></span>”而不产生矛盾？</li>
+        <li>“无需可信设置”仍然要求哪些公共参数和实现假设？请列出至少三项。</li>
+      </ol>
+
+      <h3 id="quick-reference">核心速查</h3>
+      <div class="table-scroll"><table class="quick-reference-table"><tbody>
+        <tr><th>证明关系</th><td><span data-tex="V=g^vh^\gamma"></span> 且 <span data-tex="0\le v<2^n"></span>。</td></tr>
+        <tr><th>核心变换</th><td>整数范围 → 位向量布尔约束与二进制重组 → 随机压缩的内积关系 → IPA 对数折叠。</td></tr>
+        <tr><th>公开对象</th><td>承诺 <span data-tex="V"></span>、位长、群/域参数、向量生成元、协议版本和 transcript 上下文。</td></tr>
+        <tr><th>秘密见证</th><td>数值 <span data-tex="v"></span>、承诺盲化 <span data-tex="\gamma"></span>、位向量与协议随机数。</td></tr>
+        <tr><th>主要优势</th><td>无需陷门设置、证明大小 <span data-tex="O(\log n)"></span>、支持多值聚合。</td></tr>
+        <tr><th>主要代价</th><td>prover 与 verifier 的主要 MSM 通常仍为 <span data-tex="O(n)"></span>；短证明不等于短验证。</td></tr>
+        <tr><th>安全先问</th><td>生成元关系是否未知、整数语义是否唯一、transcript 是否完整绑定、随机数是否一次一用。</td></tr>
+      </tbody></table></div>
+
+      <blockquote><strong>一句话总结：</strong>Bulletproofs 将“承诺值属于整数范围”严格转换为位向量的布尔性与重组关系，利用随机挑战压成内积多项式，再由 IPA 对数折叠；它的核心优势是透明设置、短证明和自然聚合，而不是对数时间验证。</blockquote>
+
+      <section class="references">
+        <h2>参考文献</h2>
+        <ol class="reference-list">
+          <li>B. Bünz et al., <cite>Bulletproofs: Short Proofs for Confidential Transactions and More</cite>, IEEE Symposium on Security and Privacy, 2018. <a href="https://eprint.iacr.org/2017/1066" target="_blank" rel="noopener noreferrer">IACR ePrint</a><span class="reference-kind">原始论文</span></li>
+          <li>T. P. Pedersen, <cite>Non-Interactive and Information-Theoretic Secure Verifiable Secret Sharing</cite>, CRYPTO 1991. <a href="https://link.springer.com/chapter/10.1007/3-540-46766-1_9" target="_blank" rel="noopener noreferrer">出版页面</a><span class="reference-kind">承诺基础</span></li>
+          <li>A. Fiat and A. Shamir, <cite>How to Prove Yourself: Practical Solutions to Identification and Signature Problems</cite>, CRYPTO 1986. <a href="https://link.springer.com/chapter/10.1007/3-540-47721-7_12" target="_blank" rel="noopener noreferrer">出版页面</a><span class="reference-kind">Fiat–Shamir</span></li>
+        </ol>
+      </section>
+    </article>
+
+    <footer class="article-footer">
+      <a class="footer-back" href="../index.html">← 返回所有文章</a>
+      <span class="footer-brand">Frieren · Proof System Notes</span>
+    </footer>
+  </main>
+  <script defer src="../static/vendor/katex/katex.min.js"></script>
+  <script defer src="../static/js/theme.js"></script>
+  <script defer src="../static/js/posts-data.js"></script>
+  <script defer src="../static/js/learning-path.js"></script>
+  <script defer src="../static/js/note-page.js"></script>
+</body>
+</html>

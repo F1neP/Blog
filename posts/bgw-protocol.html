@@ -350,6 +350,14 @@
     background: rgba(250,248,244,.7);
   }
 
+  .article-content > .symbol-table,
+  .article-content > .truth-table {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
   .table-scroll {
     max-width: 100%;
     overflow-x: auto;
@@ -1120,7 +1128,7 @@
 <div class="article-meta anim anim-1"><span class="meta-tag">安全多方计算 · BGW</span><span class="meta-date">2026-08-04</span><span class="meta-readtime">约 22 分钟</span></div>
 <h1 class="article-title anim anim-2">BGW 协议：基于 Shamir 秘密共享的安全多方计算</h1>
 <hr class="article-divider anim anim-3"/>
-<nav aria-label="密码学学习顺序" class="lesson-nav anim anim-3" data-learning-nav="" data-post-id="19" hidden=""></nav>
+<nav aria-label="密码学学习顺序" class="lesson-nav anim anim-3" data-learning-nav="" data-post-id="21" hidden=""></nav>
 <article class="article-content anim anim-4">
 <div class="sc-kicker">LEARNING NOTE · BGW PROTOCOL</div>
 <p class="sc-lead"><strong>一句话概括：</strong>Ben-Or–Goldwasser–Wigderson Protocol（BGW 协议）让多个参与方在不公开各自输入和中间结果的情况下，共同计算一个公开函数；它的核心方法是让算术电路的每条 wire 始终保持为 Shamir 秘密共享状态。</p>

@@ -178,6 +178,9 @@
   .sc-toc a:hover { color: var(--accent); }
 
   .math-block {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
     overflow-x: auto;
     margin: 1.35rem 0 1.8rem;
     padding: 1.2rem 1.45rem 1.1rem;
@@ -214,7 +217,9 @@
   }
 
   .math-line {
-    min-width: max-content;
+    width: max-content;
+    min-width: 100%;
+    max-width: none;
     white-space: nowrap;
     font-family: var(--sc-math);
     font-variant-numeric: lining-nums;
@@ -974,6 +979,7 @@
       padding: 1rem .85rem .92rem;
       font-size: 1rem;
     }
+    .math-line { min-width: max-content; }
     .sum-op { min-width: 2.15em; }
     .sum-op.wide { min-width: 5.35em; }
     .message .payload { font-size: .94rem; }

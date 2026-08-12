@@ -87,6 +87,25 @@
     return wrap;
   }
 
+  /** Render the same protocol rows as compact phase cards on narrower pages. */
+  function renderCompactRows(rows) {
+    const list = el('div', 'formal-compact-list');
+    rows.forEach(function (row) {
+      const item = el('section', 'formal-compact-row');
+      item.appendChild(el('span', 'formal-compact-phase', row.phase));
+      item.appendChild(el('strong', 'formal-compact-route', row.from + ' → ' + row.to));
+      const message = el('div', 'formal-compact-message');
+      renderRichText(message, row.message);
+      item.appendChild(message);
+      const check = el('div', 'formal-compact-check');
+      check.appendChild(el('span', '', '检查：'));
+      renderRichText(check, row.check);
+      item.appendChild(check);
+      list.appendChild(item);
+    });
+    return list;
+  }
+
   function renderSequence(steps) {
     if (!steps || !steps.length) return null;
     const disclosure = el('details', 'formal-sequence-details');
@@ -114,6 +133,7 @@
     const definitions = el('div', 'formal-definition');
     spec.definitions.forEach(function (item) { definitions.appendChild(renderDefinition(item)); });
     card.appendChild(definitions);
+    card.appendChild(renderCompactRows(spec.rows));
     card.appendChild(renderTable(spec.rows));
     const sequence = renderSequence(spec.sequence);
     if (sequence) card.appendChild(sequence);
