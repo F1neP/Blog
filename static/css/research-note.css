@@ -230,11 +230,11 @@
 
 .necessity-note {
   margin: 1.2rem 0 1.75rem;
-  padding: .9rem 1.05rem;
-  border: 1px solid color-mix(in srgb, var(--line) 82%, var(--accent));
+  padding: .2rem 0 .2rem 1rem;
+  border: 0;
   border-left: 3px solid var(--accent);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--paper) 98%, var(--accent-soft));
+  border-radius: 0;
+  background: none;
 }
 
 .necessity-note strong {
@@ -250,6 +250,47 @@
   color: var(--ink-soft);
   font-size: .84rem;
   line-height: 1.78;
+}
+
+.chapter-entry {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 0 0 1.85rem;
+  padding: .72rem 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: none;
+}
+
+.chapter-entry p {
+  margin: .18rem 0;
+  color: var(--ink-mute);
+  font-size: .76rem;
+  line-height: 1.68;
+}
+
+.chapter-entry strong {
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+/* A substantial worked argument inside the prose, visually quieter than a card. */
+.worked-through {
+  margin: 1.9rem 0 2.2rem;
+  padding: 1.15rem 0 1.25rem;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.worked-through > h3 {
+  margin-top: 0;
+}
+
+.worked-through > p:last-child,
+.worked-through > ul:last-child,
+.worked-through > ol:last-child {
+  margin-bottom: 0;
 }
 
 .property-grid {
@@ -513,6 +554,7 @@ html[data-theme="dark"] .security-boundary {
   .property-grid,
   .glossary-grid { grid-template-columns: 1fr; }
   .protocol-strip { grid-template-columns: 1fr 1fr; }
+  .chapter-entry { grid-template-columns: 1fr; gap: .2rem; }
 }
 
 @media (max-width: 520px) {
@@ -525,4 +567,18 @@ html[data-theme="dark"] .security-boundary {
   .research-hero-map { grid-template-columns: 1fr 1fr; gap: .48rem; }
   .research-hero-node { padding: .62rem .55rem; }
   .protocol-strip { grid-template-columns: 1fr; }
+}
+
+.step-example {
+  margin: 1rem 0 1.35rem;
+  padding: .1rem 0 .1rem 1rem;
+  border-left: 2px solid color-mix(in srgb, var(--accent) 62%, var(--line));
+  color: var(--ink-soft);
+}
+.step-example > strong {
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: .67rem;
+  font-weight: 500;
+  letter-spacing: .045em;
 }

@@ -48,25 +48,6 @@
     <article class="article-content" data-learning-standard="complete">
       <div class="research-kicker">SECURITY DEFINITIONS · REAL / IDEAL · SIMULATION</div>
       <p class="research-lead">“使用了加密”“消息看起来随机”或“攻击者无法直接恢复秘密”，都不足以构成协议安全定义。模拟范式提出一个更强且可检验的问题：攻击者在真实执行中看到和影响的一切，能否只根据理想功能明确允许的输入、输出与泄漏生成？若能，真实协议便没有赋予攻击者理想过程之外的能力。</p>
-      <aside class="necessity-note" aria-label="本章必要性"><strong>为什么需要这一章？</strong><p>理解加密、秘密分享或零知识机制，并不等于已经说明“协议安全”：还必须精确规定攻击者被允许知道什么、能够影响什么，以及协议中止是否泄漏信息。本章给出理想功能、真实/理想实验与模拟器这一套可证伪的安全语言，使后续 MPC 和 ZKP 的安全结论具有明确边界。</p></aside>
-
-      <div class="memory-frame" aria-labelledby="learning-objectives">
-        <div>
-          <span class="note-label">PREREQUISITES</span>
-          <h3>阅读前置</h3>
-          <p>只需了解概率多项式时间算法、计算不可区分和秘密分享的基本概念。本文先讲清 stand-alone 模拟定义，不把 UC 框架的环境机、会话组合等细节提前混入。</p>
-        </div>
-        <div>
-          <span class="note-label">LEARNING OUTCOMES</span>
-          <h3 id="learning-objectives">读完本节，你应当能够</h3>
-          <ul>
-            <li>从功能、泄漏、中止和输出接收者四方面写出理想功能；</li>
-            <li>解释真实实验、理想实验、攻击者和模拟器各自的角色；</li>
-            <li>为双服务器求和构造一个具体模拟器，并指出证明依赖的威胁模型；</li>
-            <li>区分隐私、正确性、输入有效性、公平性、鲁棒性与可组合性。</li>
-          </ul>
-        </div>
-      </div>
 
       <nav class="note-toc" aria-label="本页目录">
         <div class="note-toc-title">Contents</div>
@@ -176,7 +157,9 @@
       </section>
 
       <section id="zkp-bridge">
-        <h2>五、ZKP 中的模拟与知识抽取不是一回事</h2>
+
+<section class="worked-through" aria-labelledby="simulation-counterexample"><h3 id="simulation-counterexample">一个可证伪的反例：输出相同，额外泄漏不同</h3><p>设理想功能只向聚合者输出 <span data-tex="y=x_1+x_2"></span>，协议却在计算前额外广播 <span data-tex="x_1\bmod 2"></span>。加密消息本身即使不可读，协议也不满足这个理想功能：环境可以选择两组具有相同总和的诚实输入，例如 <span data-tex="(x_1,x_2)=(2,5)"></span> 与 <span data-tex="(3,4)"></span>。两次理想执行都只产生 <span data-tex="y=7"></span>，而真实执行分别泄漏 0 与 1。</p><div class="math-block"><div class="math-line" data-tex="\operatorname{View}^{\mathrm{real}}\supseteq(x_1\bmod2),\qquad \operatorname{View}^{\mathrm{ideal}}=(y=7,\mathcal L)"></div></div><p>若泄漏函数 <span data-tex="\mathcal L"></span> 没有包含该奇偶位，模拟器仅凭输出 7 无法判断应生成 0 还是 1；环境用一次比较便能区分两种世界。这个反例说明模拟定义的关键不是“模拟器足够聪明”，而是<strong>真实视图中的每一项信息都必须能由功能明确允许的信息生成</strong>。修复只有两种：删除这项广播，或诚实地把它写入泄漏函数并降低安全声明。</p></section>
+<h2>五、ZKP 中的模拟与知识抽取不是一回事</h2>
         <p>零知识证明同样使用模拟思想。对关系 <span data-tex="R(x,w)=1"></span>，零知识要求：任意恶意验证者 <span data-tex="V^*"></span> 与真实证明者交互得到的视图，都可由只知道公开陈述 <span data-tex="x"></span> 的模拟器生成：</p>
         <div class="math-block" data-tex="\operatorname{View}_{V^*}^{P(w)}(x)\ \approx\ \mathcal S^{V^*}(x)."></div>
         <p>这里模拟器不使用见证 <span data-tex="w"></span>，所以验证者没有从交互中学到陈述真实性之外的知识。但“虚假陈述不能通过”由可靠性保证；“通过者确实掌握见证”则由知识可靠性及抽取器保证。模拟器服务于隐私，抽取器服务于知识性，不能相互替代。</p>
