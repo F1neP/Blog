@@ -582,3 +582,201 @@ html[data-theme="dark"] .security-boundary {
   font-weight: 500;
   letter-spacing: .045em;
 }
+/* Research diagrams use the same square, line-led light system. */
+:is(html[data-theme="light"], html[data-theme="dark"]) body .research-hero {
+  height: 310px;
+  min-height: 280px;
+  max-height: 330px;
+  border-bottom: 1px solid var(--line);
+  background:
+    linear-gradient(rgba(36, 75, 255, .055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(36, 75, 255, .055) 1px, transparent 1px),
+    radial-gradient(circle at 72% 32%, rgba(36, 75, 255, .13), transparent 22rem),
+    var(--paper);
+  background-size: 44px 44px, 44px 44px, auto, auto;
+}
+
+:is(html[data-theme="light"], html[data-theme="dark"]) .research-hero-node,
+:is(html[data-theme="light"], html[data-theme="dark"]) .flow-stage,
+:is(html[data-theme="light"], html[data-theme="dark"]) .memory-frame,
+:is(html[data-theme="light"], html[data-theme="dark"]) .necessity-note,
+:is(html[data-theme="light"], html[data-theme="dark"]) .chapter-entry,
+:is(html[data-theme="light"], html[data-theme="dark"]) .worked-through,
+:is(html[data-theme="light"], html[data-theme="dark"]) .property-grid article,
+:is(html[data-theme="light"], html[data-theme="dark"]) .review-list,
+:is(html[data-theme="light"], html[data-theme="dark"]) .glossary-grid > div,
+:is(html[data-theme="light"], html[data-theme="dark"]) .concept-card,
+:is(html[data-theme="light"], html[data-theme="dark"]) .protocol-strip,
+:is(html[data-theme="light"], html[data-theme="dark"]) .security-boundary,
+:is(html[data-theme="light"], html[data-theme="dark"]) .principle-figure {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+:is(html[data-theme="light"], html[data-theme="dark"]) .research-hero-node {
+  border-color: rgba(36, 75, 255, .42);
+  background: rgba(248, 250, 248, .9);
+}
+
+:is(html[data-theme="light"], html[data-theme="dark"]) .principle-figure {
+  padding: 18px;
+  border-color: var(--line);
+  background:
+    linear-gradient(rgba(36, 75, 255, .035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(36, 75, 255, .035) 1px, transparent 1px),
+    rgba(248, 250, 248, .74);
+  background-size: 28px 28px;
+}
+
+:is(html[data-theme="light"], html[data-theme="dark"]) .flow-stage {
+  border-color: rgba(36, 75, 255, .34);
+  background: rgba(248, 250, 248, .94);
+}
+
+:is(html[data-theme="light"], html[data-theme="dark"]) .memory-frame,
+:is(html[data-theme="light"], html[data-theme="dark"]) .necessity-note,
+:is(html[data-theme="light"], html[data-theme="dark"]) .chapter-entry,
+:is(html[data-theme="light"], html[data-theme="dark"]) .worked-through {
+  border-color: var(--line);
+  border-left: 3px solid var(--accent);
+  background: rgba(36, 75, 255, .035);
+}
+
+:is(html[data-theme="light"], html[data-theme="dark"]) .property-grid,
+:is(html[data-theme="light"], html[data-theme="dark"]) .concept-grid,
+:is(html[data-theme="light"], html[data-theme="dark"]) .glossary-grid {
+  gap: 9px;
+}
+
+:is(html[data-theme="light"], html[data-theme="dark"]) .property-grid article,
+:is(html[data-theme="light"], html[data-theme="dark"]) .concept-card,
+:is(html[data-theme="light"], html[data-theme="dark"]) .glossary-grid > div,
+:is(html[data-theme="light"], html[data-theme="dark"]) .review-list {
+  border-color: var(--line);
+  background: rgba(248, 250, 248, .72);
+}
+
+:is(html[data-theme="light"], html[data-theme="dark"]) .protocol-strip {
+  gap: 0;
+  border-color: var(--line);
+  background: rgba(248, 250, 248, .72);
+}
+
+:is(html[data-theme="light"], html[data-theme="dark"]) .protocol-strip > div {
+  border-right-color: var(--line);
+}
+
+:is(html[data-theme="light"], html[data-theme="dark"]) .security-boundary {
+  border-color: var(--line);
+  border-left: 3px solid var(--note-red);
+  background: var(--note-red-soft);
+}
+
+:is(html[data-theme="light"], html[data-theme="dark"]) .quick-reference-table,
+:is(html[data-theme="light"], html[data-theme="dark"]) .complexity-table {
+  border-color: var(--line);
+  border-radius: 0;
+  background: rgba(248, 250, 248, .72);
+}
+
+@media (max-width: 760px) {
+  :is(html[data-theme="light"], html[data-theme="dark"]) body .research-hero {
+    min-height: 270px;
+  }
+
+  :is(html[data-theme="light"], html[data-theme="dark"]) .research-hero-map {
+    width: min(430px, calc(100vw - 40px));
+  }
+}
+
+@media (max-width: 600px) {
+  :is(html[data-theme="light"], html[data-theme="dark"]) .principle-figure {
+    padding: 14px;
+    overflow: visible;
+  }
+
+  :is(html[data-theme="light"], html[data-theme="dark"]) .flow-map,
+  :is(html[data-theme="light"], html[data-theme="dark"]) .flow-map.five,
+  :is(html[data-theme="light"], html[data-theme="dark"]) .flow-map.nine {
+    grid-template-columns: 1fr;
+    min-width: 0;
+    gap: 8px;
+  }
+
+  :is(html[data-theme="light"], html[data-theme="dark"]) .flow-arrow {
+    min-height: 18px;
+    transform: rotate(90deg);
+  }
+
+  :is(html[data-theme="light"], html[data-theme="dark"]) .sequence-map {
+    min-width: 560px;
+  }
+
+  :is(html[data-theme="light"], html[data-theme="dark"]) .principle-figure:has(.sequence-map) {
+    overflow-x: auto;
+  }
+}
+:is(html[data-theme="light"], html[data-theme="dark"]) .research-kicker {
+  padding: 2px 0 2px 14px;
+  border-left: 2px solid var(--accent);
+  border-radius: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+:is(html[data-theme="light"], html[data-theme="dark"]) .research-lead {
+  color: var(--ink-soft);
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  font-size: 17px;
+  line-height: 1.85;
+}
+
+/* Dark research diagrams preserve the same square information hierarchy. */
+html[data-theme="dark"] body .research-hero {
+  background:
+    linear-gradient(rgba(120, 149, 255, .07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 149, 255, .07) 1px, transparent 1px),
+    radial-gradient(circle at 72% 32%, rgba(72, 104, 255, .22), transparent 22rem),
+    var(--paper);
+}
+
+html[data-theme="dark"] .research-hero-node,
+html[data-theme="dark"] .flow-stage,
+html[data-theme="dark"] .property-grid article,
+html[data-theme="dark"] .concept-card,
+html[data-theme="dark"] .glossary-grid > div,
+html[data-theme="dark"] .review-list,
+html[data-theme="dark"] .protocol-strip,
+html[data-theme="dark"] .quick-reference-table,
+html[data-theme="dark"] .complexity-table {
+  border-color: var(--line);
+  background: rgba(16, 24, 39, .84);
+}
+
+html[data-theme="dark"] .principle-figure {
+  border-color: var(--line);
+  background:
+    linear-gradient(rgba(120, 149, 255, .06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 149, 255, .06) 1px, transparent 1px),
+    rgba(16, 24, 39, .8);
+  background-size: 28px 28px;
+}
+
+html[data-theme="dark"] .memory-frame,
+html[data-theme="dark"] .necessity-note,
+html[data-theme="dark"] .chapter-entry,
+html[data-theme="dark"] .worked-through {
+  border-color: var(--line);
+  border-left-color: var(--accent);
+  background: rgba(120, 149, 255, .075);
+}
+
+html[data-theme="dark"] .security-boundary {
+  border-color: var(--line);
+  border-left-color: var(--note-red);
+  background: var(--note-red-soft);
+}

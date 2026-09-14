@@ -21,7 +21,10 @@
 </script>
 <link rel="stylesheet" href="static/css/style.css">
 <link rel="stylesheet" href="static/css/index.css">
+<link rel="stylesheet" href="static/vendor/katex/katex.min.css">
 <script defer src="static/js/theme.js"></script>
+<script defer src="static/vendor/katex/katex.min.js"></script>
+<script defer src="static/js/home-formulas.js"></script>
 </head>
 <body>
 
@@ -33,6 +36,21 @@
       <div class="site-eyebrow">INDEX / KNOWLEDGE NOTES</div>
       <div class="site-name">Frieren <em>Notes</em></div>
       <div class="site-desc">学习 · 研究 · 随想</div>
+    </div>
+    <div class="hero-orbit" aria-label="零知识证明中的陈述、见证与验证关系">
+      <div class="orbit-ring orbit-ring-outer"></div>
+      <div class="orbit-ring orbit-ring-inner"></div>
+      <span class="orbit-label orbit-statement">STATEMENT / x</span>
+      <span class="orbit-label orbit-witness">WITNESS / w</span>
+      <span class="orbit-label orbit-proof">PROOF / π</span>
+      <div class="orbit-agent-track orbit-agent-track-blue" aria-hidden="true"><span class="orbit-agent orbit-agent-blue"></span></div>
+      <div class="orbit-agent-track orbit-agent-track-red" aria-hidden="true"><span class="orbit-agent orbit-agent-red"></span></div>
+      <div class="orbit-core">
+        <span class="orbit-core-index">RELATION / R</span>
+        <div class="orbit-core-formula" data-tex="\mathcal{R}(x,w)=1"></div>
+      </div>
+      <div class="orbit-formula orbit-formula-main" data-tex="\mathsf{Verify}(x,\pi)=1"></div>
+      <div class="orbit-formula orbit-formula-side" data-tex="\exists\,w:\mathcal{R}(x,w)=1"></div>
     </div>
     <div class="site-tools">
       <button class="index-theme-button" type="button" data-theme-toggle aria-pressed="false" aria-label="切换为深色模式" title="切换为深色模式">

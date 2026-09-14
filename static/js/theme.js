@@ -19,16 +19,35 @@
   }
 
   function setTheme(theme, persist) {
-    root.dataset.theme = theme === 'dark' ? 'dark' : 'light';
-    if (persist) {
-      try {
-        localStorage.setItem(storageKey, root.dataset.theme);
-      } catch (_) {}
+    const nextTheme = theme === 'dark' ? 'dark' : 'light';
+    if (nextTheme === currentTheme()) return;
+
+    function applyTheme() {
+      root.dataset.theme = nextTheme;
+      if (persist) {
+        try {
+          localStorage.setItem(storageKey, root.dataset.theme);
+        } catch (_) {}
+      }
+      syncButtons();
+      document.dispatchEvent(new CustomEvent('frieren-theme-change', {
+        detail: { theme: root.dataset.theme }
+      }));
     }
-    syncButtons();
-    document.dispatchEvent(new CustomEvent('frieren-theme-change', {
-      detail: { theme: root.dataset.theme }
-    }));
+
+    const reduceMotion = window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (document.startViewTransition && !reduceMotion) {
+      document.startViewTransition(applyTheme);
+      return;
+    }
+
+    root.classList.add('theme-transitioning');
+    applyTheme();
+    window.setTimeout(function () {
+      root.classList.remove('theme-transitioning');
+    }, 420);
   }
 
   document.addEventListener('DOMContentLoaded', function () {

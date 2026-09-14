@@ -62,7 +62,7 @@ html[data-theme="dark"] body::before { opacity: .45; }
 [data-theme-toggle] .theme-icon-sun,
 [data-theme-toggle] .theme-icon-moon { display: none; }
 
-html[data-theme="light"] [data-theme-toggle] .theme-icon-moon,
+:is(html[data-theme="light"], html[data-theme="dark"]) [data-theme-toggle] .theme-icon-moon,
 html[data-theme="dark"] [data-theme-toggle] .theme-icon-sun { display: block; }
 
 /* ── Animations ── */
@@ -117,4 +117,152 @@ html[data-theme="dark"] .back-btn {
   font-weight: 300;
   color: var(--accent);
   letter-spacing: 0.08em;
+}
+/* PanFeng-HomePage alignment: light theme only. */
+:is(html[data-theme="light"], html[data-theme="dark"]) {
+  --ink: #111522;
+  --ink-soft: #4f595e;
+  --ink-mute: #788287;
+  --paper: #edf0ee;
+  --paper-warm: #f8faf8;
+  --paper-card: #f8faf8;
+  --accent: #244bff;
+  --accent-soft: rgba(36, 75, 255, .1);
+  --line: #aeb8bc;
+  --line-strong: #8d9aa0;
+  --serif: Arial, "Microsoft YaHei", sans-serif;
+  --body: "Segoe UI", "Microsoft YaHei", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+:is(html[data-theme="light"], html[data-theme="dark"]) body {
+  min-width: 320px;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 76% 18%, rgba(36, 75, 255, .105), transparent 28rem),
+    var(--paper);
+  font-weight: 400;
+  line-height: 1.75;
+}
+
+:is(html[data-theme="light"], html[data-theme="dark"]) body::before {
+  opacity: .34;
+  background-image:
+    linear-gradient(rgba(36, 75, 255, .065) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(36, 75, 255, .065) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+:is(html[data-theme="light"], html[data-theme="dark"]) ::selection {
+  color: #fff;
+  background: var(--accent);
+}
+
+:is(html[data-theme="light"], html[data-theme="dark"]) .back-btn,
+:is(html[data-theme="light"], html[data-theme="dark"]) .tag-pill {
+  border-color: var(--line);
+  border-radius: 0;
+  background: rgba(248, 250, 248, .88);
+  box-shadow: none;
+  backdrop-filter: blur(8px);
+}
+
+:is(html[data-theme="light"], html[data-theme="dark"]) .back-btn {
+  min-height: 38px;
+  padding: .55rem .82rem;
+  font-size: .68rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+:is(html[data-theme="light"], html[data-theme="dark"]) .back-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+:is(html[data-theme="light"], html[data-theme="dark"]) :focus-visible {
+  outline-color: var(--accent);
+}
+
+/* Reference geometry in dark mode and a calm theme transition. */
+html[data-theme="dark"] {
+  --ink: #f3f6ff;
+  --ink-soft: #c9d2e3;
+  --ink-mute: #8e9ab0;
+  --paper: #090e18;
+  --paper-warm: #101827;
+  --paper-card: #121b2b;
+  --accent: #7895ff;
+  --accent-soft: rgba(120, 149, 255, .14);
+  --line: #2b374c;
+  --line-strong: #465670;
+}
+
+html[data-theme="dark"] body {
+  background:
+    radial-gradient(circle at 76% 18%, rgba(72, 104, 255, .18), transparent 30rem),
+    var(--paper);
+}
+
+html[data-theme="dark"] body::before {
+  opacity: .52;
+  background-image:
+    linear-gradient(rgba(120, 149, 255, .075) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 149, 255, .075) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+html[data-theme="dark"] ::selection {
+  color: #07101d;
+  background: #9bafff;
+}
+
+html[data-theme="dark"] .back-btn,
+html[data-theme="dark"] .tag-pill {
+  border-color: var(--line);
+  background: rgba(16, 24, 39, .9);
+}
+
+html[data-theme="dark"] .back-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #07101d;
+}
+
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+  transition-property: color, background-color, border-color, box-shadow, opacity, fill, stroke !important;
+  transition-duration: .38s !important;
+  transition-timing-function: ease !important;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: .38s;
+  animation-timing-function: ease;
+}
+
+::view-transition-old(root) {
+  animation-name: theme-fade-out;
+}
+
+::view-transition-new(root) {
+  animation-name: theme-fade-in;
+}
+
+@keyframes theme-fade-out {
+  to { opacity: .18; }
+}
+
+@keyframes theme-fade-in {
+  from { opacity: .18; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: .01ms;
+  }
 }
