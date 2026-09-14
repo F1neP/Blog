@@ -6,15 +6,27 @@
     return root.dataset.theme === 'dark' ? 'dark' : 'light';
   }
 
+  function upgradeControls() {
+    document.querySelectorAll('[data-theme-toggle]').forEach(function (legacyButton) {
+      const group = document.createElement('div');
+      group.className = 'blog-theme-switch';
+      group.setAttribute('role', 'group');
+      group.setAttribute('aria-label', '页面颜色主题');
+      group.innerHTML = [
+        '<button type="button" data-theme-option="dark"><span class="theme-symbol" aria-hidden="true">☾</span>BLACK</button>',
+        '<button type="button" data-theme-option="light"><span class="theme-symbol" aria-hidden="true">☀</span>WHITE</button>'
+      ].join('');
+      legacyButton.replaceWith(group);
+    });
+  }
+
   function syncButtons() {
-    const dark = currentTheme() === 'dark';
-    document.querySelectorAll('[data-theme-toggle]').forEach(function (button) {
-      const nextTheme = dark ? '浅色' : '深色';
-      button.setAttribute('aria-pressed', String(dark));
-      button.setAttribute('aria-label', '切换为' + nextTheme + '模式');
-      button.title = '切换为' + nextTheme + '模式';
-      const label = button.querySelector('[data-theme-label]');
-      if (label) label.textContent = nextTheme;
+    const theme = currentTheme();
+    document.querySelectorAll('[data-theme-option]').forEach(function (button) {
+      const active = button.dataset.themeOption === theme;
+      const themeName = button.dataset.themeOption === 'dark' ? '深色模式' : '浅色模式';
+      button.setAttribute('aria-pressed', String(active));
+      button.setAttribute('aria-label', (active ? '当前为' : '切换为') + themeName);
     });
   }
 
@@ -51,10 +63,11 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    upgradeControls();
     syncButtons();
-    document.querySelectorAll('[data-theme-toggle]').forEach(function (button) {
+    document.querySelectorAll('[data-theme-option]').forEach(function (button) {
       button.addEventListener('click', function () {
-        setTheme(currentTheme() === 'dark' ? 'light' : 'dark', true);
+        setTheme(button.dataset.themeOption, true);
       });
     });
   });
